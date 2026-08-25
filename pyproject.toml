@@ -1,0 +1,168 @@
+[project]
+name = "agentic-revops-platform"
+version = "0.1.0"
+description = "Agentic GTM & Revenue Operations Platform"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+# Pinned with lower bounds; the lockfile is the source of truth for exact versions.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "httpx>=0.27",
+    "celery>=5.4",
+    "redis>=5.2",
+    "python-jose[cryptography]>=3.3",
+    "structlog>=24.4",
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "sentry-sdk>=2.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "import-linter>=2.1",
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+    "pre-commit>=4.0",
+    "types-redis",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["packages/core", "."]
+include = ["revops*", "apps*", "evals*"]
+exclude = ["apps.web*", "tests*", "infra*", "docs*", "scripts*"]
+
+# ---------------------------------------------------------------------------
+# Clean Architecture contracts. These are not documentation: CI runs them.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["revops", "apps"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers point inward"
+type = "layers"
+layers = [
+    "apps",
+    "revops.infrastructure",
+    "revops.application",
+    "revops.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain is framework-free"
+type = "forbidden"
+source_modules = ["revops.domain"]
+forbidden_modules = [
+    "pydantic",
+    "sqlalchemy",
+    "alembic",
+    "fastapi",
+    "langgraph",
+    "langchain_core",
+    "httpx",
+    "redis",
+    "celery",
+    "psycopg",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application depends on no infrastructure library"
+type = "forbidden"
+source_modules = ["revops.application"]
+forbidden_modules = [
+    "sqlalchemy",
+    "alembic",
+    "fastapi",
+    "langgraph",
+    "langchain_core",
+    "httpx",
+    "redis",
+    "celery",
+    "psycopg",
+]
+
+[[tool.importlinter.contracts]]
+name = "Apps do not import each other"
+type = "independence"
+modules = ["apps.api", "apps.worker", "apps.mcp"]
+
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web", ".claude", "infra/terraform"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle, pyflakes
+    "I",                 # isort
+    "N",                 # pep8-naming
+    "UP",                # pyupgrade
+    "B",                 # bugbear
+    "C4",                # comprehensions
+    "SIM",               # simplify
+    "TID",               # tidy imports
+    "RUF",
+    "ASYNC",
+    "S",                 # bandit-equivalent security rules
+    "DTZ",               # timezone-aware datetimes
+    "T20",               # no print in library code
+    "PT",                # pytest style
+]
+ignore = ["S101"]        # assert is expected in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "T20"]
+"scripts/**" = ["T20"]
+"evals/**" = ["T20"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+exclude = ["apps/web", "infra"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs docker compose services (postgres, redis)",
+    "adversarial: security and prompt-injection suite",
+    "slow: takes more than a second",
+]
+
+[tool.coverage.run]
+source = ["packages/core/revops", "apps"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "apps/web", ".venv"]

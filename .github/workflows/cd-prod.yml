@@ -1,0 +1,49 @@
+name: CD production
+
+# STUB - not active yet. Same reason as cd-staging.yml (no AWS account provisioned).
+# Production deploys are manual and versioned: a release tag, an image digest, and a documented
+# rollback path. Never a deploy from a branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit SHA to promote (must already be green in staging)
+        required: true
+      confirm:
+        description: Type PROMOTE to confirm
+        required: true
+
+jobs:
+  deploy:
+    name: Promote to production
+    if: false        # <- remove when AWS exists
+    runs-on: ubuntu-latest
+    environment: production      # requires a manual approval on GitHub
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Guard
+        run: |
+          test "${{ inputs.confirm }}" = "PROMOTE" || { echo "not confirmed"; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+
+      - name: Verify the image exists and was promoted from staging
+        run: echo "resolve digest for :${{ inputs.sha }} in ECR"
+
+      - name: Backward-compatible migrations first
+        run: echo "alembic upgrade head - additive only, never destructive in one step"
+
+      - name: Deploy by digest
+        run: echo "update ECS task definition to the resolved digest, wait for stable"
+
+      - name: Smoke tests
+        run: echo "health, one read-only agent run, audit trail assertion"
+
+      - name: Roll back
+        if: failure()
+        run: echo "redeploy the previous digest - see docs/runbooks/rollback.md"

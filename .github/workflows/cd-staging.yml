@@ -1,0 +1,48 @@
+name: CD staging
+
+# STUB - not active yet. There is no AWS account provisioned for this project (roadmap phase 5).
+# Kept in the repository so the delivery pipeline is visible and reviewable before it can run.
+# To activate: provision infra/terraform, add the repository secrets below, then remove the
+# `if: false` guard on the deploy job.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and deploy to staging
+    if: false        # <- remove when AWS exists
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write     # OIDC to AWS, no long-lived keys in the repo
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build and push image tagged with the commit SHA
+        run: |
+          # Every artifact is versioned by Git SHA: that is what makes rollback a one-liner.
+          docker build -t "$ECR_REGISTRY/revops-api:${GITHUB_SHA}" -f infra/docker/api.Dockerfile .
+          docker push "$ECR_REGISTRY/revops-api:${GITHUB_SHA}"
+
+      - name: Run migrations
+        run: echo "alembic upgrade head against staging RDS"
+
+      - name: Deploy ECS service
+        run: echo "update task definition to :${GITHUB_SHA} and wait for stable"
+
+      - name: Smoke tests
+        run: echo "hit /health, run one read-only agent run, assert the audit row exists"
+
+      - name: Roll back on failure
+        if: failure()
+        run: echo "redeploy the previous task definition revision"

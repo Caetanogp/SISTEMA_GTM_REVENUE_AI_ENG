@@ -1,0 +1,14 @@
+# Project-scoped Codex configuration.
+# Codex reads AGENTS.md automatically; this file only sets execution posture.
+
+# Ask before anything that writes outside the workspace or reaches the network.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false      # flip to true only when a task genuinely needs it
+exclude_tmpdir_env_var = true
+
+# No MCP servers are enabled for this project yet, by design.
+# Before adding one: read docs/tooling/RESEARCH.md, run mcp-scan, pin the version,
+# and record the decision in that file.

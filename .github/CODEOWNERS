@@ -1,0 +1,11 @@
+# The user owns everything and is the only one who merges.
+*                       @caetanopadoin
+
+# Extra attention: changing these changes how every future agent behaves.
+/AGENTS.md              @caetanopadoin
+/CLAUDE.md              @caetanopadoin
+/.claude/               @caetanopadoin
+/.codex/                @caetanopadoin
+/docs/security/         @caetanopadoin
+/.github/workflows/     @caetanopadoin
+/evals/                 @caetanopadoin

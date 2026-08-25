@@ -1,0 +1,70 @@
+name: Eval gate
+
+# Quality gate for the agent itself. A prompt, model, graph or retrieval change that degrades
+# measured behaviour must not reach develop — that is the whole point of eval-driven development.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "packages/core/revops/**"
+      - "apps/api/**"
+      - "apps/mcp/**"
+      - "evals/**"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which suite to run
+        default: all
+        type: choice
+        options: [all, lead_scoring, reply_classification, tool_selection, rag, security]
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    name: Offline eval suite
+    runs-on: ubuntu-latest
+    # Needs provider keys. Until they are configured as repository secrets, this job reports
+    # skipped rather than failing every PR - and says so out loud instead of pretending to pass.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      - name: Check for provider credentials
+        id: creds
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No provider key configured - eval gate NOT enforced on this PR."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run evals
+        if: steps.creds.outputs.available == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+        run: python -m evals.run --suite ${{ inputs.suite || 'all' }} --report evals/reports/ci.json
+
+      - name: Enforce thresholds
+        if: steps.creds.outputs.available == 'true'
+        run: python -m evals.gate --report evals/reports/ci.json --thresholds evals/thresholds.yaml
+
+      - name: Upload report
+        if: steps.creds.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.sha }}
+          path: evals/reports/ci.json
+          retention-days: 30

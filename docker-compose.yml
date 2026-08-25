@@ -1,0 +1,37 @@
+# Local development services. Application containers come in Phase 5 (infra/docker/).
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: revops-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-revops}
+      POSTGRES_USER: ${POSTGRES_USER:-revops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revops}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-revops} -d ${POSTGRES_DB:-revops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: revops-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:
