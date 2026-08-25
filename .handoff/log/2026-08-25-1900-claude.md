@@ -84,6 +84,6 @@ cat docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md
   Context7, `frontend-design`, `superpowers`. Nothing installed so far, by design.
 - Provider keys are not configured (`.env` does not exist). Needed before the graph can run against
   a real model — the fake gateway covers tests and CI until then.
-- The support material (tip images and txt files) is still in the repository root, untracked,
-  pending the user's confirmation to delete. Content already preserved in
-  `docs/playbooks/claude-code-workflow.md` and `docs/tooling/RESEARCH.md`.
+- Repository root is clean: the support material was deleted with the user's confirmation, its
+  content having been preserved in `docs/playbooks/claude-code-workflow.md` and
+  `docs/tooling/RESEARCH.md`. The project guide PDF is in `docs/`.
