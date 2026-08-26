@@ -103,6 +103,12 @@ The runtime agent consumes web pages, RAG chunks, lead replies and tool outputs.
 - Before installing: check the repository (stars, maintainer, activity, licence), read what the
   tools actually do, and run `mcp-scan` against the config to catch tool poisoning and cross-origin
   escalation.
+- **Confirm the repository is still the maintained source, not an archived one or a third-party
+  fork of it.** A popular MCP server can be absorbed into a parent project or deprecated after most
+  write-ups about it were published — its star count then keeps citing a frozen, unpatched
+  artifact, and forks of an abandoned security tool are a common way to slip in something malicious.
+  Check the repo's own banner/README for an archive or deprecation notice before trusting a star
+  count found in a blog post or in `docs/tooling/RESEARCH.md` itself — re-verify, don't just cite.
 - Pin the version. Never `@latest` for something that can execute code or read the filesystem.
 - Treat tool descriptions from an MCP server as untrusted content — they are model-visible text
   written by a third party.
