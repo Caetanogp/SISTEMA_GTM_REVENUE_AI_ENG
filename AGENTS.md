@@ -82,9 +82,14 @@ spec first · `tasks.md` feeds the `Next` section of the handoff. Template: `doc
 
 ## Git workflow
 
-**`main` and `develop` are protected. No agent writes system code on either — ever.** Both receive
-code only through a pull request that the user merges. This is enforced by a PreToolUse hook and by
+**`main` is fully hands-off for an agent — no commit, merge, push, rebase, ever.** It receives code
+only from `develop`, as a release the user performs. This is enforced by a PreToolUse hook and by
 `no-commit-to-branch` in pre-commit; do not work around either.
+
+**`develop` is the integration branch.** Never write code directly on it. Once a feature/fix branch
+has passed the verification gate (`docs/playbooks/verify-before-done.md`), you may `git merge` it
+into `develop` yourself — that part is self-service. Publishing `develop` to a remote (`git push`)
+is still the user's call.
 
 Start every piece of work this way, before the first edit:
 
@@ -97,13 +102,13 @@ If you notice you are already on `main` or `develop` with uncommitted work:
 `git stash` → create the branch → `git stash pop`. Never commit "just this once".
 
 - Conventional commits: `feat(agent): add risk classifier`, `fix(api):`, `chore:`, `test:`, `docs:`.
-- PR into `develop` using `.github/pull_request_template.md`; it requires a linked spec, test
-  evidence, eval impact and the security checklist. CI must be green — including the eval gate.
-- `develop` → `main` only for a release, by the user.
-- Never force-push, never rewrite published history, never `--no-verify`.
-- Only the user merges and releases. Do not push unless asked.
-- The single exception: a commit touching nothing but `.handoff/` may be made on any branch, so
-  state can always be recorded.
+- After the gate passes: `git checkout develop && git pull && git merge feature/SPEC-NNN-slug`,
+  then delete the branch. Once a GitHub remote exists, a PR (`.github/pull_request_template.md`)
+  replaces the local merge for visibility and CI, but the same gate applies either way.
+- `develop` → `main` only for a release, by the user. Never force-push, never rewrite published
+  history, never `--no-verify`.
+- The single exception to all of the above: a commit touching nothing but `.handoff/` may be made
+  on any branch, so state can always be recorded.
 
 ## Security rules (non-negotiable)
 

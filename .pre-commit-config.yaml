@@ -11,7 +11,10 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: no-commit-to-branch
-        args: [--branch, main, --branch, develop]
+        # main only: this hook can't tell a merge commit from a direct commit, and develop
+        # is meant to receive merge commits from finished feature/fix branches. The
+        # commit-vs-merge distinction is enforced by scripts/hooks/enforce_branch_policy.py.
+        args: [--branch, main]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.4

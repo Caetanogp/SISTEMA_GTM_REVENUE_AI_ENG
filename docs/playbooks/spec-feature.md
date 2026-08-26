@@ -57,10 +57,21 @@ git checkout -b feature/SPEC-NNN-slug
 Then work inside out: domain → application → infrastructure → app. Tests alongside, not after.
 Commit per logical step, conventional commits.
 
-## 5. Verify
+## 5. Verify and land
 
-Run the `verify-before-done` playbook. Then update `tasks.md` and `.handoff/STATE.md`, and open the
-PR with the spec linked.
+Run the `verify-before-done` playbook. Then update `tasks.md` and `.handoff/STATE.md`.
+
+Once the gate is green, merge into `develop` yourself:
+
+```bash
+git checkout develop && git pull
+git merge feature/SPEC-NNN-slug
+git branch -d feature/SPEC-NNN-slug
+```
+
+`main` stays out of reach regardless — `develop` only reaches `main` through a release the user
+performs. Once a GitHub remote exists, open a PR instead (same gate, more visibility and CI), but
+the local merge is the default until then.
 
 ## Changing scope mid-flight
 
