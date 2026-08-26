@@ -48,7 +48,7 @@ Install commands, for when the decision is made:
 | **Playwright MCP** | `microsoft/playwright-mcp` | ~35k | **Install at Phase 1+**, when the Next.js UI exists. Drives a real browser through accessibility snapshots, so the agent can verify a screen actually works instead of assuming it does. Pairs with `frontend-design`. |
 | **Semgrep MCP** | `semgrep` CLI, subcommand `semgrep mcp` | — (see caution) | **Caution — use the CLI subcommand, not the old package.** The standalone `semgrep/mcp` repo (the one most write-ups still cite, ~680 ⭐) was deprecated in Sept 2025 (Semgrep CLI v1.137.0): it is archived and no longer patched. Third-party forks of that archived repo exist on GitHub (`Szowesgad/mcp-server-semgrep`, `AmesianX/semgrep_mcp`) — do not install those; an unofficial fork of an abandoned security tool is exactly the kind of supply-chain risk §8 of the security rules warns about. If we adopt this, it must be the `semgrep mcp` subcommand shipped by the actively maintained `semgrep` CLI, with `SEMGREP_SEND_METRICS=off` set explicitly (the default sends pseudo-anonymised project metadata to Semgrep Inc.). The `semgrep` CLI in CI (already planned) covers the same scanning without this layer at all — install the MCP only if the interactive, mid-edit workflow proves worth the extra surface. |
 | **Postgres MCP Pro** | `crystaldba/postgres-mcp` | ~2.8k | **Install at Phase 2**, read-only mode. `EXPLAIN` analysis, index tuning and database health checks — exactly what the pgvector retrieval work and the campaign analytics queries will need. Give it a restricted database role; never the migration user. |
-| **GitHub MCP** | official GitHub | first-party | **Skip for now.** The `gh` CLI covers PRs, issues and CI runs at zero context cost. Revisit only if PR review becomes a bottleneck. |
+| **GitHub MCP** | `github/github-mcp-server`, official | first-party | **Skip — disclosed attack, and no capability we actually need.** Invariant Labs disclosed a "toxic agent flow" in May 2025: a malicious public GitHub issue can hijack the agent into leaking private-repo data through a public PR, because a typical PAT spans every repo the user owns. GitHub calls it architectural, with no simple fix — mitigation is a single-repo, least-privilege token, not a patch. Our gitflow already forbids the agent from merging or pushing to `main`/`develop`; everything left (open a PR, check an Actions run, read a log) the `gh` CLI already does, at zero standing context cost and with no persistent connection to poison. Revisit only if a real need appears that `gh` cannot cover, and then only with a fine-grained PAT scoped to this one repository — never an org-wide or multi-repo token. |
 | **Sentry MCP** | official Sentry | first-party | **Revisit at Phase 3**, once Sentry is actually wired up and there are real errors to triage. |
 | **n8n MCP** | already in the user's Codex config | — | **Not for this project.** The whole point of this rebuild is that orchestration is code-first, not n8n. Leaving it connected only adds context noise and tempts the wrong architecture. |
 
@@ -56,11 +56,11 @@ Install commands, for when the decision is made:
 
 | Tool | Source | Use |
 |---|---|---|
-| **mcp-scan** | `invariantlabs-ai/mcp-scan` (also shipped as Snyk `agent-scan`) | Statically scans installed MCP servers for prompt injection in tool descriptions, tool poisoning, cross-origin escalation and rug-pull updates. **Project rule: run it before installing any MCP server, and again after any MCP update.** |
+| **mcp-scan** | `invariantlabs-ai/mcp-scan` (Invariant Labs, acquired by Snyk; also shipped as Snyk `agent-scan`) | Statically scans installed MCP servers for prompt injection in tool descriptions, tool poisoning, cross-origin escalation and rug-pull updates. Built by the same team that disclosed the GitHub MCP "toxic agent flow" below — the credential here is finding real MCP vulnerabilities, not just packaging a scanner. Thousands of stars, backed by an established security vendor since the Snyk acquisition, and integrated by third parties (Smithery AI uses it to protect hosted MCP servers). **Project rule: run it before installing any MCP server, and again after any MCP update.** |
 
 ```bash
-uvx mcp-scan@latest          # scan installed servers
-uvx mcp-scan@latest inspect  # list what each tool actually exposes
+uvx mcp-scan@<pinned-version>          # scan installed servers - pin it, this executes against your MCP config
+uvx mcp-scan@<pinned-version> inspect  # list what each tool actually exposes
 ```
 
 ---
