@@ -22,7 +22,7 @@ Pure Python, no frameworks. This is where the slice earns its architecture.
 - `policies/risk.py`: `classify(tool_name, payload, confidence) -> RiskLevel`
 - `policies/prioritization.py`: deterministic signals — days since last touch, open opportunity
   value, stage, engagement count. The LLM explains and ranks; it does not invent the arithmetic.
-- `errors.py`: `PolicyViolation`, `NotAuthorized`, `InvalidTransition`
+- `errors.py`: `PolicyViolationError`, `NotAuthorizedError`, `InvalidTransitionError`
 
 ### application (`packages/core/revops/application/`)
 

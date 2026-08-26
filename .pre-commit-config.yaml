@@ -26,7 +26,13 @@ repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.2
     hooks:
-      - id: gitleaks
+      # gitleaks-system, not the default `gitleaks` hook id: the default provisions a full Go
+      # toolchain via pre-commit's `language: golang`, which can hang for a very long time on a
+      # slow/restricted network. This variant just shells out to a `gitleaks` binary already on
+      # PATH. Install one matching the pinned version above: download the release zip for your
+      # platform from https://github.com/gitleaks/gitleaks/releases/tag/v8.21.2 and put the
+      # binary on PATH (e.g. ~/.local/bin). CI is unaffected - it uses gitleaks/gitleaks-action.
+      - id: gitleaks-system
 
   - repo: local
     hooks:

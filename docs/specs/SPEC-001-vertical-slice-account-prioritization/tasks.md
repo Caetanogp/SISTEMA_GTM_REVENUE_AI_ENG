@@ -5,22 +5,22 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 
 ## 0. Toolchain
 
-- [ ] `pip install -e ".[dev]"` (or `uv sync`) succeeds — verified by `pip list | grep ruff`
-- [ ] `ruff check . && ruff format --check .` green on the skeleton
-- [ ] `mypy .` green
-- [ ] `lint-imports` green — the four contracts in `pyproject.toml` load and pass
-- [ ] `pytest tests/ -q` green (architecture tests run)
-- [ ] `docker compose up -d` and `psql -c "SELECT extversion FROM pg_extension WHERE extname='vector'"` returns a version
-- [ ] `pre-commit install` done — verified by a commit being linted
+- [x] `pip install -e ".[dev]"` (or `uv sync`) succeeds — verified 2026-08-26
+- [x] `ruff check . && ruff format --check .` green on the skeleton
+- [x] `mypy .` green — `Success: no issues found in 30 source files`
+- [x] `lint-imports` green — 4 contracts kept, 0 broken (32 files, 67 dependencies)
+- [x] `pytest tests/ -q` green (architecture tests run)
+- [ ] `docker compose up -d` and `psql -c "SELECT extversion FROM pg_extension WHERE extname='vector'"` returns a version — **Docker Desktop not running on this machine**, blocks this item
+- [x] `pre-commit install` done — `pre-commit installed at .git\hooks\pre-commit`
 
 ## 1. Domain
 
-- [ ] `Score`, `RiskLevel`, `EmailAddress`, `Domain` value objects — unit tests on the boundaries
-- [ ] `Account`, `Contact`, `Opportunity`, `Interaction`, `Task`, `Organization`, `User` entities
-- [ ] `policies/prioritization.py` deterministic signals — unit tests per signal and combined
-- [ ] `policies/risk.py` `classify()` — unit test per tool, including the unknown-tool default (deny)
-- [ ] Domain errors
-- [ ] `pytest tests/unit -q` green and `test_domain_has_no_framework_imports` still passing
+- [x] `Score`, `RiskLevel`, `EmailAddress`, `CompanyDomain` value objects — unit tests on the boundaries (`tests/unit/domain/values/`, 100% coverage)
+- [x] `Account`, `Contact`, `Opportunity`, `Interaction`, `Task`, `Organization`, `User` entities (`tests/unit/domain/entities/`)
+- [x] `policies/prioritization.py` deterministic signals — unit tests per signal and combined (`tests/unit/domain/policies/test_prioritization.py`)
+- [x] `policies/risk.py` `classify()` — unit test per tool, including the unknown-tool default (deny) (`tests/unit/domain/policies/test_risk.py`)
+- [x] Domain errors (`PolicyViolationError`, `NotAuthorizedError`, `InvalidTransitionError`)
+- [x] `pytest tests/unit -q` green and `test_domain_has_no_framework_imports` still passing — 81 tests, 100% domain coverage
 
 ## 2. Application
 
