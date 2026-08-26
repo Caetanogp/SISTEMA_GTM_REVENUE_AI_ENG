@@ -81,5 +81,7 @@ version, eval dataset version, Git SHA and image digest. A failure has to be rep
 (observability, evals, security) → 4 async + scale → 5 cloud + CI/CD → 6 multi-agent, only if evals
 justify it.
 
+Full spec-by-spec index: `docs/specs/ROADMAP.md`.
+
 Single-agent until the data says otherwise. Multi-agent is the last step, not a requirement for
 calling V1 done.

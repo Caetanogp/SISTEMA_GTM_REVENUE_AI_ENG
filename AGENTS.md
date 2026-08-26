@@ -172,4 +172,5 @@ is not regressed · the security checklist was reviewed · docs/ADR updated if a
 | Rules fed to the automated `security-guidance` reviewer | `.claude/claude-security-guidance.md` |
 | Reusable procedures (these also power the skills) | `docs/playbooks/` |
 | Current work state | `.handoff/STATE.md` + the active `docs/specs/SPEC-NNN-*/tasks.md` |
+| What comes after the current spec | `docs/specs/ROADMAP.md` |
 | MCP / plugin / CLI research and policy | `docs/tooling/RESEARCH.md` |
