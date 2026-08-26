@@ -169,6 +169,7 @@ is not regressed · the security checklist was reviewed · docs/ADR updated if a
 | Architecture, ERD, data model | `docs/architecture/` |
 | Why something is the way it is | `docs/decisions/` (ADRs) |
 | Full security rules and threat model | `docs/security/` |
+| Rules fed to the automated `security-guidance` reviewer | `.claude/claude-security-guidance.md` |
 | Reusable procedures (these also power the skills) | `docs/playbooks/` |
 | Current work state | `.handoff/STATE.md` + the active `docs/specs/SPEC-NNN-*/tasks.md` |
 | MCP / plugin / CLI research and policy | `docs/tooling/RESEARCH.md` |
