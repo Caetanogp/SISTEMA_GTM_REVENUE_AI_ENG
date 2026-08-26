@@ -1,37 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./**/*.pem)",
-      "Read(./**/*.key)",
-      "Read(./**/secrets/**)",
-      "Read(//Users/**/.aws/**)",
-      "Read(//Users/**/.ssh/**)",
-      "Read(//Users/**/.claude/.credentials.json)",
-      "Read(//Users/**/.codex/auth.json)",
-      "Edit(./.env)",
-      "Edit(./.env.*)",
-      "Write(./.env)",
-      "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
-      "Bash(git reset --hard:*)",
-      "Bash(git clean -fdx:*)",
-      "Bash(rm -rf:*)",
-      "Bash(curl:*|*sh)",
-      "Bash(*--no-verify*)"
-    ],
-    "ask": [
-      "Bash(git push:*)",
-      "Bash(git merge:*)",
-      "Bash(gh pr merge:*)",
-      "Bash(alembic downgrade:*)",
-      "Bash(docker compose down -v:*)",
-      "Bash(terraform apply:*)",
-      "Bash(terraform destroy:*)",
-      "Bash(npm publish:*)"
-    ],
     "allow": [
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -52,6 +21,39 @@
       "Bash(gitleaks:*)",
       "Bash(python scripts/:*)",
       "Bash(uv:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/secrets/**)",
+      "Read(//Users/**/.aws/**)",
+      "Read(//Users/**/.ssh/**)",
+      "Read(//Users/**/.claude/.credentials.json)",
+      "Read(//Users/**/.codex/auth.json)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Write(./.env)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(rm -rf:*)",
+      "Bash(curl * | sh)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sudo *)",
+      "Bash(*--no-verify*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(alembic downgrade:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(npm publish:*)"
     ]
   },
   "hooks": {
@@ -88,5 +90,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
   }
 }
