@@ -80,6 +80,15 @@ pre-commit run --all-files
 Rules: no code before `spec.md` is agreed · tick `tasks.md` as you go · a scope change edits the
 spec first · `tasks.md` feeds the `Next` section of the handoff. Template: `docs/specs/TEMPLATE.md`.
 
+**Flag complexity before implementing it.** `plan.md` covers what was known at spec time; a spec
+often reaches a point mid-implementation that needs real architectural or design judgment beyond
+that — a new component shape, a state machine with real edge cases, a checkpoint/resume mechanism,
+anything with more than one defensible approach. When you hit one, stop and say so explicitly
+before writing code: name the decision, why it wasn't already covered, and offer to plan it
+properly (Claude: propose entering plan mode; Codex: propose a deliberate design pass before
+coding) rather than pushing through on your own judgment. This applies across every spec in
+`docs/specs/ROADMAP.md`, not just the one in progress — it is a standing rule, not a one-off.
+
 ## Git workflow
 
 **`main` is fully hands-off for an agent — no commit, merge, push, rebase, ever.** It receives code
