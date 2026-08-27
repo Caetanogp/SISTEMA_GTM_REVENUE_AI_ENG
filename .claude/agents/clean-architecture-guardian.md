@@ -1,6 +1,6 @@
 ---
 name: clean-architecture-guardian
-description: Finds Clean Architecture violations: layer-boundary breaks, misplaced business logic and bad coupling. Use after adding or moving code between layers, and before merging.
+description: "Finds Clean Architecture violations: layer-boundary breaks, misplaced business logic and bad coupling. Use after adding or moving code between layers, and before merging."
 tools: Read, Grep, Glob, Bash
 ---
 

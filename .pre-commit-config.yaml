@@ -1,38 +1,97 @@
 # Install once: pre-commit install
+#
+# Every hook below is `language: system`, not the usual `repo: <url>` + managed environment.
+# Reason: pre-commit's per-repo environment provisioning (a fresh venv per Python hook, a Go
+# toolchain for gitleaks) hung indefinitely and repeatedly on this project's dev machines -
+# confirmed across multiple attempts, including after fixing the underlying network/TLS issue
+# that caused the first hang. `language: system` shells out to tools already on PATH instead of
+# trying to provision anything, which is fine here because every tool below is already a
+# declared dependency (pyproject.toml `[project.optional-dependencies].dev`) or documented as a
+# one-time local install. This trades "pre-commit manages the tool version" for "actually runs."
+#
+# Each block below replicates one upstream hook repo's `.pre-commit-hooks.yaml` (entry, args,
+# file-type filters) so behavior matches what the managed version would have done - see the
+# pinned version in each comment if you need to check for drift.
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+  - repo: local
     hooks:
+      # Replicates pre-commit/pre-commit-hooks v5.0.0. All entries installed via the
+      # `pre-commit-hooks` PyPI package (pyproject.toml dev deps) except no-commit-to-branch,
+      # which needs no external state and is safe to keep on Python's own `pre-commit` package.
       - id: check-added-large-files
+        name: check for added large files
+        entry: check-added-large-files
+        language: system
       - id: check-merge-conflict
+        name: check for merge conflicts
+        entry: check-merge-conflict
+        language: system
+        types: [text]
       - id: check-yaml
+        name: check yaml
+        entry: check-yaml
+        language: system
+        types: [yaml]
       - id: check-toml
+        name: check toml
+        entry: check-toml
+        language: system
+        types: [toml]
       - id: detect-private-key
+        name: detect private key
+        entry: detect-private-key
+        language: system
+        types: [text]
       - id: end-of-file-fixer
+        name: fix end of files
+        entry: end-of-file-fixer
+        language: system
+        types: [text]
       - id: trailing-whitespace
+        name: trim trailing whitespace
+        entry: trailing-whitespace-fixer
+        language: system
+        types: [text]
       - id: no-commit-to-branch
+        name: "don't commit to branch"
+        entry: no-commit-to-branch
+        language: system
+        pass_filenames: false
+        always_run: true
         # main only: this hook can't tell a merge commit from a direct commit, and develop
         # is meant to receive merge commits from finished feature/fix branches. The
         # commit-vs-merge distinction is enforced by scripts/hooks/enforce_branch_policy.py.
         args: [--branch, main]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+  - repo: local
     hooks:
+      # Replicates astral-sh/ruff-pre-commit v0.8.4. `ruff` is already a dev dependency.
       - id: ruff
-        args: [--fix]
+        name: ruff
+        entry: ruff check --force-exclude --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
       - id: ruff-format
+        name: ruff-format
+        entry: ruff format --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
 
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.21.2
+  - repo: local
     hooks:
-      # gitleaks-system, not the default `gitleaks` hook id: the default provisions a full Go
-      # toolchain via pre-commit's `language: golang`, which can hang for a very long time on a
-      # slow/restricted network. This variant just shells out to a `gitleaks` binary already on
-      # PATH. Install one matching the pinned version above: download the release zip for your
-      # platform from https://github.com/gitleaks/gitleaks/releases/tag/v8.21.2 and put the
-      # binary on PATH (e.g. ~/.local/bin). CI is unaffected - it uses gitleaks/gitleaks-action.
-      - id: gitleaks-system
+      # Replicates gitleaks/gitleaks v8.21.2's `gitleaks-system` hook id (see
+      # docs/tooling/RESEARCH.md for why not the default `gitleaks` id: it needs a Go toolchain
+      # pre-commit couldn't provision here). Requires a standalone `gitleaks` binary matching
+      # this version on PATH - download the release zip for your platform from
+      # https://github.com/gitleaks/gitleaks/releases/tag/v8.21.2 and place it somewhere on
+      # PATH (e.g. ~/.local/bin). CI is unaffected - it uses gitleaks/gitleaks-action.
+      - id: gitleaks
+        name: Detect hardcoded secrets
+        entry: gitleaks protect --verbose --redact --staged
+        language: system
+        pass_filenames: false
 
   - repo: local
     hooks:

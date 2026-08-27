@@ -16,6 +16,12 @@ Exit 2 stops the tool call and hands the reason back to the agent.
 Two exceptions, both narrow:
   - a commit that touches nothing but `.handoff/` (state must always be recordable), on any branch;
   - `HANDOFF_BRANCH_POLICY_DISABLED=1`, for the rare case the user explicitly wants it off.
+
+Detection note: `_find_git_write_verb` only matches an actual invoked command, not any text that
+merely *mentions* a git command. It strips heredoc bodies (so a doc file being written via a Bash
+heredoc that says "you can `git merge` this branch" doesn't trigger a false BLOCKED) and anchors
+the match to the start of each `;`/`&&`/`||`/`|`/newline-separated segment, rather than searching
+for the pattern anywhere in the raw command string.
 """
 
 from __future__ import annotations
@@ -34,7 +40,49 @@ FULLY_PROTECTED = {"main", "master"}
 # develop: only a `merge` (landing a verified feature/fix branch) is allowed.
 MERGE_ONLY = {"develop"}
 
-WRITE_COMMAND = re.compile(r"\bgit\s+(commit|merge|push|rebase|cherry-pick|revert)\b")
+_WRITE_VERBS = "commit|merge|push|rebase|cherry-pick|revert"
+# Anchored at the start of a segment, with optional simple VAR=value prefixes (e.g. `FOO=bar git
+# commit ...`) - deliberately does NOT match `git -C path commit` or other pre-subcommand flags,
+# same limitation the original version had.
+_GIT_VERB_AT_START = re.compile(
+    rf"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+({_WRITE_VERBS})\b"
+)
+_SEGMENT_SPLIT = re.compile(r"[;\n]|&&|\|\|?")
+_HEREDOC_START = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
+
+
+def _strip_heredocs(command: str) -> str:
+    """Drop heredoc bodies so prose inside them is never mistaken for an invoked command."""
+    lines = command.splitlines()
+    kept: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        kept.append(line)
+        match = _HEREDOC_START.search(line)
+        if match:
+            delimiter = match.group(2)
+            i += 1
+            while i < len(lines) and lines[i].strip() != delimiter:
+                i += 1
+            i += 1  # skip the closing delimiter line itself too
+            continue
+        i += 1
+    return "\n".join(kept)
+
+
+def find_git_write_verb(command: str) -> str | None:
+    """Return the git write verb actually being invoked, or None if there isn't one.
+
+    Only matches a command that genuinely starts a segment with `git <verb>` - not text that
+    happens to contain those words, e.g. inside a heredoc payload or a quoted string.
+    """
+    cleaned = _strip_heredocs(command)
+    for segment in _SEGMENT_SPLIT.split(cleaned):
+        match = _GIT_VERB_AT_START.match(segment.strip())
+        if match:
+            return match.group(1)
+    return None
 
 
 def git(*args: str) -> str:
@@ -91,10 +139,9 @@ def main() -> int:
         return 0
 
     command = (payload.get("tool_input") or {}).get("command", "")
-    match = WRITE_COMMAND.search(command) if command else None
-    if not match:
+    verb = find_git_write_verb(command) if command else None
+    if not verb:
         return 0
-    verb = match.group(1)
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
 
