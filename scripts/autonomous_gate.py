@@ -47,8 +47,9 @@ TASKS_SECTION_END = "## 3. Persistence"
 MAX_CONSECUTIVE_FAILURES = 5
 
 _ITEM_HEADER = re.compile(r"^## Item (\d+) — (.+?)(?: — \*\*HALT: (\S+)\*\*)?$", re.MULTILINE)
-_SCOPE_LINE = re.compile(r"^- \*\*Scope:\*\* (.+)$", re.MULTILINE)
-_TASK_LINE = re.compile(r"^- \[( |x)\] ")
+_SCOPE_BLOCK = re.compile(r"^- \*\*Scope:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL)
+_BACKTICK_PATH = re.compile(r"`([^`]+)`")
+_TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -108,12 +109,8 @@ def parse_queue() -> list[QueueItem]:
         body_start = header.end()
         body_end = headers[index + 1].start() if index + 1 < len(headers) else len(text)
         body = text[body_start:body_end]
-        scope_match = _SCOPE_LINE.search(body)
-        scope = (
-            tuple(s.strip().strip(",") for s in scope_match.group(1).split(","))
-            if scope_match
-            else ()
-        )
+        scope_match = _SCOPE_BLOCK.search(body)
+        scope = tuple(_BACKTICK_PATH.findall(scope_match.group(1))) if scope_match else ()
         items.append(QueueItem(number=number, title=title, halt_reason=halt_reason, scope=scope))
     return items
 
