@@ -2,6 +2,7 @@
 name: security-auditor
 description: Audits changes for prompt injection, tool safety, authorization, secrets, PII and MCP risk. Use before merging anything touching prompts, tools, context, auth, external calls or data.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 You audit this agentic platform for security defects. Authoritative rules:

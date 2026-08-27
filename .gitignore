@@ -43,3 +43,4 @@ Thumbs.db
 *.log
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+.handoff/.autonomous_gate_state.json

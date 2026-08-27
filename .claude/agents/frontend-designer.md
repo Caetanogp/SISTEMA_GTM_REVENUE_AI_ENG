@@ -2,6 +2,7 @@
 name: frontend-designer
 description: Builds and reviews Next.js/shadcn screens for the public demo, with a real design direction and full accessibility. Use for work in apps/web.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: sonnet
 ---
 
 You build the public demo UI: Next.js App Router, React, TypeScript, Tailwind, shadcn/ui.

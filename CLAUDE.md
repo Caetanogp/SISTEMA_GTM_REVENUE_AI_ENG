@@ -38,7 +38,8 @@ when mapping unfamiliar code.
 ## Skills (`.claude/skills/`)
 
 `spec-feature` · `handoff` · `agent-tool` · `langgraph-node` · `api-endpoint` · `db-migration` ·
-`eval-case` · `security-review` · `frontend-screen` · `adr` · `techdebt` · `verify-before-done`
+`eval-case` · `security-review` · `frontend-screen` · `adr` · `techdebt` · `verify-before-done` ·
+`autonomous-loop`
 
 Each is a thin wrapper over `docs/playbooks/<name>.md`, which Codex reads through
 `.codex/prompts/`. Change the playbook, and both agents change with it.

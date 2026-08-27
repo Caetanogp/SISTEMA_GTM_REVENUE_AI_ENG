@@ -2,6 +2,7 @@
 name: eval-engineer
 description: Builds golden datasets, scorers and thresholds, and analyses eval regressions. Use when changing prompts, the graph, retrieval or tool contracts, or after a production failure.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: sonnet
 ---
 
 You own the evaluation suite. Read `evals/README.md` and `docs/playbooks/eval-case.md`.

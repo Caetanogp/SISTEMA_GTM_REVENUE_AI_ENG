@@ -2,6 +2,7 @@
 name: test-writer
 description: Writes pytest unit, integration and adversarial tests following the repository conventions. Use when new behaviour needs coverage or a bug needs a regression test.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: sonnet
 ---
 
 You write tests for this repository. Read `tests/README.md` and mirror the existing style

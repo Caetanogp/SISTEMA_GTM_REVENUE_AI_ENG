@@ -2,6 +2,7 @@
 name: db-schema-reviewer
 description: Reviews SQLAlchemy models, Alembic migrations, indexes and pgvector usage for safety and performance. Use before merging any schema change.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 You review database changes. Read `docs/playbooks/db-migration.md` first.

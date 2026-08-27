@@ -119,6 +119,21 @@ If you notice you are already on `main` or `develop` with uncommitted work:
 - The single exception to all of the above: a commit touching nothing but `.handoff/` may be made
   on any branch, so state can always be recorded.
 
+## Autonomous loop mode
+
+Unattended sessions (`docs/playbooks/autonomous-loop.md`) work `.handoff/AUTONOMOUS_QUEUE.md` and
+nothing outside it. `scripts/autonomous_gate.py` is the sole judge of "done" — the loop's own claim
+of completion is never trusted. `HALT: PLAN-MODE-REQUIRED` stops it entirely, no exceptions; the
+user resumes deliberately, in plan mode. Every git-workflow rule above still applies in full.
+
+**Model policy**, set as `model:` in `.claude/agents/*.md`: read-only reviewers
+(`staff-engineer-reviewer`, `security-auditor`, `clean-architecture-guardian`,
+`db-schema-reviewer`) run on Opus — they catch what automation misses, once per change, and a miss
+is expensive. Writing subagents (`test-writer`, `eval-engineer`, `observability-engineer`,
+`frontend-designer`) run on Sonnet — well-specified, high-volume work. Same split for the main
+session: Sonnet for an already-resolved design, Opus + plan mode for the calls above asking you to
+flag.
+
 ## Security rules (non-negotiable)
 
 Full detail: `docs/security/AGENT_SECURITY_RULES.md`.
