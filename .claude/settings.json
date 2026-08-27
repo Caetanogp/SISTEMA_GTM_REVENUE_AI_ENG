@@ -118,5 +118,8 @@
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true,
     "security-guidance@claude-plugins-official": true
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }

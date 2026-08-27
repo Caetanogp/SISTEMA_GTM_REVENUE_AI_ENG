@@ -101,8 +101,17 @@ that spec's `plan.md` — the loop implements it, it does not re-derive it.
 - Never touch a file outside an item's declared scope. If finishing an item genuinely requires
   touching something outside scope, that is itself a signal to stop and flag it, not to expand
   scope silently.
-- One commit per completed item, on `feature/SPEC-001-application`, following the same commit
-  and verification discipline as any other work in this repo (`AGENTS.md`).
+- **Worktree, once, at the very start — not per item.** A `--bg` session defaults to
+  `bgIsolation: worktree`, which blocks every Write/Edit outside a worktree until one is entered.
+  Call `EnterWorktree` exactly once, before Item 1, then `git branch -m` the auto-generated
+  `worktree-<name>` branch to a `feature/`-prefixed name (`autonomous_gate.py` only checks the
+  prefix, not the exact name). Do **all** queue items inside that one worktree/branch — do not
+  re-enter or create a second worktree partway through.
+- One commit per completed item, on that same `feature/`-prefixed branch, following the same
+  commit and verification discipline as any other work in this repo (`AGENTS.md`).
+- **Do not merge or reconcile the branch yourself.** Reconciling the worktree branch back into
+  `feature/SPEC-001-application` (or wherever it needs to land) is a human/main-session step,
+  done afterward — the loop's job ends at the last commit + a clean `STATE.md`.
 - Tick the matching box in `docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md`
   as each item completes.
 - Update `.handoff/STATE.md` after every item — evidence, not claims, same as always.

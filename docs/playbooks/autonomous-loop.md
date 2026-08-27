@@ -25,7 +25,8 @@ process rather than the model's own say-so.
    `.handoff/AUTONOMOUS_QUEUE.md` end to end, including the `HALT` item, so there is no surprise
    about where it will stop.
 2. Branch: `git checkout develop && git pull && git checkout -b feature/SPEC-NNN-slug`. The gate
-   script refuses to run anywhere else.
+   script refuses to run anywhere else. This is also what `EnterWorktree`'s `"head"` baseRef
+   branches from in step 4 — the main checkout must already be on the right base before launching.
 3. **Pilot first, always** — the loop engineering guidance is explicit about this: pilot dynamic
    workflows before a large run. Launch with a low iteration/turn cap, watch it complete one real
    item cleanly (a real commit, a real gate pass), *then* relaunch for the full run. Do not go
@@ -38,6 +39,22 @@ process rather than the model's own say-so.
    `.claude/settings.json` (`git push`, `git merge` outside this flow, `terraform apply`, `npm
    publish`) are **denied automatically** instead of waiting for someone who is not there. The loop
    cannot escalate its own privilege by nobody being around to answer a prompt.
+
+   `--bg` sessions default to `worktree.bgIsolation: "worktree"` — every Write/Edit outside a
+   worktree is blocked until one is entered, even with `dontAsk`. Do not fight this by trying to
+   launch without `--bg` or by disabling the setting; use it as designed instead:
+   - The seed prompt (step 5) must instruct the session to call `EnterWorktree` exactly **once**,
+     before touching Item 1, then rename the auto-generated `worktree-<name>` branch to a
+     `feature/`-prefixed name with `git branch -m` (`scripts/autonomous_gate.py` only checks the
+     `feature/`/`fix/` prefix, never the exact name).
+   - `.claude/settings.json`'s `worktree.baseRef` is set to `"head"` (not the default `"fresh"`),
+     because this repo has no `origin` remote — `"fresh"` would try to branch from
+     `origin/<default-branch>` and fail outright.
+   - `.claude/worktrees/` is gitignored; the worktree directory itself never gets committed.
+   - The loop stays in that one worktree for every item — see `.handoff/AUTONOMOUS_QUEUE.md`'s
+     "Rules for the loop". Reconciling the resulting branch back into the intended feature branch
+     (`git fetch . <worktree-branch>:<target-branch>`, a fast-forward ref update with no checkout)
+     is a step you do afterward, from the main session — not something the loop does itself.
 5. Inside that session, start the goal loop:
    ```
    /goal scripts/autonomous_gate.py exits 0 - the application layer queue is empty and the full gate is green
@@ -56,8 +73,10 @@ process rather than the model's own say-so.
 - `claude agents` — list background agents and their status.
 - `claude logs <id>` — see what it has actually done.
 - `claude attach <id>` — reconnect interactively at any point.
-- `git log --oneline feature/SPEC-NNN-slug` — the ground truth. Small, conventional commits, one
-  per completed queue item, is what a healthy run looks like.
+- `git worktree list` — find the actual worktree path and its (renamed) `feature/`-prefixed branch;
+  it will not be the branch name from step 2, since `EnterWorktree` creates its own.
+- `git log --oneline <that-branch>` — the ground truth. Small, conventional commits, one per
+  completed queue item, is what a healthy run looks like.
 
 ## Stopping it
 
