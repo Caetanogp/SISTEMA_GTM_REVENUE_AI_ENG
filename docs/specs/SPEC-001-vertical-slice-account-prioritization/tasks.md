@@ -25,7 +25,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 ## 2. Application
 
 - [x] Ports as Protocols in `application/ports.py`
-- [ ] `CreateTaskArgs` and `AccountScore` DTOs with `extra="forbid"` — test that an unknown field raises
+- [x] `CreateTaskArgs` and `AccountScore` DTOs with `extra="forbid"` — test that an unknown field raises
 - [ ] `PrioritizeAccounts` use case against fakes
 - [ ] `ProposeTask` use case: builds the action, classifies risk, returns it unexecuted
 - [ ] `DecideApproval` use case: approve / edit / reject + re-deciding a decided action raises
