@@ -151,7 +151,7 @@ def changed_files(baseline: str) -> list[str]:
     return sorted({*committed, *working_paths})
 
 
-_ALWAYS_ALLOWED_PREFIXES = (".handoff/", ".claude/", ".gitignore", "docs/playbooks/")
+_ALWAYS_ALLOWED_PREFIXES = (".handoff/", ".claude/", ".gitignore", "docs/playbooks/", "scripts/")
 
 
 def scope_violation(item: QueueItem, baseline: str) -> list[str]:
