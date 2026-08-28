@@ -1,10 +1,10 @@
 ---
 agent: claude-code
-updated_at: 2026-08-27
+updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - domain layer done, autonomous-loop infra built and dry-run tested - application layer not started"
-status: ready-for-autonomous-run
+phase: "1 in progress - domain layer done, autonomous-loop infra built, real --bg pilots run - overnight foreground run about to be launched by the user"
+status: overnight-run-pending-user-launch
 ---
 
 # Current state
@@ -16,10 +16,17 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, clean tree, HEAD `33b4030` (same commit as `develop`). No
-application-layer code written yet - `docs/specs/.../tasks.md` section 2 is all unchecked. The
-autonomous-loop infrastructure exists and was dry-run tested for real, but **the loop has not been
-launched yet**. That is the actual next action, not more building.
+On `feature/SPEC-001-application`, HEAD `840f35c`. Working tree has one untracked file:
+`packages/core/revops/application/ports.py` (salvaged from pilot 3, see below - not yet verified or
+committed). `docs/specs/.../tasks.md` section 2 is still all unchecked - **no item has actually been
+completed and committed by the loop yet**, despite two real `--bg` pilot attempts tonight.
+
+**The user is about to launch an overnight run themselves**, in a new foreground (non-`--bg`)
+terminal, using the exact command and seed prompt this session prepared (seed prompt saved at
+`C:\Users\Caetanogp123\AppData\Local\Temp\claude\c--Users-Caetanogp123-OneDrive-Desktop-PROJETOS-VSCODE-INCLUINDO-N8N-SISTEMA-PORTFOLIO-AI-ENG\3137e329-282c-4cf6-9579-0a45536b8344\scratchpad\overnight_prompt.txt`
+- a session-scoped temp path, copy its contents somewhere durable if this needs to be relaunched
+after that temp dir is gone). **As of this write, launch has not been confirmed** - the next agent
+must check `claude agents --json` / `git log` for real evidence before assuming anything happened.
 
 ## Done
 
@@ -67,24 +74,84 @@ launched yet**. That is the actual next action, not more building.
 - Recorded the `ui-ux-pro-max-skill` research finding in `docs/tooling/RESEARCH.md`: legitimate
   (78 contributors, 227 commits, MIT, no npm postinstall script), evaluate for SPEC-005, not
   installed now - same just-in-time rule as everything else in that file.
+- **Two real `--bg` pilots run tonight, both informative failures, not wasted:**
+  - **Pilot 2** (`804aa4f8`): hit Claude Code's `bgIsolation: "worktree"` default (every Write/Edit
+    blocked outside a worktree for `--bg` sessions) - stopped itself safely instead of working
+    around it. Led to the single-worktree-per-run design in `.handoff/AUTONOMOUS_QUEUE.md` and
+    `docs/playbooks/autonomous-loop.md` (commit `840f35c`): `EnterWorktree` once at the start,
+    rename the branch to a `feature/`-prefix, work there, reconcile afterward.
+  - **Pilot 3** (`afd9b5f1`, session id `afd9b5f1-5c75-458a-86b3-55faceb6ac8c`): the worktree design
+    worked correctly - entered a worktree, renamed the branch to
+    `feature/SPEC-001-application-pilot3`, started writing `packages/core/revops/application/ports.py`.
+    Then **hit the 5-hour usage limit mid-task (2026-08-27 13:59 America/Sao_Paulo) and never
+    resumed**, confirmed stuck in `"state": "blocked"` per `claude agents --json` more than 10 hours
+    after the reset window passed. Root cause confirmed against the primary source
+    (`code.claude.com/docs/en/interactive-mode`, "Wait for a usage limit to reset" section):
+    *"Claude Code doesn't offer the wait at all in these cases: Background sessions and `-p` runs
+    - the menu row isn't available."* **`autoContinueAtUsageLimit` does not apply to `--bg` sessions
+    at all** - this invalidates the original plan (`claude --bg` surviving the usage window via that
+    setting). Confirmed by direct doc fetch, not by asking a subagent (an earlier subagent query
+    wrongly reported it *does* apply to `--bg` - do not trust that claim, the primary source
+    contradicts it).
+  - `ports.py` from pilot 3's worktree was copied into the main checkout (`cp`, not `git`) before
+    cleanup, since it looked like real, salvageable work. **Not yet verified correct or complete** -
+    the overnight seed prompt explicitly tells the session to check it against Item 1's requirements
+    before trusting it.
+  - Pilot 3's worktree (`.claude/worktrees/curried-herding-muffin`,
+    branch `feature/SPEC-001-application-pilot3`) **could not be cleaned up** -
+    `git worktree remove --force` failed with `Permission denied` on both the worktree dir and
+    `.git/worktrees/curried-herding-muffin`, and `claude stop afd9b5f1` returned "couldn't confirm
+    ... may be restarting" without actually freeing the lock. The background process is presumably
+    still alive but unreachable (`claude logs afd9b5f1` also fails:
+    `connect ENOENT \\.\pipe\cc-daemon-*-control`). **Needs manual cleanup** - check
+    `tasklist | grep claude.exe` for a stale process (~pid range seen tonight: 23772/45740/36920/
+    32252 were the *other*, legitimate interactive sessions - the pilot 3 daemon is a different one,
+    not confirmed which), kill it if found, then `git worktree remove --force
+    .claude/worktrees/curried-herding-muffin` and `git branch -D feature/SPEC-001-application-pilot3`
+    should succeed.
+- **Design decision for surviving tonight's run unattended**: abandoned `--bg` for the overnight
+  run specifically because of the pilot 3 finding above. Switched to a **foreground interactive
+  session** (`claude --permission-mode dontAsk --model sonnet --mcp-config '{"mcpServers":{}}'
+  --strict-mcp-config`, no `--bg`), which is the *only* mode where `autoContinueAtUsageLimit`
+  actually works, per the same doc. No worktree needed for this run - `bgIsolation` only governs
+  `--bg` sessions, so working directly in the main checkout on `feature/SPEC-001-application` is
+  correct and simpler. Set `autoContinueAtUsageLimit: true` explicitly in the user-level
+  `C:\Users\Caetanogp123\.claude\settings.json` (was previously unset, relying on an undocumented-
+  in-practice default) to remove any doubt for tonight specifically.
+  **Real, unresolved risk even with this fix**: if the machine sleeps for >30 minutes spanning a
+  usage-limit reset, Claude Code does *not* auto-continue - it shows "press enter to continue" and
+  waits for a human. Flagged to the user; they were adjusting Windows power settings
+  (System > Power & battery > Screen and sleep) to disable sleep entirely while plugged in, and
+  reminded to do the same for "on battery" as a safety margin, before launching.
 
 ## Next
 
-1. **Launch the autonomous loop**, per `docs/playbooks/autonomous-loop.md`. Pilot first with a low
-   turn/iteration cap before an all-night run - watch it complete Item 1 for real (a real commit,
-   gate genuinely green, box ticked) before trusting it further. This is the actual next action.
-2. If `/goal <condition>` doesn't work as a background session's seed prompt when actually tried,
-   fall back to `/loop` with no interval (self-paced) running `python scripts/autonomous_gate.py`
-   each cycle - same queue, same gate, same model policy, only the trigger differs.
-3. After a successful pilot: `claude --bg --permission-mode dontAsk --model sonnet` with the full
-   queue, `autoContinueAtUsageLimit` enabled if it needs to survive a 5-hour usage window reset.
-4. On completion (exit 0) or the expected HALT (item 7, LangGraph): read what
-   `.handoff/STATE.md` actually says at that point before doing anything else - it will have been
-   rewritten by the gate script itself, not by an agent's summary.
-5. If item 7 is reached: that is the point to open a fresh session, Opus, plan mode, for the
-   LangGraph checkpoint/interrupt/resume design - per the standing rule in `AGENTS.md`.
-6. Persistence (tasks.md section 3) still needs Docker running - not verified end to end on this
-   machine this session either.
+1. **Check whether the overnight foreground session actually got launched and is making progress.**
+   Do not assume - evidence only:
+   - `claude agents --json` - look for a session named `spec001-overnight-run`, `kind: interactive`.
+   - `git log --oneline feature/SPEC-001-application` - real commits are the only proof of real work.
+     Expect small conventional commits, one pair (impl + STATE.md) per queue item, up to Item 6.
+   - `cat docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md` - section 2 checkboxes.
+   - If it stopped at Item 7 (the LangGraph HALT item) with a `.handoff/STATE.md` entry written by
+     *that* session (not this one), that is the expected, good outcome - read it before anything else.
+   - If nothing happened at all (the user fell asleep before launching, or the command failed),
+     this file's "Now" section above still describes reality - relaunch is all that's needed, the
+     seed prompt is still valid (assuming the temp scratchpad path still exists - if not, the
+     instructions are fully described in `docs/playbooks/autonomous-loop.md` and
+     `.handoff/AUTONOMOUS_QUEUE.md`, reconstruct from those).
+2. **Never trust a self-reported "all items done" without independently re-running the gate**:
+   `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
+   `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
+3. Clean up pilot 3's stale worktree/branch (see above) once nothing is still locking it.
+4. If Item 7 (LangGraph) is reached: open a fresh session, Opus, plan mode, for the checkpoint/
+   interrupt/resume design - per the standing rule in `AGENTS.md`. Do not implement it casually.
+5. Persistence (tasks.md section 3) still needs Docker running - not verified end to end yet.
+6. Once the application layer is genuinely done and merged into `develop`, revisit whether
+   `--bg` + a real supervisor (this session polling `claude agents --json` and issuing
+   `claude --resume <id> --bg` after a detected usage-limit block) is worth building for the *next*
+   overnight run - it was deliberately not attempted tonight (untested mechanism, too risky right
+   before an unattended stretch), but foreground-only means someone has to physically leave a
+   terminal window open every time, which won't scale past tonight.
 
 ## Gotchas
 
