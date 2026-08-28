@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - domain layer done, autonomous-loop infra built, real --bg pilots run - overnight foreground run about to be launched by the user"
-status: overnight-run-pending-user-launch
+phase: "1 in progress - overnight foreground run launched and active, Item 1 (application ports) done and committed, Item 2 (DTOs) next"
+status: overnight-run-in-progress
 ---
 
 # Current state
@@ -16,20 +16,57 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `840f35c`. Working tree has one untracked file:
-`packages/core/revops/application/ports.py` (salvaged from pilot 3, see below - not yet verified or
-committed). `docs/specs/.../tasks.md` section 2 is still all unchecked - **no item has actually been
-completed and committed by the loop yet**, despite two real `--bg` pilot attempts tonight.
+On `feature/SPEC-001-application`, HEAD `2aee592` (Item 1 commit). This is the overnight foreground
+run itself, actively working the queue (not a future agent reading a stale plan).
 
-**The user is about to launch an overnight run themselves**, in a new foreground (non-`--bg`)
-terminal, using the exact command and seed prompt this session prepared (seed prompt saved at
-`C:\Users\Caetanogp123\AppData\Local\Temp\claude\c--Users-Caetanogp123-OneDrive-Desktop-PROJETOS-VSCODE-INCLUINDO-N8N-SISTEMA-PORTFOLIO-AI-ENG\3137e329-282c-4cf6-9579-0a45536b8344\scratchpad\overnight_prompt.txt`
-- a session-scoped temp path, copy its contents somewhere durable if this needs to be relaunched
-after that temp dir is gone). **As of this write, launch has not been confirmed** - the next agent
-must check `claude agents --json` / `git log` for real evidence before assuming anything happened.
+**Item 1 (application ports) is done, gate-verified, and committed** - see `## Done` below for
+evidence. Item 2 (DTOs) is next; `python scripts/autonomous_gate.py` currently reports Item 2's
+gate green because nothing has been written for it yet (an empty diff trivially passes ruff/mypy/
+pytest) - this is the known "gate green but not yet ticked" imprecision documented in `## Gotchas`
+below, not a signal Item 2 is actually done. Do not tick Item 2 without writing `dto.py` and its
+test first.
+
+**Two real gate/permission bugs were found and fixed live tonight, by the user directly, while
+this run was in progress** (commit `4ca8d79`):
+1. `.claude/settings.json`'s `Bash(python scripts/:*)` allow-rule was not matching
+   `python scripts/autonomous_gate.py` or `python scripts/check_agent_docs.py` under
+   `--permission-mode dontAsk` (every such call was silently auto-denied, blocking the gate from
+   ever running). Fixed by adding explicit `Bash(python scripts/autonomous_gate.py:*)` and
+   `Bash(python scripts/check_agent_docs.py:*)` allow entries.
+2. `scripts/autonomous_gate.py`'s `scope_violation()` compared the whole-branch diff against
+   `develop`'s merge-base, which meant every prior infra commit already on this feature branch
+   (`.claude/settings.json`, `.gitignore`, `docs/playbooks/autonomous-loop.md` from earlier
+   sessions building the loop itself) permanently tripped a false scope-violation HALT on Item 1,
+   regardless of what the current session actually touched. Fixed with a `baseline_sha` in
+   `.handoff/.autonomous_gate_state.json`: the scope check now only looks at changes since the
+   current item started, not the full history back to `develop`. Confirmed working - see evidence
+   below.
+   Three stale HALT entries this bug produced (07:18:54, 07:21:05, 07:21:31 UTC) are left in this
+   file's history below for the record; they are resolved, not open issues.
 
 ## Done
 
+- **Item 1 - Application ports, commit `2aee592`.** `packages/core/revops/application/ports.py`
+  (salvaged from pilot 3, verified against `plan.md`'s application section and `AGENTS.md`'s
+  layer table before trusting it - it was correct as found: all six protocols
+  (`AccountRepository`, `TaskRepository`, `AuditTrail`, `LLMGateway`, `Clock`, `UnitOfWork`),
+  `@runtime_checkable`, `AuditTrail` has no update/delete method by design). Added
+  `tests/unit/application/test_ports.py` (9 tests: each port is a real `Protocol`, a fake that
+  never imports `ports.py` still satisfies `isinstance` against it, `AuditTrail`/
+  `AccountRepository` are missing the write methods they must not have). `docs/specs/.../tasks.md`
+  Item 1 checkbox ticked.
+  Evidence - `python scripts/autonomous_gate.py` after the commit:
+  ```
+  Exit code 1
+  Item 2 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
+  (Exit 1 here is correct and expected - it means Item 1 is done and the gate has moved on to
+  looking at Item 2, not that anything is wrong.)
 - Domain layer + governance hardening from earlier sessions - see
   `.handoff/log/2026-08-26-0115-claude.md` and older logs for full detail. Commits `2e466e7`
   (domain), `0c7eddb` (complexity-flagging rule).
@@ -126,19 +163,13 @@ must check `claude agents --json` / `git log` for real evidence before assuming 
 
 ## Next
 
-1. **Check whether the overnight foreground session actually got launched and is making progress.**
-   Do not assume - evidence only:
-   - `claude agents --json` - look for a session named `spec001-overnight-run`, `kind: interactive`.
-   - `git log --oneline feature/SPEC-001-application` - real commits are the only proof of real work.
-     Expect small conventional commits, one pair (impl + STATE.md) per queue item, up to Item 6.
-   - `cat docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md` - section 2 checkboxes.
-   - If it stopped at Item 7 (the LangGraph HALT item) with a `.handoff/STATE.md` entry written by
-     *that* session (not this one), that is the expected, good outcome - read it before anything else.
-   - If nothing happened at all (the user fell asleep before launching, or the command failed),
-     this file's "Now" section above still describes reality - relaunch is all that's needed, the
-     seed prompt is still valid (assuming the temp scratchpad path still exists - if not, the
-     instructions are fully described in `docs/playbooks/autonomous-loop.md` and
-     `.handoff/AUTONOMOUS_QUEUE.md`, reconstruct from those).
+1. **Continue the queue from Item 2 (DTOs)**: `CreateTaskArgs` and `AccountScore` as Pydantic
+   models in `application/dto.py`, `model_config = ConfigDict(extra="forbid")` on both, plus a test
+   proving an unknown field on each raises `pydantic.ValidationError`. Scope:
+   `packages/core/revops/application/dto.py`, `tests/unit/application/test_dto.py` only. Then
+   Items 3-6 in order, same discipline as Item 1 (implement, run the gate, fix red, tick the box,
+   commit, update this file, commit that too). Stop completely at Item 7 (LangGraph,
+   `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
    `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
@@ -218,3 +249,21 @@ cat docs/playbooks/autonomous-loop.md
   real UI/DB work to point them at - `ui-ux-pro-max-skill` specifically for SPEC-005.
 - Provider keys not configured (`.env` does not exist). Needed before the graph runs against a
   real model - the fake gateway covers tests and CI until then.
+
+## Autonomous loop HALT (2026-08-28T07:18:54+00:00)
+
+Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', '.gitignore', 'docs/playbooks/autonomous-loop.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-08-28T07:21:05+00:00)
+
+Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', 'scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-08-28T07:21:31+00:00)
+
+Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', 'scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
