@@ -16,15 +16,14 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `2aee592` (Item 1 commit). This is the overnight foreground
+On `feature/SPEC-001-application`, HEAD `c345612` (Item 2 commit). This is the overnight foreground
 run itself, actively working the queue (not a future agent reading a stale plan).
 
-**Item 1 (application ports) is done, gate-verified, and committed** - see `## Done` below for
-evidence. Item 2 (DTOs) is next; `python scripts/autonomous_gate.py` currently reports Item 2's
-gate green because nothing has been written for it yet (an empty diff trivially passes ruff/mypy/
-pytest) - this is the known "gate green but not yet ticked" imprecision documented in `## Gotchas`
-below, not a signal Item 2 is actually done. Do not tick Item 2 without writing `dto.py` and its
-test first.
+**Items 1 (application ports) and 2 (DTOs) are done, gate-verified, and committed** - see `## Done`
+below for evidence. Item 3 (`PrioritizeAccounts` use case) is next; `python scripts/autonomous_gate.py`
+currently reports Item 3's gate green because nothing has been written for it yet (an empty diff
+trivially passes ruff/mypy/pytest) - this is the known "gate green but not yet ticked" imprecision
+documented in `## Gotchas` below, not a signal Item 3 is actually done.
 
 **Two real gate/permission bugs were found and fixed live tonight, by the user directly, while
 this run was in progress** (commit `4ca8d79`):
@@ -46,6 +45,22 @@ this run was in progress** (commit `4ca8d79`):
 
 ## Done
 
+- **Item 2 - DTOs, commit `c345612`.** `packages/core/revops/application/dto.py`: `CreateTaskArgs`
+  (`account_id`, `owner_id`, `title` min_length=1, `due_at` - deliberately no `organization_id`,
+  AGENTS.md: that comes from the auth token, never from LLM/request output) and `AccountScore`
+  (`account_id`, `score` 0-100, `tier: ScoreTier` from the domain enum, `evidence: list[str]`),
+  both `ConfigDict(extra="forbid")`. `tests/unit/application/test_dto.py`: 8 tests, including
+  unknown-field rejection for both models. `tasks.md` Item 2 checkbox ticked.
+  Evidence - `python scripts/autonomous_gate.py` after the commit:
+  ```
+  Exit code 1
+  Item 3 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
 - **Item 1 - Application ports, commit `2aee592`.** `packages/core/revops/application/ports.py`
   (salvaged from pilot 3, verified against `plan.md`'s application section and `AGENTS.md`'s
   layer table before trusting it - it was correct as found: all six protocols
@@ -163,13 +178,14 @@ this run was in progress** (commit `4ca8d79`):
 
 ## Next
 
-1. **Continue the queue from Item 2 (DTOs)**: `CreateTaskArgs` and `AccountScore` as Pydantic
-   models in `application/dto.py`, `model_config = ConfigDict(extra="forbid")` on both, plus a test
-   proving an unknown field on each raises `pydantic.ValidationError`. Scope:
-   `packages/core/revops/application/dto.py`, `tests/unit/application/test_dto.py` only. Then
-   Items 3-6 in order, same discipline as Item 1 (implement, run the gate, fix red, tick the box,
-   commit, update this file, commit that too). Stop completely at Item 7 (LangGraph,
-   `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
+1. **Continue the queue from Item 3 (`PrioritizeAccounts` use case)**: assembles context from the
+   repository ports, calls `domain.policies.prioritization.prioritize_account`, returns ranked
+   `AccountScore` DTOs with evidence - no LLM call yet. Scope:
+   `packages/core/revops/application/use_cases/prioritize_accounts.py`,
+   `tests/unit/application/use_cases/test_prioritize_accounts.py` only; test against fakes
+   implementing the Item 1 ports, not mocks. Then Items 4-6 in order, same discipline as Items 1-2
+   (implement, run the gate, fix red, tick the box, commit, update this file, commit that too).
+   Stop completely at Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
    `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
