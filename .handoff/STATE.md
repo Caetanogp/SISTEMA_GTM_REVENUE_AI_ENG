@@ -3,7 +3,7 @@ agent: claude-code
 updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-4 done and committed (gate-confirmed), Item 5 (DecideApproval) next"
+phase: "1 in progress - Items 1-5 done and committed (gate-confirmed), Item 6 (context builder) next"
 status: overnight-run-in-progress
 ---
 
@@ -16,11 +16,12 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `102ab4a`. This is the overnight foreground run itself,
+On `feature/SPEC-001-application`, HEAD `7370b6e`. This is the overnight foreground run itself,
 actively working the queue (not a future agent reading a stale plan).
 
-**Items 1-4 (application ports, DTOs, `PrioritizeAccounts`, `ProposeTask`) are done, gate-confirmed,
-and committed.** Item 5 (`DecideApproval`) is next.
+**Items 1-5 (application ports, DTOs, `PrioritizeAccounts`, `ProposeTask`, `DecideApproval`) are
+done, gate-confirmed, and committed.** Item 6 (`context/builder.py`) is next - it is the last item
+before the Item 7 LangGraph `HALT`.
 
 A second Claude Code session on this machine, `sistema-portfolio-ai-eng-2b`, has been actively
 co-working this same checkout tonight (contradicts this run's original briefing that it was the
@@ -65,6 +66,27 @@ is done, not left in place by default.
 
 ## Done
 
+- **Item 5 - `DecideApproval` use case, commit `7370b6e`.**
+  `packages/core/revops/application/use_cases/decide_approval.py`: `PendingApproval` (a
+  `ProposedAction` plus a `decided` flag, defined here since Item 5's scope doesn't include
+  `propose_task.py` to make `ProposedAction` itself mutable) and `DecideApproval` with
+  `approve`/`edit`/`reject`. Approve/Edit build a `Task` and persist it via `TaskRepository.add`,
+  then write an `AuditTrail` record (`edit` uses the caller-supplied edited `CreateTaskArgs`, not
+  `pending.proposal.args`); Reject only writes the audit record. Re-deciding raises the existing
+  `domain.errors.InvalidTransitionError` (not a new error type).
+  `tests/unit/application/use_cases/test_decide_approval.py` (12 tests, fakes not mocks): approve,
+  edit persists the edited payload specifically, reject writes no task, and all 9 first/second
+  decision-pair combinations raise on the second call.
+  Evidence - `python scripts/autonomous_gate.py` after the commit:
+  ```
+  Exit code 1
+  Item 6 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
 - **Item 4 - `ProposeTask` use case, commit `102ab4a`.**
   `packages/core/revops/application/use_cases/propose_task.py`: builds the proposed `create_task`
   action and classifies its risk via `domain.policies.risk`, returns it unexecuted - no repository
@@ -235,24 +257,21 @@ is done, not left in place by default.
 
 ## Next
 
-1. **Continue with Item 5 (`DecideApproval` use case)**: Approve / Edit / Reject on a
-   `ProposedAction` (item 4's return type). Approve or Edit executes the (possibly edited) payload
-   through the repository ports and writes an audit row via `AuditTrail`; Reject writes the audit
-   row and nothing else. Re-deciding an already-decided action raises - reuse
-   `domain.errors.InvalidTransitionError` (fits the existing "entity asked to move into a state it
-   can't reach" semantics - see `domain/entities/task.py` for the pattern already used) rather than
-   inventing a parallel error. Scope: `packages/core/revops/application/use_cases/decide_approval.py`,
-   `packages/core/revops/application/use_cases/__init__.py` (already exists, untouched),
-   `tests/unit/application/use_cases/test_decide_approval.py`,
-   `tests/unit/application/use_cases/__init__.py` (already exists, untouched). Tests: Approve, Edit
-   (the edited payload is what gets persisted, not the original), Reject, and re-deciding raising.
-   Then Item 6 (`context/builder.py`), same discipline as Items 1-4 (implement, run the gate, fix
-   red, tick the box, commit, update this file, commit that too). **Item 6 will need its own new
-   `application/context/__init__.py` and `tests/unit/application/context/__init__.py`** - check
-   whether `AUTONOMOUS_QUEUE.md`'s Item 6 scope already lists them before writing anything (Items
-   3-5 needed the `ab4db67` fix for the same reason; Item 6 wasn't covered by that commit as of
-   this writing). Stop completely at Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not
-   implement it.
+1. **Continue with Item 6 (`context/builder.py`) - the last item before the Item 7 HALT.**
+   Assembles per-task context (account, recent interactions, relevant opportunities) under an
+   explicit token budget; test must prove it truncates (drops lowest-priority context, in a
+   documented order) rather than silently overflowing. Scope as declared in `AUTONOMOUS_QUEUE.md`
+   right now is only `packages/core/revops/application/context/builder.py` and
+   `tests/unit/application/context/test_builder.py` - **confirmed still missing the two
+   `__init__.py` paths** (`application/context/__init__.py`,
+   `tests/unit/application/context/__init__.py`) the same way Items 3-5 were before `ab4db67`; this
+   session cannot fix `AUTONOMOUS_QUEUE.md` itself (`Write`/`Edit` on that path isn't in its
+   allow-list, same restriction as `.autonomous_gate_state.json` - see the Item 3 entry above for
+   why this session won't route around that or launder it through a peer). Expect to hit the same
+   scope-violation pause Item 3 did; the fix pattern is proven (peer session extends the queue's
+   declared scope, or nothing needs fixing at all if `AUTONOMOUS_QUEUE.md` already got updated by
+   the time this runs - check it fresh, don't assume this note is still accurate). After Item 6:
+   stop completely at Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
    `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
