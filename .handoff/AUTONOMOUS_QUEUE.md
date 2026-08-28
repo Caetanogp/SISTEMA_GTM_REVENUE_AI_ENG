@@ -36,7 +36,9 @@ that spec's `plan.md` — the loop implements it, it does not re-derive it.
 ## Item 3 — `PrioritizeAccounts` use case
 
 - **Scope:** `packages/core/revops/application/use_cases/prioritize_accounts.py`,
-  `tests/unit/application/use_cases/test_prioritize_accounts.py`
+  `packages/core/revops/application/use_cases/__init__.py`,
+  `tests/unit/application/use_cases/test_prioritize_accounts.py`,
+  `tests/unit/application/use_cases/__init__.py`
 - **Depends on:** items 1-2, and the domain policy already built
   (`domain.policies.prioritization.prioritize_account`).
 - **What:** assembles context from the repository ports, calls the domain policy, returns ranked
@@ -47,7 +49,9 @@ that spec's `plan.md` — the loop implements it, it does not re-derive it.
 ## Item 4 — `ProposeTask` use case
 
 - **Scope:** `packages/core/revops/application/use_cases/propose_task.py`,
-  `tests/unit/application/use_cases/test_propose_task.py`
+  `packages/core/revops/application/use_cases/__init__.py`,
+  `tests/unit/application/use_cases/test_propose_task.py`,
+  `tests/unit/application/use_cases/__init__.py`
 - **Depends on:** items 1-2, `domain.policies.risk`.
 - **What:** builds the proposed `create_task` action and classifies its risk
   (`policies.risk.classify` / `requires_hitl`). Returns the proposal **unexecuted** — this use
@@ -58,7 +62,9 @@ that spec's `plan.md` — the loop implements it, it does not re-derive it.
 ## Item 5 — `DecideApproval` use case
 
 - **Scope:** `packages/core/revops/application/use_cases/decide_approval.py`,
-  `tests/unit/application/use_cases/test_decide_approval.py`
+  `packages/core/revops/application/use_cases/__init__.py`,
+  `tests/unit/application/use_cases/test_decide_approval.py`,
+  `tests/unit/application/use_cases/__init__.py`
 - **Depends on:** items 1-2, 4.
 - **What:** Approve / Edit / Reject on a proposed action. Approve or Edit executes the (possibly
   edited) payload through the repository ports and writes an audit row via `AuditTrail`; Reject
