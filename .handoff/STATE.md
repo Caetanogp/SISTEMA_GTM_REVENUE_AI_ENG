@@ -3,7 +3,7 @@ agent: claude-code
 updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-3 done and committed (gate-confirmed), Item 4 (ProposeTask) next"
+phase: "1 in progress - Items 1-4 done and committed (gate-confirmed), Item 5 (DecideApproval) next"
 status: overnight-run-in-progress
 ---
 
@@ -16,11 +16,11 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `b39ac3f`. This is the overnight foreground run itself,
+On `feature/SPEC-001-application`, HEAD `102ab4a`. This is the overnight foreground run itself,
 actively working the queue (not a future agent reading a stale plan).
 
-**Items 1-3 (application ports, DTOs, `PrioritizeAccounts`) are done, gate-confirmed, and
-committed.** Item 4 (`ProposeTask`) is next.
+**Items 1-4 (application ports, DTOs, `PrioritizeAccounts`, `ProposeTask`) are done, gate-confirmed,
+and committed.** Item 5 (`DecideApproval`) is next.
 
 A second Claude Code session on this machine, `sistema-portfolio-ai-eng-2b`, has been actively
 co-working this same checkout tonight (contradicts this run's original briefing that it was the
@@ -65,6 +65,22 @@ is done, not left in place by default.
 
 ## Done
 
+- **Item 4 - `ProposeTask` use case, commit `102ab4a`.**
+  `packages/core/revops/application/use_cases/propose_task.py`: builds the proposed `create_task`
+  action and classifies its risk via `domain.policies.risk`, returns it unexecuted - no repository
+  port injected, so nothing this use case does can write anywhere.
+  `tests/unit/application/use_cases/test_propose_task.py` (3 tests): args carried unchanged, risk
+  classification matches the domain policy, `create_task` (MEDIUM) requires HITL per SPEC-001.
+  Evidence - `python scripts/autonomous_gate.py` after the commit:
+  ```
+  Exit code 1
+  Item 5 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
 - **Item 3 - `PrioritizeAccounts` use case, commit `ab4db67`** (implementation committed by the
   peer session `sistema-portfolio-ai-eng-2b`, containing exactly the code this session wrote and
   had already verified green - confirmed byte-for-byte via `git show --stat ab4db67` before
@@ -219,21 +235,24 @@ is done, not left in place by default.
 
 ## Next
 
-1. **Continue with Item 4 (`ProposeTask` use case)**: builds the proposed `create_task` action and
-   classifies its risk (`domain.policies.risk.classify` / `requires_hitl`), returns the proposal
-   unexecuted. Scope per `AUTONOMOUS_QUEUE.md`:
-   `packages/core/revops/application/use_cases/propose_task.py`,
+1. **Continue with Item 5 (`DecideApproval` use case)**: Approve / Edit / Reject on a
+   `ProposedAction` (item 4's return type). Approve or Edit executes the (possibly edited) payload
+   through the repository ports and writes an audit row via `AuditTrail`; Reject writes the audit
+   row and nothing else. Re-deciding an already-decided action raises - reuse
+   `domain.errors.InvalidTransitionError` (fits the existing "entity asked to move into a state it
+   can't reach" semantics - see `domain/entities/task.py` for the pattern already used) rather than
+   inventing a parallel error. Scope: `packages/core/revops/application/use_cases/decide_approval.py`,
    `packages/core/revops/application/use_cases/__init__.py` (already exists, untouched),
-   `tests/unit/application/use_cases/test_propose_task.py`,
-   `tests/unit/application/use_cases/__init__.py` (already exists, untouched). Tests: a
-   low-confidence/flagged proposal requiring HITL, and the risk classification matching
-   `domain.policies.risk`. Then Item 5 (`DecideApproval`), Item 6 (`context/builder.py`), same
-   discipline as Items 1-3 (implement, run the gate, fix red, tick the box, commit, update this
-   file, commit that too). **Item 6 will need its own new `application/context/__init__.py` and
-   `tests/unit/application/context/__init__.py`** - check whether `AUTONOMOUS_QUEUE.md`'s Item 6
-   scope already lists them before writing anything (Items 3-5 needed the `ab4db67` fix for the
-   same reason; Item 6 wasn't covered by that commit as of this writing). Stop completely at
-   Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
+   `tests/unit/application/use_cases/test_decide_approval.py`,
+   `tests/unit/application/use_cases/__init__.py` (already exists, untouched). Tests: Approve, Edit
+   (the edited payload is what gets persisted, not the original), Reject, and re-deciding raising.
+   Then Item 6 (`context/builder.py`), same discipline as Items 1-4 (implement, run the gate, fix
+   red, tick the box, commit, update this file, commit that too). **Item 6 will need its own new
+   `application/context/__init__.py` and `tests/unit/application/context/__init__.py`** - check
+   whether `AUTONOMOUS_QUEUE.md`'s Item 6 scope already lists them before writing anything (Items
+   3-5 needed the `ab4db67` fix for the same reason; Item 6 wasn't covered by that commit as of
+   this writing). Stop completely at Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not
+   implement it.
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
    `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
