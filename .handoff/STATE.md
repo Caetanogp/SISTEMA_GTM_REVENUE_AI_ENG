@@ -78,6 +78,47 @@ TEMPORARY in its own commit message ("revert once the overnight run finishes"). 
 standing trust grant than the repo's least-privilege default and should be reverted once this run
 is done, not left in place by default.
 
+## Verify-before-done (main session, post-run, before merging to `develop`)
+
+Ran the full applicable gate from `docs/playbooks/verify-before-done.md` fresh, independent of the
+loop's own `autonomous_gate.py` runs, on `feature/SPEC-001-application` at `f978b9d`:
+
+```
+ruff check . && ruff format --check .   -> 3 files needed reformatting (2 loop-infra scripts, 1
+                                            use case file) - cosmetic line-wrap only, no logic
+                                            change. Applied `ruff format`, reran clean.
+mypy .                                  -> Success: no issues found in 65 source files
+lint-imports                            -> Contracts: 4 kept, 0 broken
+pytest tests/unit -q                    -> 118 passed
+pytest tests/architecture -q            -> 2 passed
+python scripts/check_agent_docs.py      -> passed
+gitleaks detect --no-git                -> no leaks found
+```
+
+`tests/integration`, `tests/adversarial` and `evals` were not run - correctly skipped per the
+playbook, since tonight's diff (`git diff --stat develop...HEAD`) touches only
+`packages/core/revops/application/`, its tests, and loop/handoff infra - no adapters, API, DB,
+prompts, or graph code changed.
+
+**Acceptance criteria (`spec.md`)**: criteria 1, 2, 3, 4, 7, 8, 9, 10 are end-to-end and depend on
+the API/graph/DB layers that do not exist yet - out of scope for tonight, not evaluated as
+pass/fail here. Criteria 5 (edited payload is what persists) and 6 (reject writes nothing to the
+CRM) are the two an application-layer-only slice can actually prove, and each has a named test:
+`test_edit_persists_the_edited_payload_not_the_original`, `test_reject_writes_only_the_audit_row`
+in `tests/unit/application/use_cases/test_decide_approval.py`.
+
+**Every item's own "Done when" criterion in `AUTONOMOUS_QUEUE.md`** was checked against actual test
+names, not trusted from the loop's self-report - all matched (audit-trail append-only, DTO
+`extra="forbid"` + no client-supplied `organization_id`, tenant-isolated ranking, HITL-required
+risk classification, context-truncation order). No shortcuts, no loosened assertions, nothing
+skipped silently.
+
+**Cleanup**: reverted `crossSessionInbound: accept` in `.claude/settings.json` (was temporary,
+per the peer session's own flag above) - confirmed gate still reports `GOAL ACHIEVED` after.
+
+**Merging to `develop`**: `develop` has not diverged (`git log --oneline HEAD..develop` is empty),
+so this is a clean fast-forward, no conflicts possible.
+
 ## Done
 
 - **Item 6 - Context builder, commit `b3d5e7a`.**

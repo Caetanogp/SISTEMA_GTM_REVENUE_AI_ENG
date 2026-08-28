@@ -33,13 +33,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
-TASKS_FILE = (
-    ROOT
-    / "docs"
-    / "specs"
-    / "SPEC-001-vertical-slice-account-prioritization"
-    / "tasks.md"
-)
+TASKS_FILE = ROOT / "docs" / "specs" / "SPEC-001-vertical-slice-account-prioritization" / "tasks.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
 TASKS_SECTION_HEADER = "## 2. Application"

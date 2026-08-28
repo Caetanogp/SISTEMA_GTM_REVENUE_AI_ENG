@@ -44,9 +44,7 @@ _WRITE_VERBS = "commit|merge|push|rebase|cherry-pick|revert"
 # Anchored at the start of a segment, with optional simple VAR=value prefixes (e.g. `FOO=bar git
 # commit ...`) - deliberately does NOT match `git -C path commit` or other pre-subcommand flags,
 # same limitation the original version had.
-_GIT_VERB_AT_START = re.compile(
-    rf"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+({_WRITE_VERBS})\b"
-)
+_GIT_VERB_AT_START = re.compile(rf"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+({_WRITE_VERBS})\b")
 _SEGMENT_SPLIT = re.compile(r"[;\n]|&&|\|\|?")
 _HEREDOC_START = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
 

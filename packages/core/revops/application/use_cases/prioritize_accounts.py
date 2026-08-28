@@ -29,9 +29,7 @@ class PrioritizeAccounts:
         scores = []
         for account in accounts:
             interactions = await self.accounts.list_interactions(organization_id, account.id)
-            opportunities = await self.accounts.list_open_opportunities(
-                organization_id, account.id
-            )
+            opportunities = await self.accounts.list_open_opportunities(organization_id, account.id)
             score, evidence = prioritize_account(list(interactions), list(opportunities), now)
             scores.append(
                 AccountScore(
