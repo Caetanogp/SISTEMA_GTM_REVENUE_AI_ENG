@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-5 done and committed (gate-confirmed), Item 6 (context builder) next"
-status: overnight-run-in-progress
+phase: "1 done - all 6 application-layer queue items committed, gate reports GOAL ACHIEVED. Halted at Item 7 (LangGraph) per AUTONOMOUS_QUEUE.md's HALT: PLAN-MODE-REQUIRED - correct stopping point, not a failure"
+status: application-layer-complete-halted-at-item-7
 ---
 
 # Current state
@@ -16,12 +16,26 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `7370b6e`. This is the overnight foreground run itself,
-actively working the queue (not a future agent reading a stale plan).
+On `feature/SPEC-001-application`, HEAD `b3d5e7a` (`feat(application): add context builder use
+case` - Item 6). This session picked up exactly where the prior one paused: Item 6's code
+(`packages/core/revops/application/context/builder.py`,
+`tests/unit/application/context/test_builder.py` and both `__init__.py`s) was already
+on disk and gate-green; the only remaining work was ticking `tasks.md` and committing. Ran
+`python scripts/autonomous_gate.py` first to confirm that state independently rather than trusting
+the briefing - it returned exactly the predicted "Item 6 gate is green but not yet ticked in
+tasks.md - tick it." with all five checks OK. Ticked the box, committed (`b3d5e7a`), then re-ran
+the gate: `GOAL ACHIEVED: all queue items done, full gate green.` (exit 0), all five checks OK.
 
-**Items 1-5 (application ports, DTOs, `PrioritizeAccounts`, `ProposeTask`, `DecideApproval`) are
-done, gate-confirmed, and committed.** Item 6 (`context/builder.py`) is next - it is the last item
-before the Item 7 LangGraph `HALT`.
+**All 6 application-layer queue items (ports, DTOs, `PrioritizeAccounts`, `ProposeTask`,
+`DecideApproval`, `context/builder.py`) are now done, gate-confirmed, and committed.** The gate
+took the "all tasks.md Application-section boxes ticked" exit-0 path rather than an explicit
+Item-7 HALT (exit 2) - `completed_task_count()` only reads `tasks.md`'s `## 2. Application`
+section (items 1-6); Item 7 (LangGraph) lives in `## 4. Agent graph`, outside what this script
+tracks, so it never becomes "the current item" for the gate to halt on. Functionally equivalent:
+`AUTONOMOUS_QUEUE.md`'s own Item 7 entry is still marked `HALT: PLAN-MODE-REQUIRED`, and per
+`AGENTS.md`'s standing complexity-flagging rule (commit `0c7eddb`) and the queue's explicit
+instruction, this session is stopping here without writing any LangGraph code. This is the correct
+end of the application-layer queue, not a gate malfunction.
 
 A second Claude Code session on this machine, `sistema-portfolio-ai-eng-2b`, has been actively
 co-working this same checkout tonight (contradicts this run's original briefing that it was the
@@ -66,6 +80,33 @@ is done, not left in place by default.
 
 ## Done
 
+- **Item 6 - Context builder, commit `b3d5e7a`.**
+  `packages/core/revops/application/context/builder.py`: assembles per-task context (account,
+  recent interactions, relevant opportunities) under an explicit token budget; drops
+  lowest-priority context in a documented order instead of overflowing the budget.
+  `tests/unit/application/context/test_builder.py` proves truncation behaviour under a tight
+  budget rather than silently overflowing.
+  Evidence - `python scripts/autonomous_gate.py` before the commit (confirming the prior session's
+  claim independently):
+  ```
+  Exit code 1
+  Item 6 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
+  Evidence - same command after ticking `tasks.md` and committing:
+  ```
+  Exit code 0
+  GOAL ACHIEVED: all queue items done, full gate green.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
 - **Item 5 - `DecideApproval` use case, commit `7370b6e`.**
   `packages/core/revops/application/use_cases/decide_approval.py`: `PendingApproval` (a
   `ProposedAction` plus a `decided` flag, defined here since Item 5's scope doesn't include
@@ -257,34 +298,27 @@ is done, not left in place by default.
 
 ## Next
 
-1. **Continue with Item 6 (`context/builder.py`) - the last item before the Item 7 HALT.**
-   Assembles per-task context (account, recent interactions, relevant opportunities) under an
-   explicit token budget; test must prove it truncates (drops lowest-priority context, in a
-   documented order) rather than silently overflowing. Scope as declared in `AUTONOMOUS_QUEUE.md`
-   right now is only `packages/core/revops/application/context/builder.py` and
-   `tests/unit/application/context/test_builder.py` - **confirmed still missing the two
-   `__init__.py` paths** (`application/context/__init__.py`,
-   `tests/unit/application/context/__init__.py`) the same way Items 3-5 were before `ab4db67`; this
-   session cannot fix `AUTONOMOUS_QUEUE.md` itself (`Write`/`Edit` on that path isn't in its
-   allow-list, same restriction as `.autonomous_gate_state.json` - see the Item 3 entry above for
-   why this session won't route around that or launder it through a peer). Expect to hit the same
-   scope-violation pause Item 3 did; the fix pattern is proven (peer session extends the queue's
-   declared scope, or nothing needs fixing at all if `AUTONOMOUS_QUEUE.md` already got updated by
-   the time this runs - check it fresh, don't assume this note is still accurate). After Item 6:
-   stop completely at Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
+1. **HALTED at Item 7 (LangGraph node/checkpoint/interrupt wiring) - `AUTONOMOUS_QUEUE.md` marks
+   it `HALT: PLAN-MODE-REQUIRED`, and this is the expected, correct stopping point for the whole
+   SPEC-001 application-layer queue, not a failure.** Reason (queue's own words, `spec.md`):
+   "LangGraph checkpoint persistence across a process restart is the riskiest technical unknown."
+   Scope would touch `packages/core/revops/infrastructure/agent/` - nothing there was created or
+   edited. Do not implement Item 7 casually or as a continuation of this session. The user resumes
+   it deliberately: **open a fresh session, Opus, plan mode**, for the checkpoint/interrupt/resume
+   design, per `AGENTS.md`'s Spec Driven Development section and the standing complexity-flagging
+   rule (commit `0c7eddb`).
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
-   `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
-3. Clean up pilot 3's stale worktree/branch (see above) once nothing is still locking it.
-4. If Item 7 (LangGraph) is reached: open a fresh session, Opus, plan mode, for the checkpoint/
-   interrupt/resume design - per the standing rule in `AGENTS.md`. Do not implement it casually.
-5. Persistence (tasks.md section 3) still needs Docker running - not verified end to end yet.
-6. Once the application layer is genuinely done and merged into `develop`, revisit whether
-   `--bg` + a real supervisor (this session polling `claude agents --json` and issuing
+   `pytest`, `check_agent_docs`) yourself before telling the user it's finished. (Done this session
+   before both the Item 6 tick and the final halt - see `## Done`.)
+3. Clean up pilot 3's stale worktree/branch (see Gotchas / earlier entries) once nothing is still
+   locking it - not attempted this session, still outstanding.
+4. Persistence (tasks.md section 3) still needs Docker running - not verified end to end yet.
+5. Once the application layer is genuinely done and merged into `develop`, revisit whether
+   `--bg` + a real supervisor (polling `claude agents --json` and issuing
    `claude --resume <id> --bg` after a detected usage-limit block) is worth building for the *next*
-   overnight run - it was deliberately not attempted tonight (untested mechanism, too risky right
-   before an unattended stretch), but foreground-only means someone has to physically leave a
-   terminal window open every time, which won't scale past tonight.
+   overnight run - deliberately not attempted so far (untested mechanism), but foreground-only
+   means someone has to physically leave a terminal window open every time, which won't scale.
 
 ## Gotchas
 
@@ -359,3 +393,9 @@ scope-check false positives from the baseline/infra-exemption bugs described in 
 trimmed from this file for length - every one is resolved, none are open issues. The narrative in
 `## Now` and `## Done` above is the accurate, deduplicated record; use `git log -p -- .handoff/STATE.md`
 if the raw text is ever needed.
+
+
+The 2026-08-28T08:11:12+00:00 HALT entry previously logged here (Item 6 scope violation on the two
+new `__init__.py` paths) is resolved - a prior session already had the correct code on disk, this
+session ticked and committed it (`b3d5e7a`) with no scope issue on the actual commit. See `## Done`
+for the Item 6 entry and `## Now` for the final gate re-run.
