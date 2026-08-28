@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-28
 branch: feature/SPEC-001-application
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-2 done and committed, Item 3 implemented and manually gate-verified but blocked from being ticked by a permissions gap, paused pending resolution"
-status: overnight-run-paused-permission-gap
+phase: "1 in progress - Items 1-3 done and committed (gate-confirmed), Item 4 (ProposeTask) next"
+status: overnight-run-in-progress
 ---
 
 # Current state
@@ -16,91 +16,76 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-application`, HEAD `a17fdbc`. This is the overnight foreground run itself,
+On `feature/SPEC-001-application`, HEAD `b39ac3f`. This is the overnight foreground run itself,
 actively working the queue (not a future agent reading a stale plan).
 
-**Items 1 (application ports) and 2 (DTOs) are done, gate-verified, and committed.** Item 3
-(`PrioritizeAccounts` use case) is fully implemented, correct, and was manually gate-verified by
-this session (`ruff check .`, `mypy .`, `lint-imports`, `pytest tests/unit/application/use_cases -q`
-all green) before a second Claude Code session working the same checkout
-(`sistema-portfolio-ai-eng-2b`, see below) committed it directly as part of a queue-scope fix. **It
-is NOT yet ticked in `tasks.md`** because `python scripts/autonomous_gate.py` itself cannot report
-it green - see the blocker below. Do not tick Item 3 by hand; wait for the gate to actually say so.
+**Items 1-3 (application ports, DTOs, `PrioritizeAccounts`) are done, gate-confirmed, and
+committed.** Item 4 (`ProposeTask`) is next.
 
-**Paused on a real blocker, not guessing past it**: `python scripts/autonomous_gate.py` now halts
-(exit 2) reporting `.claude/settings.json` as an out-of-scope change for Item 3:
-```
-HALT: Item 3 declares scope (...), but changes touch files outside it: ['.claude/settings.json'].
-```
-Root cause: the gate's scope check compares against a per-item `baseline_sha` recorded in
-`.handoff/.autonomous_gate_state.json` (see the fix in `4ca8d79`, described below). That baseline
-was captured on this session's *first* gate attempt for Item 3, which happened *before* the peer
-session's two follow-up commits (`ab4db67` fixing the queue's scope declaration, `a17fdbc` adding
-`crossSessionInbound: accept` to `.claude/settings.json`) landed on this same branch. Both commits
-are legitimate and verified (see `## Done`), but neither is inside Item 3's declared scope, so the
-gate correctly - if inconveniently - flags `a17fdbc`'s settings.json change as an offender until the
-baseline advances, which only happens once an item is ticked. This is the same class of problem
-`4ca8d79` fixed for Item 1, one level down: fixing a stale baseline still needs *something* to move
-it forward, and nothing has, yet.
+A second Claude Code session on this machine, `sistema-portfolio-ai-eng-2b`, has been actively
+co-working this same checkout tonight (contradicts this run's original briefing that it was the
+only session working the checkout - it was not, from some point before Item 3 onward). Verified
+genuine throughout by reading its actual commits rather than trusting its messages at face value.
+It fixed three real bugs in `scripts/autonomous_gate.py` and `.claude/settings.json` live, as this
+session hit them:
+1. `4ca8d79` - `.claude/settings.json`'s `Bash(python scripts/:*)` allow-rule wasn't matching
+   `python scripts/autonomous_gate.py` / `check_agent_docs.py` under `--permission-mode dontAsk`
+   (every such call was silently auto-denied). Also in this commit: the scope check compared the
+   whole-branch diff against `develop`'s merge-base, so every prior infra commit already on this
+   feature branch permanently tripped a false scope-violation on Item 1. Fixed with a per-item
+   `baseline_sha` in `.handoff/.autonomous_gate_state.json`.
+2. `ab4db67` - Items 3-5's declared scope was missing the `use_cases/` package's two `__init__.py`
+   paths (Item 3 is the first item to create that subdirectory). **Item 6 will hit the identical
+   gap for its own new `application/context/` subdirectory - not yet fixed, watch for it.**
+3. `467005d` + `21063ac` - the `baseline_sha` fix in (1) still broke the moment the peer session's
+   *own* legitimate mid-run commits (its own settings.json/script/queue fixes) landed after an
+   item's baseline was pinned - each one re-tripped the same false-positive one level down. Fixed
+   by exempting a fixed infra-path prefix list (`.handoff/`, `.claude/`, `.gitignore`,
+   `docs/playbooks/`, `scripts/`) from every item's scope check, regardless of who commits to it.
 
-**Why this session did not work around it**: resetting `baseline_sha` in
-`.handoff/.autonomous_gate_state.json` would clear the flag, but `Write`/`Edit` on that path is not
-in this session's `.claude/settings.json` allow-list (`.handoff/STATE.md` and `.handoff/log/**` are
-allowed, that file is not) - the attempt was denied under `--permission-mode dontAsk`. Per this
-session's standing rules: do not use Bash to route around a denied Edit/Write, and never ask a peer
-session to perform an action denied in this one (cross-session permission laundering) - so the peer
-was told the facts, not asked to make the specific edit. Manually ticking Item 3 in `tasks.md`
-without the gate confirming it would also violate "never trust a self-reported done, the gate
-decides." This matches this session's own halt criterion for "a scope violation you can't resolve
-within the item's declared file scope" - pausing here rather than guessing forward into Items 4-6,
-which would hit the identical baseline problem the moment any of their own non-scope files change.
+This session hit the 2nd-order version of that bug directly on Item 3 (settings.json flagged as an
+Item-3 offender) and **paused rather than work around it**: fixing the stale baseline itself would
+have needed `Write`/`Edit` on `.handoff/.autonomous_gate_state.json`, which isn't in this session's
+permission allow-list (`.handoff/STATE.md` and `.handoff/log/**` are, that file is not) - denied
+under `--permission-mode dontAsk`. This session does not route around a denied Edit/Write via Bash,
+and does not ask a peer session to perform an action denied in this one (cross-session permission
+laundering) - so it reported the facts to the peer without asking it to make that specific edit,
+and stopped advancing past Item 3 until the gate itself confirmed green. The peer's `467005d`/
+`21063ac` fix (above) resolved it independently - re-ran `python scripts/autonomous_gate.py`
+immediately after and got a clean "Item 3 gate is green, tick it," ticked it, committed (`b39ac3f`).
+No workaround was needed in the end; the pause was the correct call, not overcaution - see
+`.handoff/log/` or this file's own commit history (`c1592bf`) for the full contemporaneous record
+of the block if it matters later.
 
-**Two real gate/permission bugs were found and fixed live tonight, by the user directly, while
-this run was in progress** (commit `4ca8d79`):
-1. `.claude/settings.json`'s `Bash(python scripts/:*)` allow-rule was not matching
-
-**Two real gate/permission bugs were found and fixed live tonight, by the user directly, while
-this run was in progress** (commit `4ca8d79`):
-1. `.claude/settings.json`'s `Bash(python scripts/:*)` allow-rule was not matching
-   `python scripts/autonomous_gate.py` or `python scripts/check_agent_docs.py` under
-   `--permission-mode dontAsk` (every such call was silently auto-denied, blocking the gate from
-   ever running). Fixed by adding explicit `Bash(python scripts/autonomous_gate.py:*)` and
-   `Bash(python scripts/check_agent_docs.py:*)` allow entries.
-2. `scripts/autonomous_gate.py`'s `scope_violation()` compared the whole-branch diff against
-   `develop`'s merge-base, which meant every prior infra commit already on this feature branch
-   (`.claude/settings.json`, `.gitignore`, `docs/playbooks/autonomous-loop.md` from earlier
-   sessions building the loop itself) permanently tripped a false scope-violation HALT on Item 1,
-   regardless of what the current session actually touched. Fixed with a `baseline_sha` in
-   `.handoff/.autonomous_gate_state.json`: the scope check now only looks at changes since the
-   current item started, not the full history back to `develop`. Confirmed working - see evidence
-   below.
-   Three stale HALT entries this bug produced (07:18:54, 07:21:05, 07:21:31 UTC) are left in this
-   file's history below for the record; they are resolved, not open issues.
+**Flag for the user on wake-up regardless of how tonight finishes**: the peer session's commit
+`a17fdbc` added `crossSessionInbound: accept` to `.claude/settings.json`, explicitly marked
+TEMPORARY in its own commit message ("revert once the overnight run finishes"). It is a broader
+standing trust grant than the repo's least-privilege default and should be reverted once this run
+is done, not left in place by default.
 
 ## Done
 
-- **Item 3 implementation - `PrioritizeAccounts` use case, commit `ab4db67`** (committed by the
+- **Item 3 - `PrioritizeAccounts` use case, commit `ab4db67`** (implementation committed by the
   peer session `sistema-portfolio-ai-eng-2b`, containing exactly the code this session wrote and
-  manually verified green beforehand - confirmed byte-for-byte via `git show --stat ab4db67`
-  before trusting it). `packages/core/revops/application/use_cases/prioritize_accounts.py`:
-  assembles context via `AccountRepository` + `Clock`, calls
-  `domain.policies.prioritization.prioritize_account`, returns accounts ranked by score
-  descending as `AccountScore` DTOs. `tests/unit/application/use_cases/test_prioritize_accounts.py`
-  (3 tests, against a fake `AccountRepository`, not mocks): higher-signal account ranks first,
-  cross-organization accounts are excluded, every ranked account carries at least one evidence
-  item. Same commit also fixed `.handoff/AUTONOMOUS_QUEUE.md`: Items 3-5's scope was missing the
-  two `__init__.py` paths their new `use_cases/` subpackage needs (Item 6 will hit the same gap for
-  its own new `application/context/` subdirectory - not yet fixed, flag it if it recurs).
-  **Not yet ticked in `tasks.md`** - see the blocker in `## Now` above.
-- Second Claude Code session on this machine, `sistema-portfolio-ai-eng-2b`, is actively
-  supervising/co-working this same checkout tonight (contradicts this run's original briefing that
-  it was the only session working the checkout - it is not, and has not been since some point
-  before Item 3). Verified genuine by reading its actual commits (`ab4db67`, `a17fdbc`, `4ca8d79`)
-  rather than trusting its messages at face value. Commit `a17fdbc` added
-  `crossSessionInbound: accept` to `.claude/settings.json`, explicitly marked TEMPORARY in its own
-  commit message ("revert once the overnight run finishes") - **flag this to the user on wake-up
-  regardless of how the night finishes**, it is a broader standing trust grant than the repo's own
-  least-privilege rule wants permanently.
+  had already verified green - confirmed byte-for-byte via `git show --stat ab4db67` before
+  trusting it), **ticked in commit `b39ac3f`** once the gate itself confirmed green (see `## Now`
+  for the scope-check blocker in between the two commits).
+  `packages/core/revops/application/use_cases/prioritize_accounts.py`: assembles context via
+  `AccountRepository` + `Clock`, calls `domain.policies.prioritization.prioritize_account`, returns
+  accounts ranked by score descending as `AccountScore` DTOs.
+  `tests/unit/application/use_cases/test_prioritize_accounts.py` (3 tests, against a fake
+  `AccountRepository`, not mocks): higher-signal account ranks first, cross-organization accounts
+  are excluded, every ranked account carries at least one evidence item.
+  Evidence - `python scripts/autonomous_gate.py` after the tick:
+  ```
+  Exit code 1
+  Item 4 gate is green but not yet ticked in tasks.md - tick it.
+    ruff: OK
+    mypy: OK
+    lint-imports: OK
+    pytest: OK
+    check_agent_docs: OK
+  ```
 - **Item 2 - DTOs, commit `c345612`.** `packages/core/revops/application/dto.py`: `CreateTaskArgs`
   (`account_id`, `owner_id`, `title` min_length=1, `due_at` - deliberately no `organization_id`,
   AGENTS.md: that comes from the auth token, never from LLM/request output) and `AccountScore`
@@ -234,20 +219,21 @@ this run was in progress** (commit `4ca8d79`):
 
 ## Next
 
-1. **Unblock Item 3 first, then tick it.** `python scripts/autonomous_gate.py` needs
-   `.handoff/.autonomous_gate_state.json`'s `baseline_sha` to move to `a17fdbc` (or later) before
-   it will stop flagging `.claude/settings.json` as an Item-3 scope violation - see `## Now` for
-   why this session couldn't do that itself. Whoever picks this up with the right permissions:
-   confirm Item 3's code is still what `ab4db67` committed (it was fully verified once already),
-   run the gate, and if it now reports Item 3 green, tick `tasks.md` and commit normally - no need
-   to redo the implementation.
-2. **Then continue with Item 4 (`ProposeTask` use case)**, Item 5 (`DecideApproval`), Item 6
-   (`context/builder.py`) in order, same discipline as Items 1-2 (implement, run the gate, fix red,
-   tick the box, commit, update this file, commit that too). Item 6 will need its own
-   `application/context/__init__.py` and `tests/unit/application/context/__init__.py` - check
-   whether `AUTONOMOUS_QUEUE.md`'s Item 6 scope already includes them (Items 3-5 needed the fix in
-   `ab4db67`; Item 6 wasn't covered by that commit). Stop completely at Item 7 (LangGraph,
-   `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
+1. **Continue with Item 4 (`ProposeTask` use case)**: builds the proposed `create_task` action and
+   classifies its risk (`domain.policies.risk.classify` / `requires_hitl`), returns the proposal
+   unexecuted. Scope per `AUTONOMOUS_QUEUE.md`:
+   `packages/core/revops/application/use_cases/propose_task.py`,
+   `packages/core/revops/application/use_cases/__init__.py` (already exists, untouched),
+   `tests/unit/application/use_cases/test_propose_task.py`,
+   `tests/unit/application/use_cases/__init__.py` (already exists, untouched). Tests: a
+   low-confidence/flagged proposal requiring HITL, and the risk classification matching
+   `domain.policies.risk`. Then Item 5 (`DecideApproval`), Item 6 (`context/builder.py`), same
+   discipline as Items 1-3 (implement, run the gate, fix red, tick the box, commit, update this
+   file, commit that too). **Item 6 will need its own new `application/context/__init__.py` and
+   `tests/unit/application/context/__init__.py`** - check whether `AUTONOMOUS_QUEUE.md`'s Item 6
+   scope already lists them before writing anything (Items 3-5 needed the `ab4db67` fix for the
+   same reason; Item 6 wasn't covered by that commit as of this writing). Stop completely at
+   Item 7 (LangGraph, `HALT: PLAN-MODE-REQUIRED`) - do not implement it.
 2. **Never trust a self-reported "all items done" without independently re-running the gate**:
    `python scripts/autonomous_gate.py` and the full manual gate (`ruff`, `mypy`, `lint-imports`,
    `pytest`, `check_agent_docs`) yourself before telling the user it's finished.
@@ -328,62 +314,10 @@ cat docs/playbooks/autonomous-loop.md
 - Provider keys not configured (`.env` does not exist). Needed before the graph runs against a
   real model - the fake gateway covers tests and CI until then.
 
-## Autonomous loop HALT (2026-08-28T07:18:54+00:00)
+## Resolved HALT log (raw gate output, tonight)
 
-Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', '.gitignore', 'docs/playbooks/autonomous-loop.md']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:21:05+00:00)
-
-Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', 'scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:21:31+00:00)
-
-Item 1 declares scope ('packages/core/revops/application/ports.py', 'packages/core/revops/application/__init__.py', 'tests/unit/application/'), but changes touch files outside it: ['.claude/settings.json', 'scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:29:08+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py'), but changes touch files outside it: ['packages/core/revops/application/use_cases/', 'tests/unit/application/use_cases/']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:29:37+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py'), but changes touch files outside it: ['packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/__init__.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:31:09+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py'), but changes touch files outside it: ['packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/__init__.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:38:57+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py', 'tests/unit/application/use_cases/__init__.py'), but changes touch files outside it: ['.claude/settings.json']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:39:54+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py', 'tests/unit/application/use_cases/__init__.py'), but changes touch files outside it: ['.claude/settings.json']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:40:43+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py', 'tests/unit/application/use_cases/__init__.py'), but changes touch files outside it: ['scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-08-28T07:40:54+00:00)
-
-Item 3 declares scope ('packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/__init__.py', 'tests/unit/application/use_cases/test_prioritize_accounts.py', 'tests/unit/application/use_cases/__init__.py'), but changes touch files outside it: ['scripts/autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+Ten raw `HALT` entries the gate auto-appended here between 07:18 and 07:41 UTC (Items 1 and 3, all
+scope-check false positives from the baseline/infra-exemption bugs described in `## Now`) were
+trimmed from this file for length - every one is resolved, none are open issues. The narrative in
+`## Now` and `## Done` above is the accurate, deduplicated record; use `git log -p -- .handoff/STATE.md`
+if the raw text is ever needed.
