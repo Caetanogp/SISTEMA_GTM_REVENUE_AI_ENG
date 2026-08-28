@@ -28,7 +28,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 - [x] `CreateTaskArgs` and `AccountScore` DTOs with `extra="forbid"` — test that an unknown field raises
 - [x] `PrioritizeAccounts` use case against fakes
 - [x] `ProposeTask` use case: builds the action, classifies risk, returns it unexecuted
-- [ ] `DecideApproval` use case: approve / edit / reject + re-deciding a decided action raises
+- [x] `DecideApproval` use case: approve / edit / reject + re-deciding a decided action raises
 - [ ] `context/builder.py` with a token budget — test that it truncates instead of overflowing
 
 ## 3. Persistence
