@@ -20,6 +20,8 @@
       "Bash(docker compose logs:*)",
       "Bash(gitleaks:*)",
       "Bash(python scripts/:*)",
+      "Bash(python scripts/autonomous_gate.py:*)",
+      "Bash(python scripts/check_agent_docs.py:*)",
       "Bash(uv:*)",
       "Write(./packages/**)",
       "Edit(./packages/**)",

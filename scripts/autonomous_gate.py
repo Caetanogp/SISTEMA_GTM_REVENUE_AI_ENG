@@ -64,6 +64,8 @@ class QueueItem:
 class GateState:
     last_item: int | None = None
     consecutive_failures: int = 0
+    baseline_sha: str | None = None
+    baseline_done_count: int = 0
 
     @classmethod
     def load(cls) -> GateState:
@@ -73,13 +75,20 @@ class GateState:
                 return cls(
                     last_item=raw.get("last_item"),
                     consecutive_failures=int(raw.get("consecutive_failures", 0)),
+                    baseline_sha=raw.get("baseline_sha"),
+                    baseline_done_count=int(raw.get("baseline_done_count", 0)),
                 )
             except (json.JSONDecodeError, OSError, TypeError, ValueError):
                 pass
         return cls()
 
     def save(self) -> None:
-        payload = {"last_item": self.last_item, "consecutive_failures": self.consecutive_failures}
+        payload = {
+            "last_item": self.last_item,
+            "consecutive_failures": self.consecutive_failures,
+            "baseline_sha": self.baseline_sha,
+            "baseline_done_count": self.baseline_done_count,
+        }
         GATE_STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
@@ -125,22 +134,28 @@ def completed_task_count() -> tuple[int, int]:
     return sum(1 for b in boxes if b == "x"), len(boxes)
 
 
-def changed_files() -> list[str]:
-    """Every file touched relative to develop, staged or not - the honest current diff scope."""
-    merge_base = run("git", "merge-base", "develop", "HEAD").stdout.strip()
-    if not merge_base:
-        return []
-    committed = run("git", "diff", "--name-only", f"{merge_base}..HEAD").stdout.splitlines()
+def current_head() -> str:
+    return run("git", "rev-parse", "HEAD").stdout.strip()
+
+
+def changed_files(baseline: str) -> list[str]:
+    """Every file touched since baseline, staged or not - the honest current diff scope.
+
+    baseline is the commit before which everything is considered pre-existing (already-landed
+    prior items, or infra work committed before this item started) and therefore exempt from
+    this item's scope check - see the docstring on why this isn't develop's merge-base.
+    """
+    committed = run("git", "diff", "--name-only", f"{baseline}..HEAD").stdout.splitlines()
     working = run("git", "status", "--porcelain").stdout.splitlines()
     working_paths = [line[3:].strip().strip('"') for line in working if line.strip()]
     return sorted({*committed, *working_paths})
 
 
-def scope_violation(item: QueueItem) -> list[str]:
+def scope_violation(item: QueueItem, baseline: str) -> list[str]:
     if not item.scope:
         return []
     offenders = []
-    for path in changed_files():
+    for path in changed_files(baseline):
         if path.startswith(".handoff/"):
             continue  # handoff updates are always allowed, same exception as the branch hook
         if not any(path.startswith(prefix.rstrip("/")) for prefix in item.scope):
@@ -219,14 +234,23 @@ def main() -> int:
             "implement it; this needs the user in Plan Mode."
         )
 
-    offenders = scope_violation(current_item)
+    gate_state = GateState.load()
+    # baseline_sha marks "everything before this is pre-existing work, exempt from scope checks" -
+    # bootstrapped on first run, then advanced every time an item completes, so a scope check only
+    # ever looks at changes made *since the current item started*, never the branch's full history
+    # back to develop (which would wrongly flag every prior commit on this feature branch forever).
+    if gate_state.baseline_sha is None or gate_state.baseline_done_count != done_count:
+        gate_state.baseline_sha = current_head()
+        gate_state.baseline_done_count = done_count
+        gate_state.save()
+
+    offenders = scope_violation(current_item, gate_state.baseline_sha)
     if offenders:
         return halt(
             f"Item {current_item.number} declares scope {current_item.scope!r}, but changes touch "
             f"files outside it: {offenders}. Revert the out-of-scope changes or stop and ask."
         )
 
-    gate_state = GateState.load()
     gate_green, report = run_quality_gate()
 
     if gate_green:
