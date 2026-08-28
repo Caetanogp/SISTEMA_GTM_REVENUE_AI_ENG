@@ -151,13 +151,22 @@ def changed_files(baseline: str) -> list[str]:
     return sorted({*committed, *working_paths})
 
 
+_ALWAYS_ALLOWED_PREFIXES = (".handoff/", ".claude/", ".gitignore", "docs/playbooks/")
+
+
 def scope_violation(item: QueueItem, baseline: str) -> list[str]:
+    """Files an item may not touch, beyond a fixed allowlist of loop/repo infra.
+
+    The allowlist matters because a human supervisor session commits live fixes to this same
+    branch while the loop works (see AUTONOMOUS_QUEUE.md's rules) - those infra commits land
+    after an item's baseline is pinned and must never register as that item's own scope creep.
+    """
     if not item.scope:
         return []
     offenders = []
     for path in changed_files(baseline):
-        if path.startswith(".handoff/"):
-            continue  # handoff updates are always allowed, same exception as the branch hook
+        if any(path.startswith(prefix) for prefix in _ALWAYS_ALLOWED_PREFIXES):
+            continue
         if not any(path.startswith(prefix.rstrip("/")) for prefix in item.scope):
             offenders.append(path)
     return offenders
