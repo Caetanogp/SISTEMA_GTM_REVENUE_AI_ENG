@@ -146,7 +146,11 @@ def changed_files(baseline: str) -> list[str]:
     this item's scope check - see the docstring on why this isn't develop's merge-base.
     """
     committed = run("git", "diff", "--name-only", f"{baseline}..HEAD").stdout.splitlines()
-    working = run("git", "status", "--porcelain").stdout.splitlines()
+    # --untracked-files=all: without it, git collapses a brand-new untracked directory into one
+    # line for the directory itself (e.g. "?? context/") instead of listing the files inside it -
+    # every item that introduces a new subpackage would otherwise show a false violation on the
+    # directory path until something happened to `git add` it first.
+    working = run("git", "status", "--porcelain", "--untracked-files=all").stdout.splitlines()
     working_paths = [line[3:].strip().strip('"') for line in working if line.strip()]
     return sorted({*committed, *working_paths})
 

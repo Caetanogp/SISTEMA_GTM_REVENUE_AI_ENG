@@ -77,7 +77,9 @@ that spec's `plan.md` — the loop implements it, it does not re-derive it.
 ## Item 6 — Context builder
 
 - **Scope:** `packages/core/revops/application/context/builder.py`,
-  `tests/unit/application/context/test_builder.py`
+  `packages/core/revops/application/context/__init__.py`,
+  `tests/unit/application/context/test_builder.py`,
+  `tests/unit/application/context/__init__.py`
 - **What:** assembles per-task context (account, recent interactions, relevant opportunities)
   under an explicit token budget. AGENTS.md: "never dump the whole CRM into a prompt."
 - **Done when:** gate green, plus a test proving it truncates (drops lowest-priority context,
