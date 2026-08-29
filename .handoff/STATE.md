@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-29
 branch: feature/SPEC-001-persistence
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - application layer merged to develop, Phase 0 of the persistence plan done (Alembic bootstrapped, checkpoint-restart spike proven), about to launch the autonomous loop for the mechanical persistence items"
-status: persistence-phase-0-done-loop-about-to-launch
+phase: "1 blocked - autonomous loop for tasks.md section 3 (persistence) halted itself before Item 1's gate could ever go green, due to an environment blocker outside the loop's declared file scope"
+status: persistence-item1-blocked-on-editable-install-env-issue
 ---
 
 # Current state
@@ -16,183 +16,141 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-`develop` is at `adce03d` - the application layer (SPEC-001 tasks.md section 2, all 6 items) is
-merged there for real, gate-confirmed (`GOAL ACHIEVED`, 121 tests passing) before the merge, not
-just claimed. See `## Done` below for that verification's evidence.
+Launched the autonomous loop per `docs/playbooks/autonomous-loop.md` against
+`.handoff/AUTONOMOUS_QUEUE.md` items 1-4. `EnterWorktree` created
+`.claude/worktrees/spec-001-persistence-loop`; renamed to `feature/spec-001-persistence-loop`
+(`git branch -m`). Confirmed clean tree, correct branch, `docker compose ps` showed
+`revops-postgres` healthy. Wrote a full draft of Item 1 (models + tests), then hit a real
+environment blocker before the gate could ever pass — **stopped per the standing rule in the
+seed prompt and `AUTONOMOUS_QUEUE.md`: "if you hit ... a scope violation you can't resolve within
+an item's declared file scope ... stop, write the full situation to STATE.md ... and end your
+work."**
 
-New branch `feature/SPEC-001-persistence` (from `develop`) covers tasks.md section 3. A plan was
-written and approved in Plan Mode (Opus) before any code: `.claude/plans/com-base-nesse-arquivo-deep-abelson.md`.
-Its central finding, from mapping the actual code before planning: Item 7 (the LangGraph queue
-item, requested first) was out of order - `plan.md`'s own "order of work" puts persistence before
-the graph, and `DecideApproval`'s HITL write path has no real repositories to write through yet.
-Persistence first was the user's explicit choice after that finding was presented.
+**The blocker, with evidence:**
 
-**Phase 0 of that plan is done, on this branch, commits `ced44c5`, `1a8dad8`, `cb8a73a`,
-`cf9f640`, `3e60770`:**
+`revops` is resolved via a **global, per-user** Python install
+(`C:\Users\Caetanogp123\AppData\Roaming\Python\Python312\site-packages`, *not* a project-local
+`.venv`), through a PEP 660 editable-install finder
+(`__editable__.agentic_revops_platform-0.1.0.finder.__path_hook__`) that maps `revops.*` submodules
+to **absolute file paths baked in at `pip install -e ".[dev]"` time** — the main checkout's
+`packages/core/revops/...`, per `tasks.md`'s "verified 2026-08-26" note and every prior handoff
+log's install command. A git worktree is a genuinely separate directory tree on disk; the finder
+has no knowledge of it and keeps resolving to the main checkout's files regardless of `cwd`.
 
-1. Docker confirmed running, `docker compose up -d` succeeded, pgvector `0.8.6` verified via
-   `SELECT extname, extversion FROM pg_extension` - the tasks.md section 0 item that was blocked
-   ("Docker Desktop not running on this machine") is now genuinely unblocked.
-2. Dependencies added and audited before adding (`AGENTS.md` rule): `langgraph-checkpoint-postgres`,
-   `psycopg[binary,pool]`; `langgraph` pin tightened `>=0.2` -> `>=1.1,<2` (installed is `1.1.10`, a
-   major ahead of the old floor). `pip-audit` needed `REQUESTS_CA_BUNDLE` pointed at Avast's
-   HTTPS-interception CA to work at all on this machine (`requests`/`pip-audit` don't read
-   `NODE_EXTRA_CA_CERTS` the way `pip` itself does - a real local-environment quirk, not a project
-   issue). Found and patched one unrelated transitive advisory while in the area:
-   `langgraph-sdk` `0.3.13` -> `0.3.15` (two open PYSEC entries, patched version stays inside
-   `langgraph`'s own `<0.4.0` constraint).
-3. **The checkpoint-restart spike - the spec's own "riskiest technical unknown" - proven for real**,
-   not just planned: `tests/integration/test_langgraph_checkpoint_restart.py` runs a graph to an
-   `interrupt()` in one OS process, that process fully exits, and a **genuinely separate process
-   invocation** discovers the pending interrupt from `AsyncPostgresSaver`-persisted state alone and
-   resumes correctly with `Command(resume=...)`. Verified running (`pytest tests/integration -q`,
-   1 passed), not just written. Real finding along the way: **psycopg's async driver cannot run on
-   Windows' default `ProactorEventLoop`** - needs `asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())`
-   before `asyncio.run(...)`, guarded by `sys.platform == "win32"`. This is a standing requirement
-   for any future async Postgres code on this machine, not a one-off spike fix - already applied a
-   second time in `migrations/env.py` (below).
-4. **Alembic bootstrapped by hand**, not deferred to the loop: `alembic.ini` (repo root) and
-   `packages/core/revops/infrastructure/persistence/migrations/` (async template - SQLAlchemy is
-   async throughout every port except `Clock.now`, so the sync default template would have been
-   wrong), plus `models.py` with only `Base` defined (the real table classes are the loop's Item 1).
-   Done by hand specifically because `alembic.ini` lives at the repo root, outside
-   `.claude/settings.json`'s write allow-list - an autonomous session would have hit a predictable
-   permission wall on its very first action. Verified working against the real database:
-   `alembic current` and `alembic revision --autogenerate` both run clean.
-   **Second real finding**: the first autogenerate run, against a database that already had
-   `AsyncPostgresSaver.setup()` applied (from the spike above), generated a migration that would
-   have **dropped the LangGraph checkpoint tables** (`checkpoints`, `checkpoint_blobs`,
-   `checkpoint_writes`, `checkpoint_migrations`) - autogenerate has no way to know they belong to a
-   third-party library, not this schema. Fixed with an `include_name` filter in `env.py`; confirmed
-   the next autogenerate run is clean of them. That test migration was deleted, never applied.
-5. **`docs/decisions/ADR-0002-persistence-layer.md`** records the architecture decisions the
-   approved plan resolved (agent_actions.run_id nullable now / tightened later; agent_runs,
-   agent_actions, approvals as infrastructure tables with no domain entity; checkpoint tables owned
-   by `AsyncPostgresSaver.setup()`, never by a migration here; `SqlAlchemyUnitOfWork` composes
-   atomicity at the call site instead of changing `DecideApproval`'s signature) plus both findings
-   above.
-6. **`.handoff/AUTONOMOUS_QUEUE.md` rewritten** for section 3's 5 checkboxes -> 4 real queue items
-   (models, first migration, repositories + UnitOfWork, integration tests) + a renumbered HALT
-   (item 5, the LangGraph graph itself, unchanged in substance). Every item's scope already
-   includes the `__init__.py` paths for the new `tests/unit/infrastructure/` subpackage - closing,
-   before launch this time, the exact gap that caused two false-positive halts in the previous
-   overnight run (see `## Gotchas`). `scripts/autonomous_gate.py`'s `TASKS_SECTION_HEADER`/`_END`
-   repointed to `## 3. Persistence` / `## 4. Agent graph`. Gate state reset
-   (`.handoff/.autonomous_gate_state.json` deleted, gitignored) and reverified: reports
-   `Item 1 gate is green but not yet ticked` - correct, expected, nothing written yet.
+Proved this directly, twice:
+1. Added a diagnostic assertion inside a worktree test file: `models.__file__` printed the **main
+   checkout's** `packages/core/revops/infrastructure/persistence/models.py` path — the untouched
+   stub (`Base` only, no tables) — even though the worktree's copy of that same file had already
+   been rewritten with all ten tables. `sys.path` confirmed the AppData global site-packages +
+   the `__editable__...finder.__path_hook__` entry above, no project `.venv` anywhere in it.
+2. Ran `python scripts/autonomous_gate.py` for real (not simulated) from inside the worktree: it
+   executed `pytest tests/unit tests/architecture -q` and failed with the **exact same** symptom —
+   `Base.metadata.tables` empty, `KeyError: 'agent_actions'` etc. — proving this is not just my own
+   diagnostic script's artifact, it is what the gate itself would see for every item, forever.
+   (`lint-imports` also failed in that same run, but for an unrelated, pre-existing cause: a
+   Windows `cp1252` console `UnicodeEncodeError` inside import-linter's own `rich`-based renderer
+   when it prints its report — worth a look someday, not part of this blocker and not something I
+   touched.)
 
-**Not yet done, and this is the actual next action**: launch the loop against this queue for items
-1-4. See `## Next`.
+**Why I did not fix this myself, both live options considered and rejected:**
 
-## Done (prior sessions - condensed; full detail in git history and old `.handoff/log/` entries)
+- **Reinstall editable (`pip install -e ".[dev]"`, or `uv sync` — `uv` is not even on `PATH` here,
+  confirmed) from inside the worktree.** This is not in Item 1's declared scope, but more importantly
+  it would rebind a **global, shared, per-user** Python environment's package resolution away from
+  the main checkout and onto a worktree directory that gets deleted when this job/session ends —
+  breaking `import revops` for the user's own main-checkout terminal and any other concurrent
+  session on this machine the moment the worktree is removed. A hard-to-reverse, shared-system
+  side effect the "Executing actions with care" rules require confirming first, not guessing on.
+- **Add a `conftest.py` that fixes `sys.path` before any test imports `revops`.** Investigated: it
+  would need to be a *root*-level `conftest.py` (a nested one under `tests/unit/infrastructure/`
+  loads too late — `revops` is already resolved to the stale path by the time domain/application
+  tests import it earlier in the same pytest session, alphabetically before `infrastructure`). A
+  root `conftest.py` is outside every queue item's declared scope, and `scripts/autonomous_gate.py`'s
+  own `scope_violation()` check would correctly flag it and halt anyway.
 
-- Domain layer + governance hardening (commits `2e466e7`, `0c7eddb`, and the earlier handoff logs).
-- **Application layer, all 6 SPEC-001 tasks.md section 2 items**, built over an overnight
-  autonomous-loop run (3 pilots, ~6 real bugs found and fixed live in `scripts/autonomous_gate.py`
-  and `.claude/settings.json` while the loop ran - baseline-vs-develop scope diffing, missing
-  `__init__.py` in declared scope, git's untracked-directory collapsing in `git status`, a
-  `Bash(python scripts/:*)` permission-rule word-boundary bug, cross-session message delivery not
-  applying to an already-running session). Merged to `develop` at `adce03d` after an independent
-  `verify-before-done` pass (not the loop's own gate) found and fixed 3 more cosmetic formatting
-  drifts, cross-checked every item's "Done when" against real test names, and reverted the
-  temporary `crossSessionInbound: accept` trust grant. Evidence: `ruff`+`format` clean, `mypy`
-  strict clean (65 files), `lint-imports` 4/4, `pytest tests/unit` 118 passed + `tests/architecture`
-  2 passed, `gitleaks` no leaks, all before the merge commit.
-- Autonomous-loop infrastructure itself (`.handoff/AUTONOMOUS_QUEUE.md`, `scripts/autonomous_gate.py`,
-  the `feature/`-prefix worktree pattern for `--bg` sessions, the foreground-session pattern for
-  overnight runs that need `autoContinueAtUsageLimit` - confirmed this only works for interactive
-  sessions, `--bg` sessions get no wait-and-continue offer at all per the primary Claude Code docs).
-- SPEC-001 persistence Phase 0 - see `## Now` above for full detail and commit SHAs.
+Neither is a decision the loop should make unilaterally. This needs the user to pick a fix (see
+`## Next`).
+
+**State of Item 1's draft work** (commit `<see git log on this branch — committed as WIP, unverified>`):
+`packages/core/revops/infrastructure/persistence/models.py` (all ten tables — `organizations`,
+`users`, `accounts`, `contacts`, `opportunities`, `interactions`, `tasks`, `agent_runs`,
+`agent_actions`, `approvals` — following the domain entities field-for-field, `agent_actions.run_id`
+nullable per ADR-0002, no `onupdate`/cascade-delete on the three audit tables, `organization_id`
+indexed everywhere, unique `(organization_id, domain)` on accounts and `(organization_id, email)`
+on contacts) plus `tests/unit/infrastructure/{__init__.py,persistence/__init__.py,persistence/test_models.py}`.
+**None of this is verified** — `ruff`, `mypy` and `lint-imports` alone say nothing wrong (mypy and
+ruff read files directly off disk, not through the broken import path), but `pytest` — the thing
+that actually proves the tables are correct — cannot exercise this code at all until the blocker is
+fixed. Do not tick tasks.md section 3's first checkbox on the strength of this draft.
+
+## Done (prior sessions — condensed; full detail in git history and `.handoff/log/`)
+
+- Domain layer, application layer (all 6 SPEC-001 tasks.md section 2 items, merged to `develop` at
+  `adce03d`), and SPEC-001 persistence Phase 0 (Alembic bootstrap, checkpoint-restart spike,
+  ADR-0002, queue rewrite) — see `.handoff/log/2026-08-29-1929-claude.md` for full detail and every
+  commit SHA; nothing here has changed.
 
 ## Next
 
-1. **Launch the autonomous loop against `.handoff/AUTONOMOUS_QUEUE.md`'s items 1-4** (models,
-   migration, repositories, integration tests) - the actual next action. Prefer a foreground
-   interactive session (`claude --permission-mode dontAsk --model sonnet`) over `--bg`, per the
-   confirmed `autoContinueAtUsageLimit` limitation above - if the loop needs to survive a usage
-   window reset unattended, only the foreground pattern gets that for free.
-2. Watch for the two Windows/Postgres gotchas landing again: the event-loop policy (any new async
-   Postgres entry point needs it) and the checkpoint-table autogenerate trap (never let a migration
-   touch `checkpoints`/`checkpoint_blobs`/`checkpoint_writes`/`checkpoint_migrations`).
-3. On completion (gate exit 0) or the expected HALT (item 5, LangGraph): read what
-   `.handoff/STATE.md` actually says at that point before doing anything else.
-4. Independently re-verify with `verify-before-done` before merging to `develop` - the same
-   discipline used for the application layer, not a rubber stamp of the loop's own gate.
-5. When item 5 (LangGraph) is reached: fresh session, Opus, plan mode - the graph's own open
-   design questions (state shape, thread identity, static vs. dynamic interrupt, who calls
-   `DecideApproval`) are unchanged and still require the user, per `AGENTS.md`'s standing rule.
+1. **Decide how `revops` should resolve inside a worktree**, then have a human (not an unattended
+   loop) apply it. Two real options, not exhaustive:
+   - Reinstall editable **from the main checkout** normally (`pip install -e ".[dev]"`), and give
+     future loop runs a **project-local `.venv`** instead of the global per-user site-packages —
+     then each worktree gets its own `pip install -e ".[dev]"` inside its own `.venv`, cleanly
+     isolated, no shared-state risk. Bigger one-time setup change.
+   - Add a root `conftest.py` (`sys.path.insert(0, ...)` pointing at `sys.argv`/`__file__`-relative
+     `packages/core`) as a deliberate, reviewed change — then add its path to
+     `.handoff/AUTONOMOUS_QUEUE.md`'s always-allowed prefixes (alongside `.handoff/`, `.claude/`,
+     `docs/playbooks/`, `scripts/`) so future loop runs don't halt on it. Smaller change, still
+     shared-repo-wide, needs a real decision on whether that's the right permanent shape.
+2. Once fixed, verified with a real `pytest` run of `tests/unit/infrastructure/persistence/test_models.py`
+   from inside a fresh worktree (not the one from this run, which should be discarded once its draft
+   is reviewed/reused) — then resume the loop at Item 1 with a clean gate-state reset.
+3. Look at the `lint-imports` Windows `cp1252` `UnicodeEncodeError` noted above, independently of
+   item 1 — it will hit again the moment any item's gate run needs `lint-imports` to actually report
+   something (right now it's masked because the failure happens before it prints a real result).
+4. Resume `.handoff/AUTONOMOUS_QUEUE.md` items 1-4 in order once (1) and (2) are done. Nothing about
+   the plan, ADR-0002, or the queue's scope/ordering needs to change — this is a pure tooling
+   blocker, not a design one.
+5. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode — unchanged
+   from before this run.
 
 ## Gotchas
 
-- **`git checkout <branch>` / `git switch <branch>` can fail with `error: cannot stat '.claude':
-  Invalid argument`** when the target branch's `.claude/` tree differs from the current one -
-  reproduced multiple times. Most likely OneDrive Files-On-Demand / Windows Defender interference.
-  **Workaround, no working-tree files touched**: `git fetch . <source-branch>:<target-branch>`
-  fast-forwards `<target-branch>` without switching HEAD or writing any file. Not properly fixed -
-  the real fix (OneDrive "Always keep on this device", or a Defender exclusion) needs the user.
-- **`pre-commit` is unreliable locally even with `language: system` everywhere.** Standing pattern:
-  `pre-commit uninstall` -> commit -> `pre-commit install`, content verified by hand every time. Use
-  it without hesitation.
-- **`os.rmdir`/`shutil.rmtree` on a just-created directory can fail with `WinError 5: Acesso negado`**
-  - hit while re-bootstrapping the Alembic directory structure, same OneDrive/Defender interference
-  class as the git issue above, now confirmed to affect plain Python filesystem calls too, not just
-  git. Workaround: don't fight it - work around the leftover files/directories instead of insisting
-  on a clean recreate (this is what led to hand-writing `env.py` instead of rerunning
-  `alembic init -t async` after a partial failure).
-- **psycopg's async driver cannot run on Windows' default `ProactorEventLoop`.** Any code that opens
-  an async Postgres connection on this machine needs
-  `asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())` before `asyncio.run(...)`,
-  guarded by `sys.platform == "win32"`. Hit twice already (the checkpoint spike, `migrations/env.py`)
-  - expect it again in any composition root (API, worker) built on this machine.
-- **`alembic revision --autogenerate` will try to DROP the LangGraph checkpoint tables** if they
-  already exist in the target database and aren't excluded - `migrations/env.py`'s `include_name`
-  filter handles this. Never remove that filter, even if autogenerate insists those tables are
-  "removed" - they are owned by `AsyncPostgresSaver.setup()`, not this schema (ADR-0002).
-- `scripts/autonomous_gate.py`'s "gate is green but not yet ticked" message is accurate but can
-  read as "almost done" when nothing has been written yet for that item - the repo-wide gate is
-  trivially green when there's nothing new to break. Not a bug, just an imprecise message.
-- `.handoff/AUTONOMOUS_QUEUE.md`'s scope declarations must stay in the `- **Scope:** \`path\`,
-  \`path\`` format (backtick-quoted, comma-separated, wrapping onto a continuation line is fine).
-- Every new subpackage (a new directory under `tests/unit/` or `packages/core/revops/infrastructure/`)
-  needs its `__init__.py` listed in the declaring item's scope from the start - this caused two
-  false-positive scope-violation halts in the application-layer run before it was learned.
-- `git status --porcelain` collapses a brand-new untracked directory into one line for the
-  directory itself instead of listing files inside - `scripts/autonomous_gate.py`'s
-  `changed_files()` already uses `--untracked-files=all` to avoid this; don't remove that flag.
-- The branch-policy hook can't unblock itself - a commit that loosens its own rule for `develop`
-  still runs the *old* rule until merged.
-- `claude plugin install`/`claude mcp add` can rewrite `.claude/settings.json` wholesale - diff
-  after running one.
-- The domain layer must not import Pydantic - dataclasses only (import-linter + a textual test).
-- Windows host: use Git Bash. Heredocs with apostrophes break in this shell - use the editor tool
-  or a Python script for multi-line file writes.
-- `crossSessionInbound: accept` does not apply retroactively to a session already running when the
-  setting changes - it only affects sessions started after. A held cross-session message to an
-  already-running session still needs a human to approve the dialog, or the sender needs to wait
-  for the receiving session to independently retry (it usually does, since the underlying fix is
-  already committed and the receiving session re-checks state on its own).
+- **A git worktree does not see a global/per-user editable Python install.** `pip install -e` (this
+  repo has never used a project-local `.venv` — confirmed no `.venv` in the repo, `uv` not on `PATH`)
+  bakes an absolute path to the checkout it was run from into a PEP 660 finder in
+  `AppData\Roaming\Python\Python312\site-packages`. Every worktree's copy of `packages/core/revops`
+  is invisible to `pytest` (and therefore to `scripts/autonomous_gate.py`) until this is fixed for
+  real — see `## Now` and `## Next` above. This blocks **every future worktree-isolated loop run
+  that touches `packages/core/revops`**, not just this one.
+- `mypy .` and `ruff check .` do NOT surface the above problem — they read the files being checked
+  directly off disk rather than through the installed package's import path, so they will happily
+  pass on worktree edits that `pytest` can never see. Don't trust a green `mypy`/`ruff` alone as
+  proof that worktree code is real; `pytest` passing is the only proof that matters here.
+- `lint-imports` crashes with a Windows `cp1252` `UnicodeEncodeError` from its `rich`-console
+  renderer in at least one environment state (seen once, inside the worktree, cause not yet
+  isolated — see `## Next` item 3).
+- All gotchas from `.handoff/log/2026-08-29-1929-claude.md` (OneDrive/Defender git & filesystem
+  interference, psycopg's Windows event-loop policy requirement, the checkpoint-table autogenerate
+  trap, pre-commit unreliability, missing `__init__.py` in declared scope) still apply unchanged.
 
 ## Resume
 
 ```bash
 cd "SISTEMA_PORTFOLIO_AI_ENG"
-git status                                  # confirm branch and clean tree first
-git rev-parse --abbrev-ref HEAD             # should already be feature/SPEC-001-persistence
-docker compose ps                           # confirm revops-postgres is healthy
-python scripts/autonomous_gate.py           # sanity check before launching anything
-cat .handoff/AUTONOMOUS_QUEUE.md
-cat docs/decisions/ADR-0002-persistence-layer.md
-cat docs/playbooks/autonomous-loop.md
+git status                                          # main checkout: should still be clean, on feature/SPEC-001-persistence
+git worktree list                                   # find .claude/worktrees/spec-001-persistence-loop and its branch
+git log --oneline feature/spec-001-persistence-loop -5   # see the WIP commit(s) left there
+docker compose ps                                   # confirm revops-postgres still healthy
 ```
+Read `## Next` above before doing anything else. This is a tooling decision, not a design one —
+do not re-derive ADR-0002 or re-plan the persistence layer, both are still correct.
 
 ## Open questions
 
-- Does `/goal <condition>` actually work as the seed prompt of a `claude --bg` session? Still
-  genuinely untested. Moot for this launch either way, since the foreground pattern is preferred
-  now specifically for the `autoContinueAtUsageLimit` behavior.
-- Should the OneDrive/Defender interference get a real fix (folder pinned "always available", or a
-  Defender exclusion) rather than working around it indefinitely? Needs the user.
-- Provider keys not configured (`.env` does not exist). Not needed for this phase (no LLM call in
-  persistence work); needed before the graph phase runs against a real model.
-- Which items from `docs/tooling/RESEARCH.md` to install next? Still recommended just-in-time, once
-  there's real UI/DB work to point them at.
+- Which of the two `## Next` item 1 options (project-local `.venv` per worktree, vs. a permanent
+  root `conftest.py`) does the user want? Needs the user — this is exactly the kind of environment
+  decision with more than one defensible answer that an unattended loop should not pick on its own.
+- Same open questions as `.handoff/log/2026-08-29-1929-claude.md`: OneDrive/Defender exclusion,
+  provider keys not configured, `docs/tooling/RESEARCH.md` items still just-in-time.
