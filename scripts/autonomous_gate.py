@@ -7,7 +7,7 @@ with no independent check). This script is what `/goal` actually evaluates inste
 condition, checked by code, not judgment.
 
 Reads .handoff/AUTONOMOUS_QUEUE.md for the ordered list of items and their file scope, and
-docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md's "## 2. Application" section
+docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md's "## 3. Persistence" section
 for progress (the loop ticks boxes there as it completes items - this script trusts and verifies
 those ticks, it does not duplicate them).
 
@@ -36,8 +36,8 @@ QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
 TASKS_FILE = ROOT / "docs" / "specs" / "SPEC-001-vertical-slice-account-prioritization" / "tasks.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
-TASKS_SECTION_HEADER = "## 2. Application"
-TASKS_SECTION_END = "## 3. Persistence"
+TASKS_SECTION_HEADER = "## 3. Persistence"
+TASKS_SECTION_END = "## 4. Agent graph"
 MAX_CONSECUTIVE_FAILURES = 5
 
 _ITEM_HEADER = re.compile(r"^## Item (\d+) — (.+?)(?: — \*\*HALT: (\S+)\*\*)?$", re.MULTILINE)
