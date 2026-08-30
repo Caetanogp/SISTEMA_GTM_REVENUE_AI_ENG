@@ -9,6 +9,17 @@ status: spec-002-in-progress
 
 # Current state
 
+## SPEC-002 autonomous loop pause (2026-08-30)
+
+Item 2 completed in commits `2dc37ce` and `b7a8369`. The next queue entry, Item 3, needs a
+deliberate design pass before implementation: the agreed plan names the application concerns
+(staging, confirmation, grouping, idempotency, and partial results) but does not define the use
+case boundaries or transactional ownership between synchronous confirmation and asynchronous
+worker processing. Those choices determine the DTO and port shapes consumed by Items 4-7, so they
+must not be guessed by the autonomous loop. Resume only after recording the chosen application
+contract design in `docs/specs/SPEC-002-lead-account-ingestion/plan.md` (or an ADR if it constrains
+future specs), then rerun `python scripts/autonomous_gate.py` from the feature branch.
+
 ## SPEC-002 autonomous pilot (2026-08-30)
 
 Generalized `scripts/autonomous_gate.py` in commit `6ad1fb5` so the queue selects its active
