@@ -1,13 +1,28 @@
 ---
-agent: claude-code
+agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 closeout complete (Item 15, the last queue item). Branch feature/SPEC-001-agent-graph is ready for the user's own verify-before-done pass and merge into develop - not done by this session, per the autonomous-loop playbook."
-status: spec-001-closeout-complete-ready-for-user-merge
+phase: "SPEC-001 closeout verified independently; awaiting user-directed merge into develop."
+status: spec-001-verified-ready-for-user-merge
 ---
 
 # Current state
+
+## Codex verify-before-done (2026-08-30)
+
+Independent verification completed on `feature/SPEC-001-agent-graph` at commit `dfa039a`.
+The working tree was clean before and after verification. Results: `ruff check .` passed;
+`ruff format --check .` reported 127 files already formatted; `mypy .` passed on 103 source
+files; `lint-imports` kept 4 contracts with 0 broken; `pytest tests/unit -q` passed 183 tests;
+`pytest tests/integration -q` passed 18 tests; `pytest tests/adversarial -q` passed 3 tests;
+`python -m evals.run --suite all` scored tool selection 13/13 and lead scoring 15/15;
+`python scripts/check_agent_docs.py` passed; and `gitleaks detect --no-git` found no leaks.
+
+The 10 acceptance criteria are mapped to concrete evidence in
+`docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md:122-148`.
+No merge, push, or PR publication was performed. The branch is ready for the user's requested
+diff review and merge decision.
 
 ## Claude Code overnight loop (2026-08-30, Item 15 - SPEC-001 closeout, final item)
 

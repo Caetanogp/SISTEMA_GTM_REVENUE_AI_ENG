@@ -143,3 +143,17 @@ Command: `pytest tests/unit tests/integration tests/adversarial -q` (integration
 | 10 | Cross-org isolation: 403, no leaked rows | `tests/integration/test_agent_runs_api.py:286` (`test_agent_run_endpoints_reject_cross_org_access`) and `tests/adversarial/test_agent_security.py:104` (`test_cross_org_create_task_attempt_is_rejected_before_execution`) |
 
 Additional failure-path coverage beyond the 10 numbered criteria: `tests/integration/test_agent_runs_api.py:263` (401, missing auth) and `:331` (422, invalid payload); `tests/adversarial/test_agent_security.py:64` (skip-approval prompt injection stays inside the untrusted-content fence) and `:83` (system-prompt extraction attempt).
+
+### Independent verify-before-done evidence (2026-08-30)
+
+Executed on branch `feature/SPEC-001-agent-graph` at commit `dfa039a` with a clean working tree:
+
+- `ruff check .` and `ruff format --check .` passed (127 files already formatted)
+- `mypy .` passed (103 source files)
+- `lint-imports` passed (4 contracts kept, 0 broken)
+- `pytest tests/unit -q` passed (183 tests)
+- `pytest tests/integration -q` passed (18 tests)
+- `pytest tests/adversarial -q` passed (3 tests)
+- `python -m evals.run --suite all` passed (tool selection 13/13; lead scoring 15/15)
+- `python scripts/check_agent_docs.py` passed
+- `gitleaks detect --no-git` passed with no leaks found
