@@ -1,0 +1,18 @@
+# Minimum score each suite must meet for evals/gate.py to pass.
+#
+# TOML, not YAML: PyYAML is not a dependency of this project (see pyproject.toml), and the
+# autonomous-loop playbook treats adding a new dependency as a signal to stop and ask, not to
+# add one. Python's stdlib `tomllib` (3.11+) parses this with zero new dependencies.
+
+[lead_scoring]
+# lead_scoring's "model" is the real, deterministic prioritize_account domain policy - the dataset
+# is a regression guard, not a quality measurement. Any drop below 1.00 is a real regression.
+min_exact_match = 1.00
+
+[tool_selection]
+# tool_selection's baseline is an explicitly naive keyword heuristic (see
+# evals/scorers/tool_selection.py) standing in until a real LLM-backed tool router exists. The
+# threshold is set below the current measured accuracy on purpose, so growing the dataset with
+# harder adversarial cases doesn't instantly fail the gate on a heuristic that was never meant to
+# be the final answer.
+min_accuracy = 0.80

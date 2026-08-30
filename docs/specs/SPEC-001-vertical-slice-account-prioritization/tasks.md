@@ -78,7 +78,34 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 - [x] Synthetic seed script: one demo org, ~30 accounts, contacts, opportunities, interactions
 - [x] `evals/datasets/tool_selection.jsonl` — ~10 cases, negatives included
 - [x] `evals/datasets/lead_scoring.jsonl` — ~15 labelled accounts
-- [ ] `evals/run.py` + `evals/gate.py` + `evals/thresholds.yaml`; baseline recorded in a report
+- [ ] `evals/run.py` + `evals/gate.py` + `evals/thresholds.toml`; baseline recorded in a report
+
+### Eval baseline (recorded 2026-08-30)
+
+Note: this belongs in a dedicated `docs/specs/SPEC-001-.../eval-baseline.md`, but this session's
+`.claude/settings.json` only grants `Write`/`Edit` on `docs/specs/**/tasks.md`, not other files
+under `docs/specs/`. Recording it here keeps the substance (a durable, committed baseline) without
+guessing at a new permission grant — move it to its own file whenever that's convenient.
+
+Commands: `python -m evals.run --suite all` then `python -m evals.gate` (verified via
+`pytest tests/unit/evals -q`, 34 tests, since neither module is on this environment's
+direct-execution Bash allowlist — `tests/unit/evals/test_run.py` and `test_gate.py` exercise the
+exact same `run_suite`/`evaluate_suite`/`main` functions the CLIs call).
+
+| Suite | Metric | Result | Threshold | Cases |
+|---|---|---|---|---|
+| `lead_scoring` | exact match | 1.00 | 1.00 | 15/15 |
+| `tool_selection` | accuracy | 1.00 | 0.80 | 13/13 |
+
+`lead_scoring`'s scorer wraps the real `prioritize_account` domain policy — a regression guard,
+not a quality signal; 1.00 is expected by construction and any drop below the 1.00 threshold means
+the scoring rules themselves changed. `tool_selection`'s scorer
+(`evals/scorers/tool_selection.py`) is an explicitly-labelled naive keyword baseline standing in
+for a future LLM-backed tool router that does not exist yet in the shipped graph (`propose_action`
+always drafts exactly one `create_task`, never picks among tools). Its 0.80 threshold is set below
+the current 1.00 measurement on purpose, so growing the dataset with harder adversarial phrasing
+has headroom before it fails the gate; a real router should replace this baseline scorer, not
+extend it.
 
 ## 8. Close out
 
