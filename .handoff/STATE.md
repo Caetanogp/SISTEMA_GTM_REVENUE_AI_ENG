@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 remaining data/evals and closeout work is queued; Item 8 is next."
-status: queue-reconciled-item8-ready
+phase: "SPEC-001 Item 8 synthetic demo seed is complete; Item 9 is next."
+status: item8-pilot-green
 ---
 
 # Current state
@@ -31,6 +31,12 @@ section is also unchecked. The queue and `autonomous_gate.py` currently do not m
 the gate counts the remaining data/evals and closeout sections now. The queue parser and gate were
 fixed and committed as `a356437`; the implementation baseline was committed as `da756d6`.
 
+Item 8 is complete on this branch. `python scripts/seed_demo.py` ran successfully twice
+sequentially and twice concurrently after `alembic upgrade head`; both concurrent processes exited
+0. The database contains exactly 1 demo organization, 1 user, 30 accounts, 30 contacts, 30
+opportunities, and 60 interactions. Stable UUIDs plus a PostgreSQL transaction advisory lock make
+repeated and concurrent invocations deterministic.
+
 ## Done (this spec; full narrative in `.handoff/log/2026-08-30-0106-claude.md`)
 
 - SPEC-001 persistence remains merged on `develop`; this branch builds on that baseline with the
@@ -47,8 +53,9 @@ fixed and committed as `a356437`; the implementation baseline was committed as `
 
 ## Next
 
-1. Implement and verify Item 8, the synthetic seed, using the reconciled queue.
-2. Execute Items 9-11 for the eval datasets and offline baseline, then complete closeout items 12-15.
+1. Implement and verify Item 9, the tool-selection eval dataset.
+2. Execute Items 10-11 for the lead-scoring dataset and offline baseline, then complete closeout
+   items 12-15.
 3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
    SPEC-001 and roadmap placeholders.
 

@@ -75,7 +75,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 
 ## 7. Data and evals
 
-- [ ] Synthetic seed script: one demo org, ~30 accounts, contacts, opportunities, interactions
+- [x] Synthetic seed script: one demo org, ~30 accounts, contacts, opportunities, interactions
 - [ ] `evals/datasets/tool_selection.jsonl` — ~10 cases, negatives included
 - [ ] `evals/datasets/lead_scoring.jsonl` — ~15 labelled accounts
 - [ ] `evals/run.py` + `evals/gate.py` + `evals/thresholds.yaml`; baseline recorded in a report
