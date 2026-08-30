@@ -78,7 +78,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 - [x] Synthetic seed script: one demo org, ~30 accounts, contacts, opportunities, interactions
 - [x] `evals/datasets/tool_selection.jsonl` — ~10 cases, negatives included
 - [x] `evals/datasets/lead_scoring.jsonl` — ~15 labelled accounts
-- [ ] `evals/run.py` + `evals/gate.py` + `evals/thresholds.toml`; baseline recorded in a report
+- [x] `evals/run.py` + `evals/gate.py` + `evals/thresholds.toml`; baseline recorded in a report
 
 ### Eval baseline (recorded 2026-08-30)
 
