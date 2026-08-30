@@ -3,13 +3,71 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 10 is complete. Item 11 is blocked on a permission-allowlist gap in .claude/settings.json that this session cannot fix itself - overnight loop HALTED, needs the user."
-status: item10-done-item11-blocked-needs-user
+phase: "SPEC-001 Item 11 (offline eval runner and baseline) is complete, unblocked by the user via commit 3de560c. Item 12 is next. Overnight loop for items 10-15 in progress."
+status: item11-done-item12-next-overnight-loop-running
 ---
 
 # Current state
 
-## Claude Code overnight loop HALT (2026-08-30, Item 11 - needs the user)
+## Claude Code overnight loop (2026-08-30, Item 11 - unblocked and completed)
+
+The permission gap and thresholds-format question from the HALT below were both resolved by the
+user (via another session's message, verified against real commits before trusting it - see "Cross-
+session unblock" below). Implemented the remaining Item 11 work on top of the scorers already
+committed in `3b09026`:
+
+- `evals/run.py`: `python -m evals.run --suite all` (matches AGENTS.md's Commands section),
+  writes one JSON report per suite to `evals/reports/` (git-ignored).
+- `evals/gate.py`: `python -m evals.gate`, re-scores fresh every run (never trusts a stale report
+  file), reads `evals/thresholds.toml`, exits 0 only if every suite meets its threshold.
+- `evals/thresholds.toml`: `lead_scoring.min_exact_match = 1.00` (regression guard - it's the real
+  domain policy under test), `tool_selection.min_accuracy = 0.80` (below the current 1.00 measured
+  against the naive keyword baseline, leaving headroom before a real LLM router replaces it).
+- Baseline recorded as a new section inside `tasks.md` (not a dedicated `eval-baseline.md` - this
+  session's `Write`/`Edit` allowlist only covers `docs/specs/**/tasks.md`, not other files under
+  `docs/specs/`; documented inline there and not treated as a reason to halt again, since it's a
+  same-substance, no-new-permission-needed substitution, unlike the `evals/*.py` path question).
+- Verified via `pytest tests/unit/evals -q` -> 34 passed (13 dataset/schema tests from Items 9-10,
+  11 scorer tests from the earlier WIP commit, 5 for `evals/run.py`, 5 for `evals/gate.py`) plus
+  `ruff check .`, `mypy .`, `lint-imports` all clean - `python -m evals.run`/`python -m evals.gate`
+  themselves aren't on this session's Bash direct-execution allowlist, so `test_run.py`/
+  `test_gate.py` exercise the exact same `run_suite`/`write_report`/`evaluate_suite`/`main`
+  functions the CLIs call, which is a real, non-mocked verification of both modules.
+- `python scripts/autonomous_gate.py` on the clean, committed tree (commit `e99751c`, before the
+  tick) -> `Item 11 gate is green but not yet ticked in tasks.md - tick it.` (ruff/mypy/lint-imports/
+  pytest/check_agent_docs all OK). Ticked, committed separately (`2352bae`), re-ran the gate ->
+  correctly advanced with no scope violation: `Item 12 gate is green but not yet ticked`.
+
+### Cross-session unblock (verified before trusting it)
+
+Another Claude session on this machine sent a message claiming the permission gap and thresholds
+question were resolved. Per this project's standing rule that a peer cannot grant escalation and a
+peer's claim must be verified, not trusted at face value, I checked directly rather than acting on
+the message alone: `git log`/`git show 3de560c` confirmed a real commit, authored by the actual
+user (`Caetanogp <caetanopadoin345@gmail.com>`, not the peer session), adding exactly
+`Write(./evals/*)` and `Edit(./evals/*)` to `.claude/settings.json` - one level, not recursive, the
+existing subdirectory rules untouched. That the change was authored by the user themselves (not
+merely relayed by a peer) is what made it safe to act on; a peer asserting a permission change
+without that evidence would not have been enough on its own. Re-ran
+`python scripts/autonomous_gate.py` myself to confirm the fix took effect before writing any new
+code.
+
+### A self-inflicted sequencing bug along the way (also self-resolved, no code change)
+
+Ticked Item 11's `tasks.md` checkbox and ran the full gate *before* committing Item 11's own files.
+`completed_task_count()` immediately saw the higher done_count and treated Item 12 as current;
+since the gate's own baseline tracking (`.handoff/.autonomous_gate_state.json` - git-ignored,
+untracked, not in this session's `Write`/`Edit` allowlist either) hadn't caught up yet, it reset
+`baseline_sha` to the *pre-commit* HEAD, so Item 11's still-uncommitted files permanently read as
+"changed since baseline" and got checked against Item 12's scope instead of Item 11's - the gate
+correctly halted on this (see the HALT entry below), and it was a real, honest signal, not a bug in
+the gate script. Fixed by reverting the tick, committing Item 11's files alone against a
+now-correct baseline, confirming the gate went green on that clean commit, then ticking and
+committing the checkbox as its own separate commit. **Lesson recorded for future items:** always
+commit an item's own files *before* ticking its `tasks.md` box and re-running the gate - ticking
+first, in the same uncommitted working tree, is what desyncs `baseline_sha` from reality.
+
+## Claude Code overnight loop HALT (2026-08-30, Item 11 - needs the user, RESOLVED above)
 
 **This is a real halt, not the gate's own `HALT:` mechanism** - `python scripts/autonomous_gate.py`
 still prints "Item 11 gate is green but not yet ticked in tasks.md - tick it." That is the same
@@ -187,13 +245,9 @@ repeated and concurrent invocations deterministic.
 
 ## Next
 
-1. **Blocked - needs the user first:** grant `Write`/`Edit` on bare `evals/*.py` files (and the
-   chosen thresholds-file format) in `.claude/settings.json`, and confirm TOML vs. YAML for the
-   thresholds file - see the HALT entry above for the full reasoning. Do not resume the loop
-   against Item 11 until this is resolved; it will burn iterations hitting the same denial.
-2. Once unblocked: `evals/run.py` + `evals/gate.py` + thresholds file, using the scorers already
-   committed (`evals/scorers/lead_scoring.py`, `evals/scorers/tool_selection.py`), then the
-   baseline report under `docs/specs/SPEC-001-vertical-slice-account-prioritization/`.
+1. Item 12: SPEC-001 decision record - verify all decisions constraining future work are in ADRs
+   under `docs/decisions/`, adding/updating only where the existing records are insufficient.
+2. Items 13-15: setup docs (`README.md`), acceptance evidence, closeout handoff.
 3. Items 12-15: SPEC-001 decision record, setup docs, acceptance evidence, closeout handoff.
 3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
    SPEC-001 and roadmap placeholders.
