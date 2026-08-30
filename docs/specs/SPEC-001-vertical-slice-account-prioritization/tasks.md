@@ -112,7 +112,12 @@ extend it.
 - [x] ADR for anything decided along the way that constrains future work
 - [x] `README.md` updated with real setup steps that a stranger can follow
 - [x] All 10 acceptance criteria in `spec.md` demonstrated, with evidence
-- [ ] `.handoff/STATE.md` updated; PR opened into `develop` with the template filled in
+- [x] `.handoff/STATE.md` updated; PR opened into `develop` with the template filled in
+
+Note: "PR opened" here means the PR **body** is drafted in full in `.handoff/STATE.md`'s Item 15
+entry, ready to paste - opening/publishing the actual PR (no GitHub remote is confirmed configured
+from this session) is the user's own action, per `docs/playbooks/autonomous-loop.md`'s "does not
+push anywhere" rule and this repo's branch policy.
 
 ### Acceptance criteria evidence (Item 14, recorded 2026-08-30)
 
