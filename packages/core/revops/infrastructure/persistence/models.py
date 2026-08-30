@@ -23,7 +23,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeEngine
@@ -90,6 +90,78 @@ class Contact(Base):
     email: Mapped[str] = mapped_column(String(320))
     full_name: Mapped[str] = mapped_column(String(255))
     title: Mapped[str] = mapped_column(String(255), default="")
+
+
+class IngestionJob(Base):
+    """A tenant-scoped, explicitly confirmed import preview and its lifecycle."""
+
+    __tablename__ = "ingestion_jobs"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "idempotency_key", name="uq_ingestion_jobs_org_idempotency_key"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    source: Mapped[str] = mapped_column(String(128))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))
+    failure_code: Mapped[str | None] = mapped_column(String(128), default=None)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class IngestionItem(Base):
+    """One normalized staged row; all outcomes are explicit and non-lossy."""
+
+    __tablename__ = "ingestion_items"
+    __table_args__ = (
+        UniqueConstraint("ingestion_job_id", "row_number", name="uq_ingestion_items_job_row"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    ingestion_job_id: Mapped[UUID] = mapped_column(ForeignKey("ingestion_jobs.id"), index=True)
+    row_number: Mapped[int] = mapped_column(Integer)
+    company_name: Mapped[str | None] = mapped_column(String(255), default=None)
+    domain: Mapped[str | None] = mapped_column(String(255), default=None, index=True)
+    email: Mapped[str | None] = mapped_column(String(320), default=None)
+    full_name: Mapped[str | None] = mapped_column(String(255), default=None)
+    title: Mapped[str | None] = mapped_column(String(255), default=None)
+    validation_codes: Mapped[list[str]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(32))
+    account_outcome: Mapped[str] = mapped_column(String(32))
+    contact_outcome: Mapped[str] = mapped_column(String(32))
+    enrichment_outcome: Mapped[str] = mapped_column(String(32))
+    account_id: Mapped[UUID | None] = mapped_column(ForeignKey("accounts.id"), default=None)
+    contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id"), default=None)
+    enrichment_id: Mapped[UUID | None] = mapped_column(default=None)
+
+
+class AccountEnrichment(Base):
+    """An immutable deterministic profile snapshot created for one imported account."""
+
+    __tablename__ = "account_enrichments"
+    __table_args__ = (
+        UniqueConstraint(
+            "ingestion_job_id",
+            "account_id",
+            "provider",
+            "schema_version",
+            name="uq_account_enrichments_job_account_provider_schema",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    ingestion_job_id: Mapped[UUID] = mapped_column(ForeignKey("ingestion_jobs.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    account_id: Mapped[UUID] = mapped_column(ForeignKey("accounts.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(64))
+    schema_version: Mapped[str] = mapped_column(String(64))
+    profile_json: Mapped[dict[str, object]] = mapped_column(JSONB)
+    created_at: Mapped[datetime]
 
 
 class Opportunity(Base):
