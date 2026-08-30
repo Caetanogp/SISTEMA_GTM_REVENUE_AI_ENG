@@ -63,6 +63,7 @@ reachable). Reuse it; do not create a second one.
 ## Item 2 — First Alembic migration
 
 - **Scope:** `packages/core/revops/infrastructure/persistence/migrations/versions/`
+- **Closes:** 2 tasks.md checkboxes
 - **Depends on:** item 1.
 - **What:** `alembic revision --autogenerate -m "<message>"` against the running docker-compose
   Postgres, then **read the generated file line by line** before accepting it

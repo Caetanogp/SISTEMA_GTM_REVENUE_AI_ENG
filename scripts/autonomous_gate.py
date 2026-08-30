@@ -44,6 +44,7 @@ _ITEM_HEADER = re.compile(r"^## Item (\d+) — (.+?)(?: — \*\*HALT: (\S+)\*\*)
 _SCOPE_BLOCK = re.compile(r"^- \*\*Scope:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL)
 _BACKTICK_PATH = re.compile(r"`([^`]+)`")
 _TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
+_CLOSES = re.compile(r"^- \*\*Closes:\*\* (\d+) tasks\.md checkboxes?$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,16 @@ class QueueItem:
     title: str
     halt_reason: str | None
     scope: tuple[str, ...]
+    closes: int = 1
+    """How many tasks.md checkboxes this item's own completion ticks.
+
+    Almost always 1 (one item, one checkbox). An item can legitimately close more than one when
+    a single unit of work satisfies more than one done-criterion line in tasks.md (e.g. a
+    migration item that also closes the separate "indexes" line, once the migration is inspected
+    and both are verified together) - declare it explicitly with a `- **Closes:** N tasks.md
+    checkboxes` line in the item's body, never leave it to be inferred, since done_count alone
+    can no longer be used as a direct index into the item list once any item closes more than 1.
+    """
 
 
 @dataclass
@@ -114,8 +125,29 @@ def parse_queue() -> list[QueueItem]:
         body = text[body_start:body_end]
         scope_match = _SCOPE_BLOCK.search(body)
         scope = tuple(_BACKTICK_PATH.findall(scope_match.group(1))) if scope_match else ()
-        items.append(QueueItem(number=number, title=title, halt_reason=halt_reason, scope=scope))
+        closes_match = _CLOSES.search(body)
+        closes = int(closes_match.group(1)) if closes_match else 1
+        items.append(
+            QueueItem(
+                number=number, title=title, halt_reason=halt_reason, scope=scope, closes=closes
+            )
+        )
     return items
+
+
+def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | None:
+    """The queue item whose work is next, given how many tasks.md boxes are already ticked.
+
+    done_count is no longer a valid direct index once any item closes more than one checkbox
+    (see QueueItem.closes) - walk the cumulative sum instead. Returns None once done_count covers
+    every item's closes (nothing left to do), matching the old items[done_count] out-of-range case.
+    """
+    covered = 0
+    for item in items:
+        if done_count < covered + item.closes:
+            return item
+        covered += item.closes
+    return None
 
 
 def completed_task_count() -> tuple[int, int]:
@@ -237,9 +269,13 @@ def main() -> int:
         print(report)
         return 1
 
-    current_item = items[done_count] if done_count < len(items) else None
+    current_item = item_for_done_count(items, done_count)
     if current_item is None:
-        return halt("Queue and tasks.md are out of sync - more done tasks than queue items exist.")
+        return halt(
+            "Queue and tasks.md are out of sync - done_count is not covered by any item's "
+            "closes range. Check every item's `- **Closes:** N tasks.md checkboxes` line adds "
+            "up to tasks.md's total checkbox count for this section."
+        )
 
     if current_item.halt_reason:
         return halt(
