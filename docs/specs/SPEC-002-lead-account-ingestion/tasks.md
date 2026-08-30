@@ -12,8 +12,8 @@
 
 ## Persistence and adapters
 
-- [ ] Add SQLAlchemy ingestion/enrichment models, repositories, and an additive Alembic migration.
-- [ ] Verify the migration with `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head`.
+- [x] Add SQLAlchemy ingestion/enrichment models, repositories, and an additive Alembic migration.
+- [x] Verify the migration with `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head`.
 - [ ] Add strict CSV parsing and deterministic synthetic enrichment adapters with unit tests.
 - [ ] Add the Celery dispatch adapter and `apps/worker` composition root with duplicate-delivery tests.
 
