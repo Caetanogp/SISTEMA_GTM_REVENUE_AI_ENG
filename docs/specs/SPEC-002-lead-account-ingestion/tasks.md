@@ -2,8 +2,8 @@
 
 ## Specification and loop
 
-- [ ] Generalize `scripts/autonomous_gate.py` for queue-selected task files and add its unit tests.
-- [ ] Replace the SPEC-001 queue with scoped SPEC-002 work items and verify the pilot gate.
+- [x] Generalize `scripts/autonomous_gate.py` for queue-selected task files and add its unit tests.
+- [x] Replace the SPEC-001 queue with scoped SPEC-002 work items and verify the pilot gate.
 
 ## Domain and application
 
