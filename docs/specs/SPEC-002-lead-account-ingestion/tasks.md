@@ -7,7 +7,7 @@
 
 ## Domain and application
 
-- [ ] Add pure import job/item state models and transition tests in `packages/core/revops/domain/`.
+- [x] Add pure import job/item state models and transition tests in `packages/core/revops/domain/`.
 - [ ] Add canonical ingestion/enrichment DTOs, ports, and unit-tested application use cases.
 
 ## Persistence and adapters
