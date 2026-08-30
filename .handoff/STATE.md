@@ -1,13 +1,27 @@
 ---
-agent: codex
+agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 8 synthetic demo seed is complete; Item 9 is next."
-status: item8-pilot-green
+phase: "SPEC-001 Item 9 (tool-selection eval dataset) is complete; Item 10 is next. User is going to sleep - an overnight loop for items 10-15 is being launched."
+status: item9-done-item10-next-overnight-loop-launching
 ---
 
 # Current state
+
+## Claude Code pickup (2026-08-30)
+
+Resumed from Codex's handoff, verified `.handoff/STATE.md` against real `git log`/`git status`/
+`python scripts/autonomous_gate.py` before trusting it - all matched. Implemented Item 9:
+`evals/datasets/tool_selection.jsonl` (13 synthetic cases: 4 `search_accounts` positives, 3
+`get_account_context` positives, 2 `create_task` positives, 4 negatives that must not select
+`create_task`, including one adversarial bulk-write attempt) and
+`tests/unit/evals/test_tool_selection_dataset.py` (7 structural tests: valid JSONL, required
+fields, unique ids, ~10-15 cases, every known tool has a positive, at least 3 negatives, negatives
+document why `create_task` is wrong - no scorer exists yet in `evals/scorers/`, this only proves
+the dataset itself is well-formed). `pytest tests/unit/evals -q` -> 7 passed. Ticked `tasks.md`'s
+`tool_selection.jsonl` checkbox. `python scripts/autonomous_gate.py` -> `Item 10 gate is green but
+not yet ticked` (ruff/mypy/lint-imports/pytest/check_agent_docs all OK).
 
 ## Goal
 
