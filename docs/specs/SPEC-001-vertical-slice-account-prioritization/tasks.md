@@ -37,7 +37,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 - [x] First Alembic migration; `upgrade` → `downgrade` → `upgrade` verified locally
 - [x] Indexes: `organization_id` everywhere, unique `accounts(domain)` and `contacts(email)` per org
 - [x] Repositories implementing the ports; `organization_id` filtered inside the repository
-- [ ] Integration tests against the docker Postgres, including the isolation test
+- [x] Integration tests against the docker Postgres, including the isolation test
 
 ## 4. Agent graph
 

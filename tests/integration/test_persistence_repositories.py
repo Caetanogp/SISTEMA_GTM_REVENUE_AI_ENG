@@ -52,7 +52,11 @@ def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
     """
     if sys.platform == "win32":
         return asyncio.WindowsSelectorEventLoopPolicy()
-    return asyncio.get_event_loop_policy()
+    return asyncio.get_event_loop_policy()  # type: ignore[unreachable]
+    # mypy infers sys.platform as fixed to this machine's platform (win32 in CI/dev here), so it
+    # marks this branch unreachable - the code is correct for the non-Windows case the test suite
+    # also needs to run under (a CI runner on a different platform), mypy's static check is just
+    # narrower than reality for a sys.platform guard.
 
 
 @pytest.fixture

@@ -19,15 +19,29 @@ The LangGraph checkpoint tables are NOT declared here — they are owned by
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
+from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeEngine
 
 
 class Base(DeclarativeBase):
-    """Shared declarative base for every table in this schema."""
+    """Shared declarative base for every table in this schema.
+
+    `type_annotation_map` makes every `Mapped[datetime]` column `TIMESTAMPTZ` (`DateTime(timezone
+    =True)`) instead of SQLAlchemy's naive-by-default `TIMESTAMP WITHOUT TIME ZONE` - a project-wide
+    convention applied once here, rather than repeated per column, so a future datetime column never
+    has to remember it. Every timestamp elsewhere in this codebase is timezone-aware by convention
+    (`Clock.now()`, the fakes in `tests/unit/application/test_ports.py`) - the schema now matches.
+    Found live: SPEC-001 persistence Item 4's integration tests, which exist specifically to catch
+    this kind of gap between the schema and the rest of the system.
+    """
+
+    type_annotation_map: ClassVar[dict[type, TypeEngine[Any]]] = {datetime: DateTime(timezone=True)}
 
 
 class Organization(Base):
@@ -87,7 +101,7 @@ class Opportunity(Base):
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     account_id: Mapped[UUID] = mapped_column(ForeignKey("accounts.id"))
     stage: Mapped[str] = mapped_column(String(32))
-    value: Mapped[Numeric] = mapped_column(Numeric(14, 2))
+    value: Mapped[Decimal] = mapped_column(Numeric(14, 2))
 
 
 class Interaction(Base):
@@ -134,7 +148,7 @@ class AgentRun(Base):
     prompt_version: Mapped[str] = mapped_column(String(64))
     model_config_json: Mapped[dict[str, object]] = mapped_column(JSONB)
     latency_ms: Mapped[int]
-    token_cost_usd: Mapped[Numeric] = mapped_column(Numeric(10, 4))
+    token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 4))
     status: Mapped[str] = mapped_column(String(32))
     error: Mapped[str | None] = mapped_column(String(2000), default=None)
     started_at: Mapped[datetime]
