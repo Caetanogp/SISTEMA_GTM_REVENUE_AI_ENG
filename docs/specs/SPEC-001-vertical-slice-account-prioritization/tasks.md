@@ -109,7 +109,7 @@ extend it.
 
 ## 8. Close out
 
-- [ ] ADR for anything decided along the way that constrains future work
+- [x] ADR for anything decided along the way that constrains future work
 - [ ] `README.md` updated with real setup steps that a stranger can follow
 - [ ] All 10 acceptance criteria in `spec.md` demonstrated, with evidence
 - [ ] `.handoff/STATE.md` updated; PR opened into `develop` with the template filled in
