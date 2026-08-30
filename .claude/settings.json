@@ -48,7 +48,11 @@
       "Write(./.handoff/log/**)",
       "Edit(./.handoff/log/**)",
       "Write(./docs/specs/**/tasks.md)",
-      "Edit(./docs/specs/**/tasks.md)"
+      "Edit(./docs/specs/**/tasks.md)",
+      "Write(./docs/decisions/**)",
+      "Edit(./docs/decisions/**)",
+      "Write(./README.md)",
+      "Edit(./README.md)"
     ],
     "deny": [
       "Read(./.env)",
