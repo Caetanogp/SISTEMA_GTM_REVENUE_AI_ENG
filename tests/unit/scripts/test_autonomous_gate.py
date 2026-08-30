@@ -52,3 +52,22 @@ def test_active_tasks_file_rejects_unsafe_or_invalid_paths(
 
     with pytest.raises(ValueError, match="tasks file"):
         gate.active_tasks_file()
+
+
+def test_missing_required_evidence_requires_every_declared_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    item = gate.QueueItem(
+        number=3,
+        title="application contracts",
+        halt_reason=None,
+        scope=("packages/core/revops/application/",),
+        requires=("packages/core/revops/application/", "tests/unit/application/"),
+    )
+    monkeypatch.setattr(
+        gate,
+        "changed_files",
+        lambda _baseline: ["packages/core/revops/application/dto.py"],
+    )
+
+    assert gate.missing_required_evidence(item, "baseline") == ["tests/unit/application/"]

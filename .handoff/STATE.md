@@ -9,6 +9,18 @@ status: spec-002-in-progress
 
 # Current state
 
+## Autonomous loop evidence guard (2026-08-30)
+
+The interrupted long loop had treated an already-green baseline as evidence that Item 3 was
+implemented and ticked tasks prematurely. The unpushed premature commits were removed with the
+user-authorized mixed reset; only the intended, incomplete Item 3 domain changes remain in the
+working tree. The autonomous gate now reads per-item `Requires` paths and refuses to report an
+item ready until each required implementation and test path has changed since the item baseline.
+The initial scope HALT for the guard test was resolved by declaring `tests/unit/scripts/` in Item
+3's scope. The observed gate result now correctly reports the still-missing application paths.
+Do not relaunch the loop until this guard is committed and Item 3 has actual committed application
+contracts and tests.
+
 ## SPEC-002 application design resolution (2026-08-30)
 
 The user approved the deliberate design pass required by Item 3. `plan.md` now fixes the use-case
@@ -711,5 +723,11 @@ uncommitted working tree - ticking first is what desyncs `baseline_sha` from rea
 ## Autonomous loop HALT (2026-08-30T18:17:35+00:00)
 
 On branch `develop`, not a feature/fix branch. The autonomous loop must never run on main or develop. Stopped before touching anything further.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-08-30T19:32:21+00:00)
+
+Item 3 declares scope ('packages/core/revops/domain/', 'packages/core/revops/application/', 'tests/unit/domain/', 'tests/unit/application/'), but changes touch files outside it: ['tests/unit/scripts/test_autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

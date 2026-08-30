@@ -41,6 +41,9 @@ _ITEM_HEADER = re.compile(
 )
 _SCOPE_BLOCK = re.compile(r"^- \*\*Scope:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL)
 _BACKTICK_PATH = re.compile(r"`([^`]+)`")
+_REQUIRES_BLOCK = re.compile(
+    r"^- \*\*Requires:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL
+)
 _TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
 _CLOSES = re.compile(r"^- \*\*Closes:\*\* (\d+) tasks\.md checkboxes?$", re.MULTILINE)
 _TASKS_FILE = re.compile(r"^- \*\*Tasks file:\*\* `([^`]+)`$", re.MULTILINE)
@@ -52,6 +55,7 @@ class QueueItem:
     title: str
     halt_reason: str | None
     scope: tuple[str, ...]
+    requires: tuple[str, ...] = ()
     closes: int = 1
     """How many tasks.md checkboxes this item's own completion ticks.
 
@@ -124,11 +128,18 @@ def parse_queue() -> list[QueueItem]:
         body = text[body_start:body_end]
         scope_match = _SCOPE_BLOCK.search(body)
         scope = tuple(_BACKTICK_PATH.findall(scope_match.group(1))) if scope_match else ()
+        requires_match = _REQUIRES_BLOCK.search(body)
+        requires = tuple(_BACKTICK_PATH.findall(requires_match.group(1))) if requires_match else ()
         closes_match = _CLOSES.search(body)
         closes = int(closes_match.group(1)) if closes_match else 1
         items.append(
             QueueItem(
-                number=number, title=title, halt_reason=halt_reason, scope=scope, closes=closes
+                number=number,
+                title=title,
+                halt_reason=halt_reason,
+                scope=scope,
+                requires=requires,
+                closes=closes,
             )
         )
     return items
@@ -218,6 +229,21 @@ def scope_violation(item: QueueItem, baseline: str) -> list[str]:
         if not any(path.startswith(prefix.rstrip("/")) for prefix in item.scope):
             offenders.append(path)
     return offenders
+
+
+def missing_required_evidence(item: QueueItem, baseline: str) -> list[str]:
+    """Return required paths untouched since this item began.
+
+    Quality commands establish that the current tree is healthy, not that the queue item's promised
+    implementation exists. Requiring a concrete changed path prevents a clean baseline from being
+    mistaken for completion and a checkbox being ticked without the declared work.
+    """
+    changed = changed_files(baseline)
+    return [
+        required
+        for required in item.requires
+        if not any(path.startswith(required.rstrip("/")) for path in changed)
+    ]
 
 
 def run_quality_gate(*, full: bool) -> tuple[bool, str]:
@@ -325,6 +351,14 @@ def main() -> int:
             f"Item {current_item.number} declares scope {current_item.scope!r}, but changes touch "
             f"files outside it: {offenders}. Revert the out-of-scope changes or stop and ask."
         )
+
+    missing_evidence = missing_required_evidence(current_item, gate_state.baseline_sha)
+    if missing_evidence:
+        print(
+            f"Item {current_item.number} has not yet touched its required evidence paths "
+            f"{missing_evidence}; keep working before considering its checkbox."
+        )
+        return 1
 
     gate_green, report = run_quality_gate(full=False)
 

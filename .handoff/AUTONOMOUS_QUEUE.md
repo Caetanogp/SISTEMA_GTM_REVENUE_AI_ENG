@@ -21,13 +21,15 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 
 ## Item 3 - Ingestion outcomes and application contracts
 
-- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `tests/unit/domain/`, `tests/unit/application/`
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `tests/unit/domain/`, `tests/unit/application/`, `tests/unit/scripts/`
+- **Requires:** `packages/core/revops/domain/entities/ingestion.py`, `packages/core/revops/application/`, `tests/unit/domain/entities/test_ingestion.py`, `tests/unit/application/`
 - **What:** split account/contact/enrichment outcomes, then add canonical ingestion DTOs, ports, and unit-tested use cases using the approved transaction design in `plan.md`.
 - **Done when:** application tests prove staging, confirmation, grouping, idempotency, and partial results.
 
 ## Item 4 - Persistence and migration
 
 - **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`, `tests/integration/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/`, `tests/integration/`
 - **Closes:** 2 tasks.md checkboxes
 - **What:** add ingestion/enrichment models, repositories, additive migration, and the authorized round-trip proof.
 - **Done when:** repository integration tests and `upgrade -> downgrade -1 -> upgrade` pass.
@@ -35,18 +37,21 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 ## Item 5 - CSV and synthetic enrichment adapters
 
 - **Scope:** `packages/core/revops/infrastructure/`, `tests/unit/infrastructure/`
+- **Requires:** `packages/core/revops/infrastructure/`, `tests/unit/infrastructure/`
 - **What:** parse bounded CSV input and add the schema-validated deterministic enrichment gateway.
 - **Done when:** parser and provider unit tests pass.
 
 ## Item 6 - Celery worker and dispatcher
 
 - **Scope:** `packages/core/revops/infrastructure/queue/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
+- **Requires:** `packages/core/revops/infrastructure/queue/`, `apps/worker/`, `tests/unit/`
 - **What:** add a minimal Redis/Celery dispatch path and idempotent worker composition root.
 - **Done when:** duplicate delivery and broker failure behavior are tested.
 
 ## Item 7 - Administrative ingestion API
 
 - **Scope:** `apps/api/`, `tests/unit/apps/`, `tests/integration/`
+- **Requires:** `apps/api/`, `tests/integration/`
 - **Closes:** 2 tasks.md checkboxes
 - **What:** add admin-only JSON/CSV staging, confirmation, status, and paginated item routes.
 - **Done when:** API integration tests cover the happy path and polling contract.
@@ -54,12 +59,14 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 ## Item 8 - Security and failure coverage
 
 - **Scope:** `tests/adversarial/`, `tests/integration/`, `tests/unit/`
+- **Requires:** `tests/adversarial/`, `tests/integration/`
 - **What:** add malformed-input, authorization, PII-safe failure, queue failure, and tenant-isolation coverage.
 - **Done when:** adversarial and failure-path tests pass.
 
 ## Item 9 - Documentation and closeout
 
 - **Scope:** `README.md`, `docs/decisions/`, `docs/specs/SPEC-002-lead-account-ingestion/`, `.handoff/`
+- **Requires:** `README.md`, `docs/decisions/`, `docs/specs/SPEC-002-lead-account-ingestion/`
 - **Closes:** 3 tasks.md checkboxes
 - **What:** record the queue/outbox ADR, setup documentation, acceptance evidence, and verified handoff.
 - **Done when:** the final full gate is green and closeout checklist items are ticked.
