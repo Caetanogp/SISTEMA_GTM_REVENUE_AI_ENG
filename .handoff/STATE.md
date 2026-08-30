@@ -740,3 +740,15 @@ The loop stopped itself. Do not restart it against the same queue item without a
 Item 3 declares scope ('packages/core/revops/domain/', 'packages/core/revops/application/', 'tests/unit/domain/', 'tests/unit/application/'), but changes touch files outside it: ['tests/unit/scripts/test_autonomous_gate.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+## Autonomous loop HALT (2026-08-30)
+
+Items 4 and 5 completed in commits `c9f8061`/`f8009c8` and `ea29a00`/`466ba44` respectively.
+Observed for Item 4: `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head`
+all passed; `pytest tests/integration/test_ingestion_persistence.py -q` passed (1 test). For Item 5:
+`mypy .`, `lint-imports`, and `pytest tests/unit/infrastructure -q` passed (28 tests). The next
+queue item cannot proceed unattended: `ProcessIngestionJob` only transitions a job and returns
+processable domains, while `plan.md` requires the worker to delegate all per-domain account,
+contact, enrichment, outcome, and completion behavior to that use case. The current ingestion UoW
+has only job/item repositories, so putting those business writes in `apps/worker` would violate the
+application/infrastructure boundary. HALT for a deliberate application-contract design pass before
+Item 6; decide the account/contact/enrichment write ports and the per-domain processing contract.
