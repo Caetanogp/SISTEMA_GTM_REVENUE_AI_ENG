@@ -8,8 +8,10 @@ Built code-first in Python — no low-code orchestrator — to demonstrate appli
 end: stateful agents, structured tool execution, RAG, evals, observability, security guardrails,
 async workers, CI/CD and versioned deploys with rollback.
 
-> **Status:** phase 0 complete (engineering foundation). Phase 1 — the vertical slice in
-> [SPEC-001](docs/specs/SPEC-001-vertical-slice-account-prioritization/spec.md) — is next.
+> **Status:** [SPEC-001](docs/specs/SPEC-001-vertical-slice-account-prioritization/spec.md) (the
+> vertical slice) is code-complete and gated by its own test/eval suite on
+> `feature/SPEC-001-agent-graph`, pending merge into `develop`. See "Trying the vertical slice"
+> below to run it end to end.
 
 ## Why it exists
 
@@ -55,6 +57,7 @@ docker compose up -d          # postgres+pgvector, redis
 pip install -e ".[dev]"       # or: uv sync
 pre-commit install
 alembic upgrade head
+python scripts/seed_demo.py   # one synthetic demo org: ~30 accounts/contacts/opportunities/interactions
 uvicorn apps.api.main:app --reload
 ```
 
@@ -63,6 +66,54 @@ Checks:
 ```bash
 ruff check . && mypy . && lint-imports && pytest tests/ -q
 ```
+
+## Trying the vertical slice
+
+Mint a bearer token for the seeded demo user (there is no login endpoint in this slice — auth is a
+shared-secret JWT, and `JWT_SECRET`/`JWT_ALGORITHM` come from `.env`):
+
+```bash
+python -c "
+from revops.infrastructure.persistence.demo_seed import DEMO_ORGANIZATION_ID, DEMO_USER_ID
+from apps.api.auth import create_access_token
+from apps.api.settings import ApiSettings
+
+print(create_access_token(
+    subject=DEMO_USER_ID,
+    organization_id=DEMO_ORGANIZATION_ID,
+    email='rep@demo.revops.example',
+    role='rep',
+    settings=ApiSettings(),
+))
+"
+```
+
+Start a run and approve the proposed follow-up task:
+
+```bash
+TOKEN="<paste the token above>"
+
+curl -s -X POST localhost:8000/agent/runs \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"request_text": "which accounts need attention today?"}'
+# -> {"agent_run_id": "...", "status": "interrupted", "interrupt": {...}}
+
+curl -s -X POST "localhost:8000/agent/runs/<agent_run_id>/approve" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"decision": "approve"}'
+# -> {"agent_run_id": "...", "status": "completed", "task": {...}}
+```
+
+`GET /agent/runs` lists runs for the caller's organization; `GET /agent/runs/{id}/stream` replays
+its events over SSE. `decision` can also be `"edit"` (with an `edited` task payload) or `"reject"`.
+
+**One honest gap:** this slice ships `FakeLLMGateway` for tests, not a production LLM provider
+adapter — `apps/api/dependencies.py`'s `default_llm_gateway()` returns an `UnconfiguredLLMGateway`,
+so a freshly-started API's `POST /agent/runs` returns `503` at the reasoning step until a real
+gateway is wired in. The full path above — context → score → propose → interrupt → approve →
+execute → audit — is verified today end to end via `pytest tests/integration -q` (which injects the
+fake gateway); see `tests/integration/test_agent_runs_api.py` for the exact request/response shapes
+this section is based on.
 
 ## How this repository is developed
 
