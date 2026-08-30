@@ -1,13 +1,25 @@
 ---
 agent: codex
 updated_at: 2026-08-30
-branch: feature/SPEC-001-agent-graph
+branch: develop
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 closeout verified independently; awaiting user-directed merge into develop."
-status: spec-001-verified-ready-for-user-merge
+phase: "SPEC-001 merged into develop; awaiting user PR publication and SPEC-002 scope decisions."
+status: spec-001-merged-into-develop
 ---
 
 # Current state
+
+## Post-merge state (2026-08-30)
+
+The verified `feature/SPEC-001-agent-graph` branch was merged locally into `develop` without
+conflicts at commit `0407f8a` (`merge: integrate SPEC-001 agent graph vertical slice`). No remote
+is configured and no push or PR publication was performed. `git status --short --branch` reports a
+clean `develop` tree. `python scripts/autonomous_gate.py` was intentionally not applicable after
+the merge because it stops on `develop` by policy; the full gate passed on the feature branch
+immediately before merge.
+
+Next: the user publishes the PR/release workflow as desired, then confirms SPEC-002 scope before
+any `spec.md` is written. SPEC-002 remains a roadmap placeholder only.
 
 ## Codex verify-before-done (2026-08-30)
 
@@ -636,3 +648,9 @@ point done_count 3→4 triggers a fresh, correct `baseline_sha` reset to that ti
 clean, so Item 12 starts with zero false positives). Lesson for future items: always commit an
 item's own files *before* ticking its `tasks.md` box and re-running the gate, never in the same
 uncommitted working tree - ticking first is what desyncs `baseline_sha` from reality.
+
+## Autonomous loop HALT (2026-08-30T18:17:35+00:00)
+
+On branch `develop`, not a feature/fix branch. The autonomous loop must never run on main or develop. Stopped before touching anything further.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
