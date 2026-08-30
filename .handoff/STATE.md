@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-persistence
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-2 of SPEC-001 persistence (tasks.md section 3) done and verified for real; Item 3 (repositories) next"
-status: persistence-item2-done-item3-next
+phase: "1 in progress - Items 1-3 of SPEC-001 persistence (tasks.md section 3) done and verified for real; Item 4 (integration tests against Docker Postgres) next"
+status: persistence-item3-done-item4-next
 ---
 
 # Current state
@@ -90,6 +90,38 @@ would have told the next session to start Item 4 (integration tests) - skipping 
 Item 3 with `done_count=3`. Item 2 in `AUTONOMOUS_QUEUE.md` now declares `- **Closes:** 2 tasks.md
 checkboxes` explicitly.
 
+**Item 3 (repositories and `SqlAlchemyUnitOfWork`)** — done, verified, ticked, committed
+(`64e3621`). `packages/core/revops/infrastructure/persistence/repositories.py`:
+`SqlAlchemyAccountRepository` (read-only — `get`, `list_for_organization`, `list_interactions`,
+`list_open_opportunities`, no write method), `SqlAlchemyTaskRepository` (`add`, `get`, `update`),
+`SqlAlchemyAuditTrail` (`record`, always writes `run_id=None` per ADR-0002). All implement
+`application/ports.py`'s Protocols structurally — no inheritance, matching the convention
+`tests/unit/application/test_ports.py` already established for the fakes. `organization_id` is
+filtered inside every method's `WHERE` clause, never left to the caller. `CompanyDomain` is
+reidrated from the stored primitive at the repository boundary; `OpportunityStage`/`TaskStatus`
+round-trip through their `.value`.
+`unit_of_work.py`: `SqlAlchemyUnitOfWork` takes an already-constructed `AsyncSession` in its
+constructor (not a session factory — the composition root owns session lifecycle) and builds
+`self.accounts`/`self.tasks`/`self.audit` from it immediately, so `isinstance(uow, UnitOfWork)`
+holds right after construction without needing `__aenter__` first (matches the
+`_FakeUnitOfWork` convention in `test_ports.py`). `commit`/`rollback` delegate to the shared
+session; `__aexit__` rolls back only if the `async with` block raised. `DecideApproval`'s
+constructor and call signature are untouched, per ADR-0002.
+`tests/unit/infrastructure/persistence/test_repositories.py` (12 tests, no database): isinstance
+against each Protocol, `SqlAlchemyAccountRepository` has no write methods, the three ports share
+one session object, commit/rollback delegate correctly, rollback fires on exception but not on
+clean exit, `record()` writes `run_id=None`, `add()` stores `TaskStatus.OPEN` as `"open"`. Mocked
+the session with `MagicMock(spec=AsyncSession)`, not a bare `AsyncMock()` — a bare `AsyncMock`
+makes `session.add()` (genuinely synchronous on `AsyncSession`) into a coroutine mock too, which
+passes silently but leaves an unawaited-coroutine warning; `spec=` catches the same class of
+sync/async mismatch the real database would catch in Item 4, one layer earlier.
+Gate green at this point: `ruff: OK, mypy: OK, lint-imports: OK, pytest: OK, check_agent_docs: OK`.
+One exploration worth recording so a future session doesn't repeat it: running `mypy` on
+`repositories.py`/`models.py` **in isolation** (`mypy packages/.../repositories.py`) reported two
+spurious `Numeric` generic/arg-type errors that do **not** reproduce when `mypy .` (the gate's own
+invocation, whole project) runs — confirmed not a stale-cache artifact via `mypy --no-incremental
+.` too. Trust `mypy .` (what the gate actually runs), not a single-file invocation, for this repo.
+
 ## Done (prior sessions — condensed; full detail in git history and `.handoff/log/`)
 
 - Domain layer, application layer (all 6 SPEC-001 tasks.md section 2 items, merged to `develop` at
@@ -98,14 +130,20 @@ checkboxes` explicitly.
   rewrite) — `.handoff/log/2026-08-29-1929-claude.md`.
 - Item 1 (SQLAlchemy models) — see "Now" above.
 - Item 2 (first Alembic migration, indexes) — see "Now" above.
+- Item 3 (repositories, `SqlAlchemyUnitOfWork`) — see "Now" above.
 
 ## Next
 
-1. **Resume `spec001-persistence-loop-2`** (or a fresh foreground session if that one has ended) —
-   it should pick up Item 3 (`Repositories and SqlAlchemyUnitOfWork`) on its own now that the gate
-   correctly points there. No blocker remains for it to work through unattended.
-2. Item 4 (integration tests against Docker Postgres) follows, depends on Item 3.
-3. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode —
+1. **Item 4 (integration tests against Docker Postgres)** is next — `python
+   scripts/autonomous_gate.py` confirms it: `Item 4 gate is green but not yet ticked`. Scope:
+   `tests/integration/test_persistence_repositories.py` only, reusing the existing
+   `tests/integration/conftest.py` fixtures (`database_url`/`postgres_dsn`) — do not write a
+   second conftest. Must cover, per `AUTONOMOUS_QUEUE.md`: each repository method round-tripped
+   against real rows, each value object (`CompanyDomain`, `EmailAddress`, `Score`) round-tripped,
+   `Task.mark_done`/`cancel` persisted with an illegal transition still raising
+   `InvalidTransitionError` after a real save/reload, and the tenant-isolation test named
+   explicitly in the evidence (not just "integration tests pass").
+2. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode —
    unchanged from before this run. It is reached via the gate's `exit 0` "GOAL ACHIEVED" path once
    all 5 tasks.md §3 checkboxes are ticked (same functional-equivalence reasoning as the
    application-layer run before it), not an explicit `exit 2` HALT — `completed_task_count()` only
@@ -146,7 +184,7 @@ cd "SISTEMA_PORTFOLIO_AI_ENG"
 git status                                  # confirm branch and clean tree first
 git rev-parse --abbrev-ref HEAD             # should be feature/SPEC-001-persistence
 docker compose ps                           # confirm revops-postgres, revops-redis healthy
-python scripts/autonomous_gate.py           # should point at Item 3
+python scripts/autonomous_gate.py           # should point at Item 4
 cat .handoff/AUTONOMOUS_QUEUE.md
 cat docs/playbooks/autonomous-loop.md
 ```
