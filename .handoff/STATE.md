@@ -3,11 +3,28 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 13 (README) is complete. Item 14 (acceptance evidence) is next, no permission blocker expected. Overnight loop for items 10-15 in progress."
-status: item13-done-item14-next-overnight-loop-running
+phase: "SPEC-001 Item 14 (acceptance evidence) is complete. Item 15 (final closeout) is next and last. Overnight loop for items 10-15 in progress."
+status: item14-done-item15-next-overnight-loop-running
 ---
 
 # Current state
+
+## Claude Code overnight loop (2026-08-30, Item 14 - completed)
+
+Mapped all 10 of `spec.md`'s acceptance criteria to concrete `file:line` evidence, verified by
+actually reading the cited test functions and code paths rather than guessing from names -
+recorded as a new `tasks.md` section (same permission-driven substitution as Item 11's baseline).
+Notably: criterion 3 ("no row until a human decides") is backed by reading
+`infrastructure/agent/nodes.py:180-196` directly, confirming `interrupt()` (line 182) is called
+strictly before `deps.uow_factory()` opens (line 196) - the code-level guarantee, not just a
+behavioral inference from the happy-path test. Criterion 9 (run metadata) cites
+`AgentGraphRunner._record_event` (`infrastructure/agent/runner.py:49-77`) where
+`graph_version`/`prompt_version`/`token_cost_usd` are actually populated on every event. Also
+listed failure-path coverage beyond the 10 numbered criteria (401/422/adversarial tests).
+Committed the mapping alone first (`3c866f9`), confirmed the gate green on that clean commit, then
+ticked and committed `tasks.md`'s box separately (`ffa7aad`) - correct sequencing again. Re-ran the
+gate -> correctly advanced with no violation: `Item 15 gate is green but not yet ticked` - this is
+the last item in the queue.
 
 ## Claude Code overnight loop (2026-08-30, Item 13 - completed)
 
