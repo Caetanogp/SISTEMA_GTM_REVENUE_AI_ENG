@@ -25,58 +25,65 @@ process rather than the model's own say-so.
    `.handoff/AUTONOMOUS_QUEUE.md` end to end, including the `HALT` item, so there is no surprise
    about where it will stop.
 2. Branch: `git checkout develop && git pull && git checkout -b feature/SPEC-NNN-slug`. The gate
-   script refuses to run anywhere else. This is also what `EnterWorktree`'s `"head"` baseRef
-   branches from in step 4 — the main checkout must already be on the right base before launching.
+   script refuses to run anywhere else.
 3. **Pilot first, always** — the loop engineering guidance is explicit about this: pilot dynamic
    workflows before a large run. Launch with a low iteration/turn cap, watch it complete one real
    item cleanly (a real commit, a real gate pass), *then* relaunch for the full run. Do not go
    straight to an all-night cap on the first attempt.
-4. Launch as a background agent so it survives the terminal closing:
+4. **Launch as a plain foreground interactive session, in the main checkout — never `--bg`, never
+   `EnterWorktree`, for this project.** This reverses earlier guidance in this file; both reasons
+   are hard, reproduced findings, not preferences:
+   - `--bg` sessions default to `worktree.bgIsolation: "worktree"` and refuse Write/Edit until
+     `EnterWorktree` is called. But `revops` resolves through a PEP 660 editable install pinned to
+     **absolute paths baked in at `pip install -e ".[dev]"` time**, in a global per-user
+     site-packages, not a project `.venv`. A git worktree is a separate directory tree —
+     `import revops...` inside it silently keeps resolving to the **main checkout's** files
+     regardless of `cwd`. Every test, and the gate's own `pytest` run, exercises stale code
+     forever. Reproduced and root-caused live: SPEC-001 persistence, 2026-08-29
+     (`.handoff/log/2026-08-29-*-claude.md`) — a full Item was drafted and "verified" inside a
+     worktree, then found to have never actually run against the new code at all.
+   - `--bg` sessions also never get the native "wait for a usage limit to reset, then continue"
+     behavior — confirmed against `code.claude.com/docs/en/interactive-mode`: *"Claude Code doesn't
+     offer the wait at all in these cases: Background sessions and `-p` runs."* A `--bg` session
+     that hits the 5-hour window simply stops, unattended, with nothing to resume it. Reproduced:
+     SPEC-001 application layer, pilot 3, 2026-08-27.
+   Both problems point the same direction. Launch with:
    ```bash
-   claude --bg --permission-mode dontAsk --model sonnet
+   claude --permission-mode dontAsk --model sonnet
    ```
-   `--permission-mode dontAsk` matters specifically for unattended runs: the `ask` rules already in
-   `.claude/settings.json` (`git push`, `git merge` outside this flow, `terraform apply`, `npm
-   publish`) are **denied automatically** instead of waiting for someone who is not there. The loop
-   cannot escalate its own privilege by nobody being around to answer a prompt.
-
-   `--bg` sessions default to `worktree.bgIsolation: "worktree"` — every Write/Edit outside a
-   worktree is blocked until one is entered, even with `dontAsk`. Do not fight this by trying to
-   launch without `--bg` or by disabling the setting; use it as designed instead:
-   - The seed prompt (step 5) must instruct the session to call `EnterWorktree` exactly **once**,
-     before touching Item 1, then rename the auto-generated `worktree-<name>` branch to a
-     `feature/`-prefixed name with `git branch -m` (`scripts/autonomous_gate.py` only checks the
-     `feature/`/`fix/` prefix, never the exact name).
-   - `.claude/settings.json`'s `worktree.baseRef` is set to `"head"` (not the default `"fresh"`),
-     because this repo has no `origin` remote — `"fresh"` would try to branch from
-     `origin/<default-branch>` and fail outright.
-   - `.claude/worktrees/` is gitignored; the worktree directory itself never gets committed.
-   - The loop stays in that one worktree for every item — see `.handoff/AUTONOMOUS_QUEUE.md`'s
-     "Rules for the loop". Reconciling the resulting branch back into the intended feature branch
-     (`git fetch . <worktree-branch>:<target-branch>`, a fast-forward ref update with no checkout)
-     is a step you do afterward, from the main session — not something the loop does itself.
+   in a real terminal window, left open (not a background job). `--permission-mode dontAsk`
+   matters specifically for unattended runs: the `ask` rules already in `.claude/settings.json`
+   (`git push`, `git merge` outside this flow, `terraform apply`, `npm publish`) are **denied
+   automatically** instead of waiting for someone who is not there. The loop cannot escalate its
+   own privilege by nobody being around to answer a prompt.
+   For the machine to actually survive the night: disable sleep and the lid-close action (Windows:
+   Settings > System > Power & battery > set both "sleep" rows and both "lid close" rows to
+   Never/Do nothing) — the OS suspending is indistinguishable from the process dying.
 5. Inside that session, start the goal loop:
    ```
-   /goal scripts/autonomous_gate.py exits 0 - the application layer queue is empty and the full gate is green
+   /goal scripts/autonomous_gate.py exits 0 - the queue is empty and the full gate is green
    ```
    If `/goal` is unavailable in the installed version, fall back to `/loop` with no interval
    (self-paced): `/loop` and have it run `python scripts/autonomous_gate.py` each cycle, stopping
    itself when the exit code is 0 or 2. The queue, the gate script and the model policy do not
    change between the two — only the trigger mechanism does.
-6. If the 5-hour usage window is a concern for an overnight run, enable `autoContinueAtUsageLimit`
-   so the session waits for the window to reset and continues, rather than just stopping. This is
-   separate from `/goal` — `/goal` decides *what* counts as done, this decides whether a usage pause
-   ends the attempt.
+6. `autoContinueAtUsageLimit` (default `true` in a claude.ai-subscription interactive session —
+   confirm with `/config`) is what lets the session survive the 5-hour usage window: it waits and
+   resumes on its own once the window resets, no worktree involved. It re-arms itself for up to two
+   consecutive hits before giving up and asking a human — expect at most that many unattended
+   resumes in one night.
 
 ## Watching it
 
-- `claude agents` — list background agents and their status.
-- `claude logs <id>` — see what it has actually done.
-- `claude attach <id>` — reconnect interactively at any point.
-- `git worktree list` — find the actual worktree path and its (renamed) `feature/`-prefixed branch;
-  it will not be the branch name from step 2, since `EnterWorktree` creates its own.
-- `git log --oneline <that-branch>` — the ground truth. Small, conventional commits, one per
-  completed queue item, is what a healthy run looks like.
+- `claude agents` — list running sessions and their status (interactive sessions show
+  `busy`/`idle`/`waiting`, not the `background`-job states `--bg` would show).
+- `git log --oneline feature/SPEC-NNN-slug` — the ground truth, straight on the branch from step 2
+  since this runs in the main checkout, no worktree to look under. Small, conventional commits, one
+  per completed queue item, is what a healthy run looks like.
+- `SendMessage` (from another session on this machine) can nudge it after a live fix — see
+  `.handoff/log/2026-08-28-*-claude.md` for the cross-session-messaging mechanics and the
+  `crossSessionInbound` caveat (a message the receiving session doesn't auto-accept just sits held;
+  the fix landing in a commit is often enough on its own, the session re-checks the gate later).
 
 ## Stopping it
 

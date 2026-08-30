@@ -142,14 +142,20 @@ reachable). Reuse it; do not create a second one.
 - Never touch a file outside an item's declared scope. If finishing an item genuinely requires
   touching something outside scope, that is itself a signal to stop and flag it, not to expand
   scope silently.
-- **Worktree, once, at the very start — not per item.** A `--bg` session defaults to
-  `bgIsolation: worktree`, which blocks every Write/Edit outside a worktree until one is entered.
-  Call `EnterWorktree` exactly once, before Item 1, then `git branch -m` the auto-generated
-  `worktree-<name>` branch to a `feature/`-prefixed name (`autonomous_gate.py` only checks the
-  prefix, not the exact name). Do **all** queue items inside that one worktree/branch — do not
-  re-enter or create a second worktree partway through. If running in a plain foreground session
-  (not `--bg`), skip this entirely — you are already isolated by being the only session working
-  this checkout.
+- **Never call `EnterWorktree` for this project, in any mode — this is a hard rule, not a
+  preference.** Found live (SPEC-001 persistence, 2026-08-29): `revops` resolves through a PEP 660
+  editable install pinned to **absolute paths baked in at `pip install -e ".[dev]"` time**, in a
+  global per-user site-packages, not a project `.venv`. A git worktree is a genuinely separate
+  directory tree — `import revops...` inside it keeps silently resolving to the **main checkout's**
+  files regardless of `cwd`. Every test, and the gate's own `pytest` run, would exercise stale code
+  forever. Reinstalling editable from inside the worktree is not a fix either — it would rebind a
+  shared, per-user Python environment away from the main checkout, breaking it and any other
+  concurrent session the moment the worktree is removed. Real, reproduced incident:
+  `.handoff/log/2026-08-29-*-claude.md`.
+  **If launched with `--bg` and blocked by `bgIsolation: worktree`:** stop and report it — do not
+  call `EnterWorktree` to work around the block. Unattended work on this repo must run as a plain
+  foreground interactive session (no `--bg`) in the main checkout, where this isolation layer never
+  activates.
 - One commit per completed item, on that same branch, following the same commit and verification
   discipline as any other work in this repo (`AGENTS.md`).
 - **Do not merge or reconcile the branch yourself.** That is a human/main-session step, done
