@@ -16,8 +16,8 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 
 | Spec | Phase | One-liner | Status |
 |---|---|---|---|
-| [SPEC-001](SPEC-001-vertical-slice-account-prioritization/) | 1 | Vertical slice: NL request -> CRM context -> read tool -> reasoning -> proposed action -> HITL -> write tool -> audit trail | written, not started |
-| SPEC-002-lead-account-ingestion | 1 | CSV/API import with async enrichment | not started |
+| [SPEC-001](SPEC-001-vertical-slice-account-prioritization/) | 1 | Vertical slice: NL request -> CRM context -> read tool -> reasoning -> proposed action -> HITL -> write tool -> audit trail | done, merged into develop |
+| [SPEC-002](SPEC-002-lead-account-ingestion/) | 1 | CSV/JSON import with async synthetic enrichment | in progress |
 | SPEC-003-deduplication | 1 | normalize -> match -> merge -> master record -> preserve history, for contacts and accounts | not started |
 | SPEC-004-core-tools-reply-intelligence | 1 | Remaining read/write tools from the risk matrix (`search_accounts`, `get_pipeline_metrics`, `prepare_followup`) + structured reply classification | not started |
 | SPEC-005-frontend-crm-assistant | 1 | Next.js CRM, AI Assistant (SSE streaming), Agent Activity and HITL approval screens | not started |
@@ -28,7 +28,7 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 | SPEC-010-eval-suite-feedback-loop | 3 | Full eval suite (lead scoring, reply classification, tool selection, RAG, safety) + in-product feedback feeding the regression dataset | not started |
 | SPEC-011-security-hardening | 3 | Prompt injection suite, RBAC, PII controls -- tested against real running code, not just the governance rules already in place | not started |
 | SPEC-012-high-risk-tools | 3 | `send_email`, `schedule_meeting` behind sandboxed demo mode and an outbound allowlist | not started |
-| SPEC-013-redis-celery-workers | 4 | Background workers for enrichment, batch scoring, scheduled follow-ups | not started |
+| SPEC-013-redis-celery-workers | 4 | Harden and expand workers for batch scoring and scheduled follow-ups | not started |
 | SPEC-014-reliability-patterns | 4 | Retry/backoff, dead-letter queue, rate-limit coordination, idempotency under load | not started |
 | SPEC-015-terraform-aws | 5 | IaC for ECS/Fargate, RDS, ElastiCache, Secrets Manager | not started |
 | SPEC-016-cd-pipeline-activation | 5 | Turn `cd-staging.yml`/`cd-prod.yml` from stubs into real versioned deploys with demonstrated rollback | not started |

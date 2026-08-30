@@ -1,13 +1,26 @@
 ---
 agent: codex
 updated_at: 2026-08-30
-branch: develop
-spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 merged into develop; awaiting user PR publication and SPEC-002 scope decisions."
-status: spec-001-merged-into-develop
+branch: feature/SPEC-002-lead-account-ingestion
+spec: SPEC-002-lead-account-ingestion
+phase: "SPEC-002 specification, plan, and task checklist materialized; implementation starting."
+status: spec-002-in-progress
 ---
 
 # Current state
+
+## SPEC-002 kickoff (2026-08-30)
+
+User-approved scope: admin-only CSV and inbound JSON import for `Account` plus optional `Contact`,
+explicit preview/confirm, partial row success, source and idempotency keys, minimal Celery worker,
+and deterministic append-only account enrichment snapshots. The user explicitly authorized the
+local migration `upgrade -> downgrade -1 -> upgrade` round-trip. Real providers, CRM connectors,
+deduplication/merge, agent tools, UI, and queue hardening remain out of scope.
+
+Current branch: `feature/SPEC-002-lead-account-ingestion` from clean, published `develop` at
+`1b28d90`. The initial spec artifacts are in
+`docs/specs/SPEC-002-lead-account-ingestion/`. Next: generalize the autonomous gate and implement
+the domain/application contracts before persistence and API adapters.
 
 ## Post-merge state (2026-08-30)
 
