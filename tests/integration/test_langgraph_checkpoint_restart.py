@@ -35,14 +35,28 @@ def _run(script: str, thread_id: str, dsn: str) -> subprocess.CompletedProcess[s
 
 
 def test_interrupt_persists_and_resumes_after_a_real_process_restart(postgres_dsn: str) -> None:
-    thread_id = f"test-restart-{uuid.uuid4()}"
+    thread_id = str(uuid.uuid4())
 
-    start = _run("_start_and_interrupt.py", thread_id, postgres_dsn)
+    start = _run("_start_graph_and_interrupt.py", thread_id, postgres_dsn)
     assert start.returncode == 0, f"first process failed:\n{start.stdout}\n{start.stderr}"
     assert "INTERRUPTED" in start.stdout, start.stdout
 
     # `subprocess.run` above blocked until that process fully exited - the resume below cannot
     # be served from anything held in this test process's memory.
-    resume = _run("_resume_after_restart.py", thread_id, postgres_dsn)
+    resume = _run("_resume_graph_after_restart.py", thread_id, postgres_dsn)
     assert resume.returncode == 0, f"second process failed:\n{resume.stdout}\n{resume.stderr}"
     assert "RESUMED_CORRECTLY" in resume.stdout, resume.stdout
+
+
+def test_identical_and_conflicting_repeated_resume_remains_idempotent(
+    postgres_dsn: str,
+) -> None:
+    thread_id = str(uuid.uuid4())
+
+    start = _run("_start_graph_and_interrupt.py", thread_id, postgres_dsn)
+    assert start.returncode == 0, f"first process failed:\n{start.stdout}\n{start.stderr}"
+    assert "INTERRUPTED" in start.stdout, start.stdout
+
+    resume = _run("_resume_graph_idempotently_after_restart.py", thread_id, postgres_dsn)
+    assert resume.returncode == 0, f"second process failed:\n{resume.stdout}\n{resume.stderr}"
+    assert "REPEATED_RESUME_IDEMPOTENT" in resume.stdout, resume.stdout

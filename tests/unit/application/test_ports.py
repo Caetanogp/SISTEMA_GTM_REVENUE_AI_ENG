@@ -11,8 +11,12 @@ from datetime import UTC, datetime
 from types import TracebackType
 from uuid import UUID
 
+from pydantic import BaseModel
 from revops.application.ports import (
     AccountRepository,
+    AgentRunRepository,
+    ApprovalRecord,
+    ApprovalRepository,
     AuditTrail,
     Clock,
     LLMGateway,
@@ -23,10 +27,20 @@ from revops.domain.entities.account import Account
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
+from revops.infrastructure.llm.fake import FakeLLMGateway
 
 
-def test_all_six_ports_are_protocols() -> None:
-    for port in (AccountRepository, TaskRepository, AuditTrail, LLMGateway, Clock, UnitOfWork):
+def test_all_eight_ports_are_protocols() -> None:
+    for port in (
+        AccountRepository,
+        TaskRepository,
+        AuditTrail,
+        ApprovalRepository,
+        AgentRunRepository,
+        LLMGateway,
+        Clock,
+        UnitOfWork,
+    ):
         assert getattr(port, "_is_protocol", False) is True
 
 
@@ -67,13 +81,30 @@ class _FakeAuditTrail:
     async def record(
         self,
         *,
+        action_id: UUID,
+        run_id: UUID,
         organization_id: UUID,
         actor_id: UUID,
         action: str,
         payload: Mapping[str, object],
         outcome: str,
         occurred_at: datetime,
+        approved_by: UUID | None,
+        executed_at: datetime | None,
     ) -> None: ...
+
+
+class _FakeApprovalRepository:
+    async def get_for_action(self, organization_id: UUID, action_id: UUID) -> ApprovalRecord | None:
+        return None
+
+    async def add(self, approval: ApprovalRecord) -> None: ...
+
+
+class _FakeAgentRunRepository:
+    async def add(self, run: object) -> None: ...
+
+    async def add_event(self, event: object) -> None: ...
 
 
 def test_fake_audit_trail_satisfies_the_protocol_structurally() -> None:
@@ -99,11 +130,15 @@ class _FakeUnitOfWork:
     accounts: AccountRepository
     tasks: TaskRepository
     audit: AuditTrail
+    approvals: ApprovalRepository
+    runs: AgentRunRepository
 
     def __init__(self) -> None:
         self.accounts = _FakeAccountRepository()
         self.tasks = _FakeTaskRepository()
         self.audit = _FakeAuditTrail()
+        self.approvals = _FakeApprovalRepository()
+        self.runs = _FakeAgentRunRepository()
 
     async def __aenter__(self) -> _FakeUnitOfWork:
         return self
@@ -130,15 +165,10 @@ def test_account_repository_read_only_no_write_methods() -> None:
 
 
 async def test_llm_gateway_complete_is_generic_over_response_model() -> None:
-    class _Answer:
-        def __init__(self, value: str) -> None:
-            self.value = value
+    class _Answer(BaseModel):
+        value: str
 
-    class _FakeLLMGateway:
-        async def complete(self, *, prompt: str, response_model: type[_Answer]) -> _Answer:
-            return response_model(prompt)
-
-    gateway = _FakeLLMGateway()
+    gateway = FakeLLMGateway(responses=[_Answer(value="hello")])
     assert isinstance(gateway, LLMGateway)
     result = await gateway.complete(prompt="hello", response_model=_Answer)
-    assert result.value == "hello"
+    assert result.output.value == "hello"

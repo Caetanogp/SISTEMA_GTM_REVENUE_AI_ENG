@@ -11,15 +11,59 @@ implementations here.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from types import TracebackType
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 from uuid import UUID
 
+from revops.application.dto import ApprovalDecisionType, LLMResult
 from revops.domain.entities.account import Account
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRecord:
+    id: UUID
+    action_id: UUID
+    organization_id: UUID
+    decision: ApprovalDecisionType
+    payload: Mapping[str, object]
+    decided_by: UUID
+    decided_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRunRecord:
+    id: UUID
+    organization_id: UUID
+    requested_by: UUID
+    request_text: str
+    graph_version: str
+    prompt_version: str
+    model_config_json: Mapping[str, object]
+    started_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRunEventRecord:
+    id: UUID
+    run_id: UUID
+    organization_id: UUID
+    event_type: str
+    occurred_at: datetime
+    graph_version: str
+    prompt_version: str
+    model_config_json: Mapping[str, object]
+    latency_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    token_cost_usd: Decimal | None = None
+    error: str | None = None
+    metadata: Mapping[str, object] | None = None
 
 
 @runtime_checkable
@@ -61,20 +105,43 @@ class AuditTrail(Protocol):
     async def record(
         self,
         *,
+        action_id: UUID,
+        run_id: UUID,
         organization_id: UUID,
         actor_id: UUID,
         action: str,
         payload: Mapping[str, object],
         outcome: str,
         occurred_at: datetime,
+        approved_by: UUID | None,
+        executed_at: datetime | None,
     ) -> None: ...
+
+
+@runtime_checkable
+class ApprovalRepository(Protocol):
+    async def get_for_action(
+        self, organization_id: UUID, action_id: UUID
+    ) -> ApprovalRecord | None: ...
+
+    async def add(self, approval: ApprovalRecord) -> None: ...
+
+
+@runtime_checkable
+class AgentRunRepository(Protocol):
+    async def add(self, run: AgentRunRecord) -> None: ...
+
+    async def add_event(self, event: AgentRunEventRecord) -> None: ...
+
+
+T = TypeVar("T")
 
 
 @runtime_checkable
 class LLMGateway(Protocol):
     """Structured-output access to the LLM. Free text never crosses this boundary unvalidated."""
 
-    async def complete[T](self, *, prompt: str, response_model: type[T]) -> T: ...
+    async def complete(self, *, prompt: str, response_model: type[T]) -> LLMResult[T]: ...
 
 
 @runtime_checkable
@@ -91,6 +158,8 @@ class UnitOfWork(Protocol):
     accounts: AccountRepository
     tasks: TaskRepository
     audit: AuditTrail
+    approvals: ApprovalRepository
+    runs: AgentRunRepository
 
     async def __aenter__(self) -> UnitOfWork: ...
 

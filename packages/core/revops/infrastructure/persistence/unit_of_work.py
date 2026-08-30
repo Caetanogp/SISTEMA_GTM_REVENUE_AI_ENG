@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.infrastructure.persistence.repositories import (
     SqlAlchemyAccountRepository,
+    SqlAlchemyAgentRunRepository,
+    SqlAlchemyApprovalRepository,
     SqlAlchemyAuditTrail,
     SqlAlchemyTaskRepository,
 )
@@ -30,6 +32,8 @@ class SqlAlchemyUnitOfWork:
         self.accounts = SqlAlchemyAccountRepository(session)
         self.tasks = SqlAlchemyTaskRepository(session)
         self.audit = SqlAlchemyAuditTrail(session)
+        self.approvals = SqlAlchemyApprovalRepository(session)
+        self.runs = SqlAlchemyAgentRunRepository(session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         return self
