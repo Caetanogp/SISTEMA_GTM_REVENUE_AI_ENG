@@ -3,11 +3,20 @@ agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-002-lead-account-ingestion
 spec: SPEC-002-lead-account-ingestion
-phase: "SPEC-002 specification, plan, and task checklist materialized; implementation starting."
+phase: "SPEC-002 autonomous-loop setup and pilot complete; ready for the long implementation run."
 status: spec-002-in-progress
 ---
 
 # Current state
+
+## SPEC-002 autonomous pilot (2026-08-30)
+
+Generalized `scripts/autonomous_gate.py` in commit `6ad1fb5` so the queue selects its active
+`docs/specs/<spec>/tasks.md` instead of hard-coding SPEC-001. The gate now runs the full
+verify-before-done command set when every queue task is ticked. Replaced the queue with scoped
+SPEC-002 items and committed their checkboxes in `ee3b2e2`. The observed pilot result was
+`Item 2 gate is green but not yet ticked in tasks.md`; this proves the queue advanced cleanly after
+Item 1. The branch is ready for an unattended run limited to SPEC-002; it must not push or merge.
 
 ## SPEC-002 kickoff (2026-08-30)
 
