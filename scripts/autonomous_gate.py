@@ -6,10 +6,8 @@ Ralph plugin's README admits to (an exact-string "completion promise" the model 
 with no independent check). This script is what `/goal` actually evaluates instead: a real
 condition, checked by code, not judgment.
 
-Reads .handoff/AUTONOMOUS_QUEUE.md for the ordered list of items and their file scope, and
-the remaining SPEC-001 "## 7. Data and evals" plus "## 8. Close out" sections for progress (the
-loop ticks boxes there as it completes items - this script trusts and verifies those ticks, it does
-not duplicate them).
+Reads .handoff/AUTONOMOUS_QUEUE.md for the ordered list of items, their file scope, and the active
+spec's tasks file. The queue, not a hard-coded spec number, selects the checklist the loop advances.
 
 Exit codes:
   0 - every queue item done AND the full quality gate is green. Goal achieved.
@@ -33,11 +31,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
-TASKS_FILE = ROOT / "docs" / "specs" / "SPEC-001-vertical-slice-account-prioritization" / "tasks.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
-TASKS_SECTION_HEADER = "## 7. Data and evals"
-TASKS_SECTION_END = None
 MAX_CONSECUTIVE_FAILURES = 5
 
 _ITEM_HEADER = re.compile(
@@ -48,6 +43,7 @@ _SCOPE_BLOCK = re.compile(r"^- \*\*Scope:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MUL
 _BACKTICK_PATH = re.compile(r"`([^`]+)`")
 _TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
 _CLOSES = re.compile(r"^- \*\*Closes:\*\* (\d+) tasks\.md checkboxes?$", re.MULTILINE)
+_TASKS_FILE = re.compile(r"^- \*\*Tasks file:\*\* `([^`]+)`$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -138,6 +134,22 @@ def parse_queue() -> list[QueueItem]:
     return items
 
 
+def active_tasks_file() -> Path:
+    """Resolve the queue-selected checklist without allowing paths outside the repository."""
+    text = QUEUE_FILE.read_text(encoding="utf-8")
+    match = _TASKS_FILE.search(text)
+    if match is None:
+        raise ValueError("queue is missing its `- **Tasks file:** `...`` metadata line")
+
+    candidate = (ROOT / match.group(1)).resolve()
+    specs_root = (ROOT / "docs" / "specs").resolve()
+    if candidate.parent.parent != specs_root or candidate.name != "tasks.md":
+        raise ValueError("queue tasks file must be a direct `docs/specs/<spec>/tasks.md` path")
+    if not candidate.is_file():
+        raise ValueError(f"queue tasks file does not exist: {candidate.relative_to(ROOT)}")
+    return candidate
+
+
 def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | None:
     """The queue item whose work is next, given how many tasks.md boxes are already ticked.
 
@@ -153,12 +165,9 @@ def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | 
     return None
 
 
-def completed_task_count() -> tuple[int, int]:
-    """(done, total) checkboxes in the remaining data/evals and closeout sections."""
-    text = TASKS_FILE.read_text(encoding="utf-8")
-    start = text.index(TASKS_SECTION_HEADER)
-    section = text[start:]
-    boxes = [m.group(1) for m in _TASK_LINE.finditer(section)]
+def completed_task_count(tasks_file: Path) -> tuple[int, int]:
+    """Return done and total checkbox counts from the active spec checklist."""
+    boxes = [m.group(1) for m in _TASK_LINE.finditer(tasks_file.read_text(encoding="utf-8"))]
     return sum(1 for b in boxes if b == "x"), len(boxes)
 
 
@@ -211,7 +220,7 @@ def scope_violation(item: QueueItem, baseline: str) -> list[str]:
     return offenders
 
 
-def run_quality_gate() -> tuple[bool, str]:
+def run_quality_gate(*, full: bool) -> tuple[bool, str]:
     checks = [
         ("ruff", ("ruff", "check", ".")),
         ("mypy", ("mypy", ".")),
@@ -219,6 +228,16 @@ def run_quality_gate() -> tuple[bool, str]:
         ("pytest", ("pytest", "tests/unit", "tests/architecture", "-q")),
         ("check_agent_docs", ("python", "scripts/check_agent_docs.py")),
     ]
+    if full:
+        checks.extend(
+            [
+                ("ruff_format", ("ruff", "format", "--check", ".")),
+                ("integration", ("pytest", "tests/integration", "-q")),
+                ("adversarial", ("pytest", "tests/adversarial", "-q")),
+                ("evals", ("python", "-m", "evals.run", "--suite", "all")),
+                ("gitleaks", ("gitleaks", "detect", "--no-git")),
+            ]
+        )
     report_lines = []
     all_green = True
     for name, cmd in checks:
@@ -258,11 +277,15 @@ def main() -> int:
             "on main or develop. Stopped before touching anything further."
         )
 
-    items = parse_queue()
-    done_count, total_count = completed_task_count()
+    try:
+        tasks_file = active_tasks_file()
+        items = parse_queue()
+        done_count, total_count = completed_task_count(tasks_file)
+    except ValueError as exc:
+        return halt(f"Autonomous queue configuration is invalid: {exc}")
 
     if done_count >= total_count:
-        gate_green, report = run_quality_gate()
+        gate_green, report = run_quality_gate(full=True)
         if gate_green:
             print("GOAL ACHIEVED: all queue items done, full gate green.")
             print(report)
@@ -303,7 +326,7 @@ def main() -> int:
             f"files outside it: {offenders}. Revert the out-of-scope changes or stop and ask."
         )
 
-    gate_green, report = run_quality_gate()
+    gate_green, report = run_quality_gate(full=False)
 
     if gate_green:
         gate_state.consecutive_failures = 0
