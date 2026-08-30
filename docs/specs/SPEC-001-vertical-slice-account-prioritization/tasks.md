@@ -113,3 +113,28 @@ extend it.
 - [x] `README.md` updated with real setup steps that a stranger can follow
 - [ ] All 10 acceptance criteria in `spec.md` demonstrated, with evidence
 - [ ] `.handoff/STATE.md` updated; PR opened into `develop` with the template filled in
+
+### Acceptance criteria evidence (Item 14, recorded 2026-08-30)
+
+Note: this belongs in `spec.md` itself, but this session's `.claude/settings.json` only grants
+`Write`/`Edit` on `docs/specs/**/tasks.md`, not other files under `docs/specs/`. Recording it here
+keeps the substance without guessing at a new permission grant, same as the Item 11 eval-baseline
+note above.
+
+Command: `pytest tests/unit tests/integration tests/adversarial -q` (integration/adversarial need
+`docker compose up -d`). Line numbers are current as of commit `9e40151`.
+
+| # | Criterion (abridged) | Evidence |
+|---|---|---|
+| 1 | `POST /agent/runs` returns `agent_run_id`, streams SSE | `tests/integration/test_agent_runs_api.py:168-211` (`test_agent_run_start_stream_and_approval_flow`): asserts `201`, `agent_run_id`, and the `/stream` response contains `event: started`/`event: interrupted` |
+| 2 | Ranked accounts with score/tier/evidence, schema-validated | `PrioritizationOutput`/`RankedAccount`/`AccountScore` (`packages/core/revops/application/dto.py:36-45,73-81`, `extra="forbid"`) validated in `ReasonAboutAccounts.execute` (`application/use_cases/reason_about_accounts.py:41-52`); unit: `tests/unit/application/use_cases/test_reason_about_accounts.py:55` (`test_valid_output_returns_the_structured_result`) |
+| 3 | `create_task` proposal pauses; no row until a human decides | `packages/core/revops/infrastructure/agent/nodes.py:180-196`: `execute_action` calls `interrupt()` (line 182) *before* opening `deps.uow_factory()` (line 196) - no repository write is reachable before the pause. Behavioral: the same happy-path test reaches `started["status"] == "interrupted"` via a real graph invocation with zero `AgentActionModel`/`TaskModel` rows created until `/approve` is called later in that same test |
+| 4 | Approve -> task created, `agent_actions` records `approved_by`/`executed_at`, graph resumes | `tests/unit/application/use_cases/test_decide_approval.py:161` (`test_approve_creates_the_task_and_records_the_audit`); end-to-end resume via `AgentGraphRunner.resume` (`infrastructure/agent/runner.py:141-166`), exercised by the same happy-path API test's `/approve` call |
+| 5 | Edit -> edited payload executes and is what is stored | `tests/unit/application/use_cases/test_decide_approval.py:176` (`test_edit_persists_the_edited_payload_not_the_original`) |
+| 6 | Reject -> nothing written to the CRM, rejection recorded | `tests/unit/application/use_cases/test_decide_approval.py:190` (`test_reject_writes_only_the_audit_row`) |
+| 7 | Restart between interrupt and decision -> resumes correctly | `tests/integration/test_langgraph_checkpoint_restart.py:37` (`test_interrupt_persists_and_resumes_after_a_real_process_restart`) - two genuinely separate OS processes, not two objects in one pytest run; failure-path sibling at line 51 (`test_identical_and_conflicting_repeated_resume_remains_idempotent`) covers a *duplicate* resume after restart |
+| 8 | Invalid LLM output retries a bounded number of times, then fails cleanly | `tests/unit/application/use_cases/test_reason_about_accounts.py:67` (`test_invalid_output_is_retried_before_succeeding`, recovers within the budget) and `:98` (`test_three_bad_attempts_raise`, exhausts 3 attempts and raises `StructuredOutputError` - never executes an invalid payload) |
+| 9 | Every run records `graph_version`, `prompt_version`, model config, latency, cost | `AgentGraphRunner._record_event` (`infrastructure/agent/runner.py:49-77`) writes these on every `started`/`interrupted`/`completed` event, pulling `token_cost_usd`/token counts from `metadata["llm_usage"]`; field shapes round-tripped in `tests/integration/test_persistence_repositories.py:282` (`test_record_persists_a_full_audit_row`); write path exercised live by the happy-path API test (criterion 1) |
+| 10 | Cross-org isolation: 403, no leaked rows | `tests/integration/test_agent_runs_api.py:286` (`test_agent_run_endpoints_reject_cross_org_access`) and `tests/adversarial/test_agent_security.py:104` (`test_cross_org_create_task_attempt_is_rejected_before_execution`) |
+
+Additional failure-path coverage beyond the 10 numbered criteria: `tests/integration/test_agent_runs_api.py:263` (401, missing auth) and `:331` (422, invalid payload); `tests/adversarial/test_agent_security.py:64` (skip-approval prompt injection stays inside the untrusted-content fence) and `:83` (system-prompt extraction attempt).
