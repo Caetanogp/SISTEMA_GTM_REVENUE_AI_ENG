@@ -3,11 +3,144 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 11 (offline eval runner and baseline) is complete, unblocked by the user via commit 3de560c. Item 12 is next. Overnight loop for items 10-15 in progress."
-status: item11-done-item12-next-overnight-loop-running
+phase: "SPEC-001 Item 11 is complete. Item 12 (ADR) and Item 13 (README) are both blocked on missing docs/decisions/** and README.md write permissions - overnight loop HALTED, needs the user."
+status: item11-done-item12-13-blocked-needs-user
 ---
 
 # Current state
+
+## Claude Code overnight loop HALT (2026-08-30, Items 12 and 13 - needs the user)
+
+**Same class of blocker as Item 11's, found early this time by checking ahead instead of hitting it
+one item at a time.** `.claude/settings.json`'s `permissions.allow` list has no rule at all for
+`docs/decisions/**` or for the repo-root `README.md`. Item 12's scope is
+`docs/decisions/`, `docs/specs/SPEC-001-.../`; Item 13's is `README.md`,
+`docs/specs/SPEC-001-.../`. Both are genuinely needed, not routable around:
+
+- **Item 12** — I did the actual verification work before concluding this (not assuming a new ADR
+  is needed just because a file is unwritable): ADR-0001/0002/0003 cover architecture, persistence,
+  and the LangGraph HITL runtime — they stop at roughly Item 5. Two real, undocumented "why is it
+  this way" decisions were made after that, in Items 6-11, each with a rejected alternative and a
+  real future-work implication (the ADR-0002-style bar: "documented so a future engineer does not
+  reinvent or misread the decision"):
+  1. **`apps/api/auth.py` uses PyJWT (`jwt.encode`/`decode`), not `python-jose`** — removed the
+     `ecdsa` dependency from the project tree. Minor on its own; folding it into the same ADR as a
+     short line item (à la ADR-0002's "Real findings from building this" section) rather than
+     giving it a whole ADR.
+  2. **`evals/scorers/tool_selection.py`'s baseline is a naive keyword heuristic, not a real
+     LLM-backed router** — SPEC-001's shipped graph has no dynamic tool selection at all
+     (`propose_action` always drafts exactly one `create_task`). Without an ADR, a future engineer
+     could easily misread the dataset's 1.00 baseline score as "tool selection is solved," when it
+     is a deliberate stand-in scored against its own small dataset. `evals/thresholds.toml` (not
+     the `.yaml` originally named in tasks.md) is the companion decision - no new dependency, per
+     the user's own resolution of the Item 11 halt.
+  I attempted `Write` to `docs/decisions/ADR-0004-...md` and it was denied the same way `evals/*.py`
+  was before commit `3de560c` - "Permission to use Write has been denied because Claude Code is
+  running in don't ask mode." The full ADR text is drafted below, ready to paste as soon as
+  `docs/decisions/**` is writable - no further judgment call needed from whoever unblocks this.
+- **Item 13** — confirmed by reading `README.md`: line 11-12 ("Status: phase 0 complete... Phase 1
+  — the vertical slice — is next") is now stale, SPEC-001 is nearly closed out. Updating it needs
+  `Write`/`Edit` on the repo-root `README.md`, which has no allow-rule either.
+
+**Checked ahead, not just reacted:** before halting, I read Items 14 and 15's declared scope too, so
+this doesn't repeat a third and fourth time.
+- **Item 14** (acceptance evidence) does **not** need a new permission — I can record the
+  criteria-to-evidence mapping as a new section inside `tasks.md` itself, the same substitution
+  already used for Item 11's baseline report, since `docs/specs/**/tasks.md` is writable.
+- **Item 15** (closeout) does **not** need `.github/` write either, on inspection:
+  `.github/pull_request_template.md` is a repo-wide reusable scaffold, not a per-PR file: "fill the
+  pull-request template" means drafting the actual filled-in PR body text (evidence, checklists,
+  etc. following that template's structure) for the user to paste when they run
+  `gh pr create --body-file` or use the GitHub UI later - not editing the template file itself. That
+  content can be recorded in `.handoff/STATE.md` or a chat response, both already fine.
+
+So the loop only needs one more permission fix (`docs/decisions/**` and `README.md`) to clear
+Items 12 and 13, then Items 14 and 15 should run without hitting this again.
+
+**Suggested next step for the user:** add `Write(./docs/decisions/**)`, `Edit(./docs/decisions/**)`,
+`Write(./README.md)`, `Edit(./README.md)` to `.claude/settings.json`, then resume.
+
+### Draft ADR-0004, ready to create verbatim once `docs/decisions/` is writable
+
+File: `docs/decisions/ADR-0004-api-auth-library-and-eval-baseline-strategy.md`
+
+```markdown
+# ADR-0004: API auth library and offline eval baseline strategy
+
+- **Status:** accepted
+- **Date:** 2026-08-30
+- **Context spec:** SPEC-001
+
+## Context
+
+ADR-0001 through ADR-0003 cover the architecture, persistence, and LangGraph HITL runtime
+decisions through roughly Item 5 of the SPEC-001 queue. Two further decisions were made building
+Items 6 (API composition root, JWT auth) and 9-11 (eval datasets, offline runner, baseline) that
+were not recorded anywhere durable - only in `.handoff/STATE.md`, which rolls forward and is not
+the project's decision log.
+
+## Decision: JWT library
+
+`apps/api/auth.py` encodes and decodes access tokens with **PyJWT** (`jwt.encode`/`jwt.decode`),
+not `python-jose`. `python-jose` pulls in `ecdsa` for its EC algorithm support, which this project
+does not use (HS256 is sufficient for a single-service, shared-secret JWT); PyJWT covers the same
+HS256 path with one fewer transitive dependency to audit and pin. **Revisit if:** the API ever
+needs asymmetric JWT verification (e.g., a separate identity provider issuing RS256 tokens) -
+PyJWT supports it too, so this is not expected to force a second migration.
+
+## Decision: offline eval baseline strategy
+
+SPEC-001's shipped graph has no dynamic tool router - `propose_action` always drafts exactly one
+`create_task`, chosen deterministically by `PrioritizeAccounts`, never picked among tools by an
+LLM. Item 11 (offline eval runner) still needed to produce a real, reproducible number for
+`evals/datasets/tool_selection.jsonl`, without provider credentials (`.env` does not exist) and
+without inventing a new agent capability outside this item's scope.
+
+### Options considered
+
+1. **Script a `FakeLLMGateway` per case to return the dataset's own expected answer.** Rejected:
+   trivially circular (100% "accuracy" against a fixture that is scripted to be correct) with zero
+   real signal - it would test that the fake gateway pattern works, not anything about tool
+   selection.
+2. **Wire a real LLM-backed tool router into the graph now**, to give the eval something real to
+   score. Rejected: out of Item 11's declared scope (`evals/`, `tests/`, `docs/specs/`), requires
+   provider credentials that do not exist in this environment, and is exactly the kind of new
+   agent capability `AGENTS.md`'s complexity-flagging rule reserves for a deliberate design pass,
+   not a side effect of building eval infrastructure.
+3. **A small, explicit, rule-based keyword baseline** (chosen) - `evals/scorers/tool_selection.py`.
+   No provider credentials needed, fully deterministic and reproducible, and honestly labelled in
+   its own module docstring as a stand-in, not a claim about current agent behaviour.
+
+**Decision:** option 3. `evals/thresholds.toml`'s `tool_selection.min_accuracy = 0.80` is set below
+the baseline's current 1.00 measurement on purpose, so growing the dataset with harder adversarial
+phrasing has headroom before it fails the gate on a heuristic that was never meant to be the final
+answer. `lead_scoring`'s scorer (`evals/scorers/lead_scoring.py`) is different in kind, not just
+degree: it wraps the real, shipped `prioritize_account` domain policy directly, so its dataset is a
+regression guard (`min_exact_match = 1.00`), not a baseline-to-beat.
+
+## Decision: thresholds file format
+
+`evals/thresholds.toml`, not the `evals/thresholds.yaml` originally named in
+`docs/specs/SPEC-001-.../tasks.md`. PyYAML is not a dependency of this project (`pyproject.toml`),
+and the autonomous-loop playbook treats adding a new dependency as a signal to stop and ask, not to
+add one unprompted. Python's stdlib `tomllib` (3.11+) parses TOML with zero new dependencies. The
+user confirmed this call directly when this session halted on the question (see
+`.handoff/STATE.md`'s Item 11 history); `tasks.md` and this ADR are the durable record of it.
+
+## Consequences
+
+**Easier:** one fewer transitive dependency to audit (`ecdsa` removed) · the eval gate has a real,
+reproducible number today instead of nothing, with an explicit, documented floor for when a real
+router replaces the baseline · no new dependency was added for a small, single-purpose config file.
+
+**Harder:** the `tool_selection` baseline could be mistaken for real agent quality by someone who
+does not read its docstring or this ADR - mitigated by labelling it explicitly in three places
+(module docstring, `evals/thresholds.toml` comments, this ADR).
+
+**Revisit if:** a real LLM-backed tool router is built - it should **replace**
+`evals/scorers/tool_selection.py`, not extend the keyword baseline further; and if the API ever
+needs asymmetric JWT verification, per the auth decision above.
+```
 
 ## Claude Code overnight loop (2026-08-30, Item 11 - unblocked and completed)
 
@@ -245,9 +378,17 @@ repeated and concurrent invocations deterministic.
 
 ## Next
 
-1. Item 12: SPEC-001 decision record - verify all decisions constraining future work are in ADRs
-   under `docs/decisions/`, adding/updating only where the existing records are insufficient.
-2. Items 13-15: setup docs (`README.md`), acceptance evidence, closeout handoff.
+1. **Blocked - needs the user first:** grant `Write`/`Edit` on `docs/decisions/**` and `README.md`
+   in `.claude/settings.json` - see the HALT entry above for the full reasoning and the ready-to-
+   paste ADR-0004 draft. Do not resume the loop against Item 12 until this is resolved.
+2. Once unblocked: create `docs/decisions/ADR-0004-...md` verbatim from the draft above, tick
+   Item 12, commit; then Item 13 (`README.md` setup/usage steps).
+3. Items 14-15 do **not** need a new permission (see the HALT entry's "checked ahead" note) -
+   record Item 14's evidence mapping as a `tasks.md` section like Item 11's baseline, and Item 15's
+   PR body content in `STATE.md`/chat rather than editing `.github/pull_request_template.md`.
+4. **Sequencing reminder for every remaining item:** commit an item's own files first, *then* tick
+   its `tasks.md` box in a separate commit, *then* re-run the gate - see the Item 11 self-resolved
+   HALT note above for why ticking before committing desyncs the gate's baseline tracking.
 3. Items 12-15: SPEC-001 decision record, setup docs, acceptance evidence, closeout handoff.
 3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
    SPEC-001 and roadmap placeholders.
