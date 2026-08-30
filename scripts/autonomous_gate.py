@@ -7,9 +7,9 @@ with no independent check). This script is what `/goal` actually evaluates inste
 condition, checked by code, not judgment.
 
 Reads .handoff/AUTONOMOUS_QUEUE.md for the ordered list of items and their file scope, and
-docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md's "## 3. Persistence" section
-for progress (the loop ticks boxes there as it completes items - this script trusts and verifies
-those ticks, it does not duplicate them).
+the remaining SPEC-001 "## 7. Data and evals" plus "## 8. Close out" sections for progress (the
+loop ticks boxes there as it completes items - this script trusts and verifies those ticks, it does
+not duplicate them).
 
 Exit codes:
   0 - every queue item done AND the full quality gate is green. Goal achieved.
@@ -36,11 +36,14 @@ QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
 TASKS_FILE = ROOT / "docs" / "specs" / "SPEC-001-vertical-slice-account-prioritization" / "tasks.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
-TASKS_SECTION_HEADER = "## 3. Persistence"
-TASKS_SECTION_END = "## 4. Agent graph"
+TASKS_SECTION_HEADER = "## 7. Data and evals"
+TASKS_SECTION_END = None
 MAX_CONSECUTIVE_FAILURES = 5
 
-_ITEM_HEADER = re.compile(r"^## Item (\d+) — (.+?)(?: — \*\*HALT: (\S+)\*\*)?$", re.MULTILINE)
+_ITEM_HEADER = re.compile(
+    r"^## Item (\d+)\s+(?:-|—)\s+(.+?)(?:\s+(?:-|—)\s+\*\*HALT: (\S+)\*\*)?$",
+    re.MULTILINE,
+)
 _SCOPE_BLOCK = re.compile(r"^- \*\*Scope:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL)
 _BACKTICK_PATH = re.compile(r"`([^`]+)`")
 _TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
@@ -151,11 +154,10 @@ def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | 
 
 
 def completed_task_count() -> tuple[int, int]:
-    """(done, total) checkboxes in tasks.md's Application section."""
+    """(done, total) checkboxes in the remaining data/evals and closeout sections."""
     text = TASKS_FILE.read_text(encoding="utf-8")
     start = text.index(TASKS_SECTION_HEADER)
-    end = text.index(TASKS_SECTION_END, start)
-    section = text[start:end]
+    section = text[start:]
     boxes = [m.group(1) for m in _TASK_LINE.finditer(section)]
     return sum(1 for b in boxes if b == "x"), len(boxes)
 

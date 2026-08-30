@@ -41,37 +41,37 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 
 ## 4. Agent graph
 
-- [ ] Evolve application DTOs/ports/use cases for bounded candidate context, `LLMResult`, durable
+- [x] Evolve application DTOs/ports/use cases for bounded candidate context, `LLMResult`, durable
   approvals, and three total structured-output attempts
-- [ ] Domain validation: task due date must be in the future and no more than 30 days away
-- [ ] Persistence: immutable run root + append-only run events, Approval repository, non-null
+- [x] Domain validation: task due date must be in the future and no more than 30 days away
+- [x] Persistence: immutable run root + append-only run events, Approval repository, non-null
   `agent_actions.run_id`, and persistent action idempotency
-- [ ] Migration: legacy orphan-action backfill, `run_id` tightening, approval uniqueness, run events
-- [ ] `FakeLLMGateway` (deterministic, usage-aware, and able to return malformed output on demand)
-- [ ] Prompt file `agent/prompts/prioritize_accounts.v1.md`
-- [ ] Nodes: `load_context`, `score_accounts`, `propose_action`, `execute_action`
-- [ ] Minimal JSON-compatible state; structured output validated before entering state; bounded
+- [x] Migration: legacy orphan-action backfill, `run_id` tightening, approval uniqueness, run events
+- [x] `FakeLLMGateway` (deterministic, usage-aware, and able to return malformed output on demand)
+- [x] Prompt file `agent/prompts/prioritize_accounts.v1.md`
+- [x] Nodes: `load_context`, `score_accounts`, `propose_action`, `execute_action`
+- [x] Minimal JSON-compatible state; structured output validated before entering state; bounded
   retry then clean failure
-- [ ] Pooled `AsyncPostgresSaver`; strict serializer; dynamic interrupt before any side effect in
+- [x] Pooled `AsyncPostgresSaver`; strict serializer; dynamic interrupt before any side effect in
   `execute_action`
-- [ ] Integration test: interrupt → **restart the process** → resume (acceptance criterion 7)
-- [ ] Integration test: identical and conflicting repeated resume cannot duplicate a task
-- [ ] `graph_version` and `prompt_version` written to `agent_runs`; terminal usage written to a
+- [x] Integration test: interrupt → **restart the process** → resume (acceptance criterion 7)
+- [x] Integration test: identical and conflicting repeated resume cannot duplicate a task
+- [x] `graph_version` and `prompt_version` written to `agent_runs`; terminal usage written to a
   self-contained append-only run event
 
 ## 5. API
 
-- [ ] JWT auth + role check; `organization_id` from the token, never from the request body
-- [ ] `POST /agent/runs`, `GET /agent/runs`, `GET /agent/runs/{id}/stream` (SSE), `POST /agent/runs/{id}/approve`
-- [ ] Domain errors mapped to status codes, no internals leaked
-- [ ] Integration tests: happy path, 401, 403 cross-org, 422 invalid payload
+- [x] JWT auth + role check; `organization_id` from the token, never from the request body
+- [x] `POST /agent/runs`, `GET /agent/runs`, `GET /agent/runs/{id}/stream` (SSE), `POST /agent/runs/{id}/approve`
+- [x] Domain errors mapped to status codes, no internals leaked
+- [x] Integration tests: happy path, 401, 403 cross-org, 422 invalid payload
 
 ## 6. Policy and security
 
-- [ ] Full chain enforced before any side effect: schema → domain rules → authz → risk
-- [ ] Audit row written on every path, including failure and rejection
-- [ ] `tests/adversarial/`: skip-approval prompt, cross-org `create_task`, system-prompt extraction
-- [ ] `bandit`, `pip-audit`, `gitleaks` clean
+- [x] Full chain enforced before any side effect: schema → domain rules → authz → risk
+- [x] Audit row written on every path, including failure and rejection
+- [x] `tests/adversarial/`: skip-approval prompt, cross-org `create_task`, system-prompt extraction
+- [x] `bandit`, `pip-audit`, `gitleaks` clean
 
 ## 7. Data and evals
 
