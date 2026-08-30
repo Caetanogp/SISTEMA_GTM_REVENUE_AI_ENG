@@ -41,13 +41,23 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 
 ## 4. Agent graph
 
-- [ ] `FakeLLMGateway` (deterministic, and able to return malformed output on demand)
+- [ ] Evolve application DTOs/ports/use cases for bounded candidate context, `LLMResult`, durable
+  approvals, and three total structured-output attempts
+- [ ] Domain validation: task due date must be in the future and no more than 30 days away
+- [ ] Persistence: immutable run root + append-only run events, Approval repository, non-null
+  `agent_actions.run_id`, and persistent action idempotency
+- [ ] Migration: legacy orphan-action backfill, `run_id` tightening, approval uniqueness, run events
+- [ ] `FakeLLMGateway` (deterministic, usage-aware, and able to return malformed output on demand)
 - [ ] Prompt file `agent/prompts/prioritize_accounts.v1.md`
 - [ ] Nodes: `load_context`, `score_accounts`, `propose_action`, `execute_action`
-- [ ] Structured output validated before entering state; bounded retry then clean failure
-- [ ] Postgres checkpointer; interrupt before `execute_action`
+- [ ] Minimal JSON-compatible state; structured output validated before entering state; bounded
+  retry then clean failure
+- [ ] Pooled `AsyncPostgresSaver`; strict serializer; dynamic interrupt before any side effect in
+  `execute_action`
 - [ ] Integration test: interrupt → **restart the process** → resume (acceptance criterion 7)
-- [ ] `graph_version` and `prompt_version` written to `agent_runs`
+- [ ] Integration test: identical and conflicting repeated resume cannot duplicate a task
+- [ ] `graph_version` and `prompt_version` written to `agent_runs`; terminal usage written to a
+  self-contained append-only run event
 
 ## 5. API
 
