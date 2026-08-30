@@ -1,10 +1,10 @@
 ---
 agent: claude-code
-updated_at: 2026-08-29
+updated_at: 2026-08-30
 branch: feature/SPEC-001-persistence
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 blocked - autonomous loop for tasks.md section 3 (persistence) halted itself before Item 1's gate could ever go green, due to an environment blocker outside the loop's declared file scope"
-status: persistence-item1-blocked-on-editable-install-env-issue
+phase: "1 blocked - Item 2 (Alembic migration) content is done and half-verified; the round-trip's downgrade leg is blocked by this session's own permission mode, not by anything wrong with the migration"
+status: persistence-item2-blocked-on-permission-mode-vs-ask-list-conflict
 ---
 
 # Current state
@@ -16,141 +16,155 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-Launched the autonomous loop per `docs/playbooks/autonomous-loop.md` against
-`.handoff/AUTONOMOUS_QUEUE.md` items 1-4. `EnterWorktree` created
-`.claude/worktrees/spec-001-persistence-loop`; renamed to `feature/spec-001-persistence-loop`
-(`git branch -m`). Confirmed clean tree, correct branch, `docker compose ps` showed
-`revops-postgres` healthy. Wrote a full draft of Item 1 (models + tests), then hit a real
-environment blocker before the gate could ever pass — **stopped per the standing rule in the
-seed prompt and `AUTONOMOUS_QUEUE.md`: "if you hit ... a scope violation you can't resolve within
-an item's declared file scope ... stop, write the full situation to STATE.md ... and end your
-work."**
+Resumed as a plain foreground interactive session in the main checkout (no `EnterWorktree` — see
+`.handoff/AUTONOMOUS_QUEUE.md`'s "Rules for the loop" and `docs/playbooks/autonomous-loop.md`,
+both already updated to retract that guidance for this project after the incident recorded below).
 
-**The blocker, with evidence:**
+1. Confirmed real state before touching anything: branch `feature/SPEC-001-persistence`, `docker
+   compose ps` showed both containers **exited** (stopped, not missing) — brought them back up
+   (`docker compose up -d`), both report `healthy`. Ran `python scripts/autonomous_gate.py`
+   myself: `Item 2 gate is green but not yet ticked in tasks.md - tick it.` with ruff/mypy/
+   lint-imports/pytest/check_agent_docs all `OK` — confirmed this is the trivial "nothing new
+   broke yet" signal the seed prompt warned about, not a completion signal for Item 2 itself
+   (Item 2 had no migration file at all yet — only `.gitkeep` in `migrations/versions/`).
+2. Ran `alembic revision --autogenerate -m "create core schema and audit tables"` against the
+   real docker-compose Postgres. Generated
+   `packages/core/revops/infrastructure/persistence/migrations/versions/bcc6f6ed88c4_create_core_schema_and_audit_tables.py`.
+   **Read it line by line before accepting it**, per `docs/playbooks/db-migration.md`:
+   - All 10 tables present: `organizations`, `accounts`, `agent_runs`, `users`, `agent_actions`,
+     `contacts`, `interactions`, `opportunities`, `tasks`, `approvals`.
+   - `organization_id` indexed on every tenant-scoped table (9 `ix_*_organization_id` indexes;
+     `organizations` itself correctly has none — it has no `organization_id` column).
+   - `uq_accounts_org_domain` on `(organization_id, domain)`, `uq_contacts_org_email` on
+     `(organization_id, email)` — both present as unique constraints.
+   - `agent_actions.run_id` is `nullable=True` — ADR-0002, confirmed correct, not dropped.
+   - **No LangGraph checkpoint tables** (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`,
+     `checkpoint_migrations`) appear anywhere in the migration — the `include_name` filter in
+     `migrations/env.py` held.
+   - No `onupdate` and no `ondelete="CASCADE"` on any column/FK across the three audit tables.
+   - `downgrade()`'s drop order is the correct reverse of FK dependencies (`approvals` ->
+     `tasks`/`opportunities`/`interactions`/`contacts`/`agent_actions` -> `users`/`agent_runs` ->
+     `accounts` -> `organizations`).
+3. Ran `alembic upgrade head` for real against `revops-postgres` — succeeded cleanly:
+   ```
+   INFO  [alembic.runtime.migration] Running upgrade  -> bcc6f6ed88c4, create core schema and audit tables
+   ```
+4. Ran `alembic downgrade -1` to complete the round-trip Item 2's done criterion requires —
+   **denied by the tool permission layer itself**, not by Alembic or the database:
+   ```
+   Permission to use Bash has been denied because Claude Code is running in don't ask mode.
+   ```
+   `.claude/settings.json` puts `"Bash(alembic downgrade:*)"` in the `ask` list (alongside `git
+   push`, `git merge`, `terraform apply`, ...), and this session is running in `dontAsk` permission
+   mode — exactly the mode `docs/playbooks/autonomous-loop.md` documents as the correct way to run
+   unattended: *"the `ask` rules already in `.claude/settings.json` ... are denied automatically
+   instead of waiting for someone who is not there."* That design is correct and I am not
+   second-guessing it — but it also means Item 2's own done criterion (an explicit
+   `upgrade -> downgrade -1 -> upgrade` round-trip, captured as evidence) cannot be satisfied from
+   inside this permission mode by design, not by accident. Chaining
+   (`alembic upgrade head && alembic downgrade -1 && ...`) does not help — the same denial fires
+   on the compound command.
 
-`revops` is resolved via a **global, per-user** Python install
-(`C:\Users\Caetanogp123\AppData\Roaming\Python\Python312\site-packages`, *not* a project-local
-`.venv`), through a PEP 660 editable-install finder
-(`__editable__.agentic_revops_platform-0.1.0.finder.__path_hook__`) that maps `revops.*` submodules
-to **absolute file paths baked in at `pip install -e ".[dev]"` time** — the main checkout's
-`packages/core/revops/...`, per `tasks.md`'s "verified 2026-08-26" note and every prior handoff
-log's install command. A git worktree is a genuinely separate directory tree on disk; the finder
-has no knowledge of it and keeps resolving to the main checkout's files regardless of `cwd`.
+**Why I stopped instead of working around it** (per the seed prompt's rule 5 and
+`AUTONOMOUS_QUEUE.md`'s standing "never expand scope to work around a blocker"):
+- Routing the same operation through a different tool (a one-off Python script calling
+  Alembic's `command.downgrade()` API directly, or raw `DROP TABLE` SQL via `psql`) would be
+  exactly the "attempt to bypass the intent behind this denial" the Bash tool's own description
+  warns against — the `ask` gate exists specifically to stop an unattended session from making
+  a schema-downgrade decision nobody reviewed, regardless of which command literally executes it.
+- This is a real, reproduced blocker, not a design ambiguity — there is nothing to re-plan or
+  re-derive. It needs one human decision: either grant this specific command once (a real
+  terminal, not this session, running `alembic downgrade -1` then `alembic upgrade head` again to
+  restore head — takes under a minute against this disposable local dev Postgres), or move
+  `alembic downgrade` out of the `ask` list for this project (a settings.json change, itself a
+  decision with tradeoffs the seed prompt's rule 5 says to flag rather than make unilaterally).
+- The database is currently sitting at `head` (`bcc6f6ed88c4`) — the upgrade half of the round
+  trip is proven and left in place; nothing was reverted or is in a half-migrated state.
 
-Proved this directly, twice:
-1. Added a diagnostic assertion inside a worktree test file: `models.__file__` printed the **main
-   checkout's** `packages/core/revops/infrastructure/persistence/models.py` path — the untouched
-   stub (`Base` only, no tables) — even though the worktree's copy of that same file had already
-   been rewritten with all ten tables. `sys.path` confirmed the AppData global site-packages +
-   the `__editable__...finder.__path_hook__` entry above, no project `.venv` anywhere in it.
-2. Ran `python scripts/autonomous_gate.py` for real (not simulated) from inside the worktree: it
-   executed `pytest tests/unit tests/architecture -q` and failed with the **exact same** symptom —
-   `Base.metadata.tables` empty, `KeyError: 'agent_actions'` etc. — proving this is not just my own
-   diagnostic script's artifact, it is what the gate itself would see for every item, forever.
-   (`lint-imports` also failed in that same run, but for an unrelated, pre-existing cause: a
-   Windows `cp1252` console `UnicodeEncodeError` inside import-linter's own `rich`-based renderer
-   when it prints its report — worth a look someday, not part of this blocker and not something I
-   touched.)
-
-**Why I did not fix this myself, both live options considered and rejected:**
-
-- **Reinstall editable (`pip install -e ".[dev]"`, or `uv sync` — `uv` is not even on `PATH` here,
-  confirmed) from inside the worktree.** This is not in Item 1's declared scope, but more importantly
-  it would rebind a **global, shared, per-user** Python environment's package resolution away from
-  the main checkout and onto a worktree directory that gets deleted when this job/session ends —
-  breaking `import revops` for the user's own main-checkout terminal and any other concurrent
-  session on this machine the moment the worktree is removed. A hard-to-reverse, shared-system
-  side effect the "Executing actions with care" rules require confirming first, not guessing on.
-- **Add a `conftest.py` that fixes `sys.path` before any test imports `revops`.** Investigated: it
-  would need to be a *root*-level `conftest.py` (a nested one under `tests/unit/infrastructure/`
-  loads too late — `revops` is already resolved to the stale path by the time domain/application
-  tests import it earlier in the same pytest session, alphabetically before `infrastructure`). A
-  root `conftest.py` is outside every queue item's declared scope, and `scripts/autonomous_gate.py`'s
-  own `scope_violation()` check would correctly flag it and halt anyway.
-
-Neither is a decision the loop should make unilaterally. This needs the user to pick a fix (see
-`## Next`).
-
-**State of Item 1's draft work** (commit `<see git log on this branch — committed as WIP, unverified>`):
-`packages/core/revops/infrastructure/persistence/models.py` (all ten tables — `organizations`,
-`users`, `accounts`, `contacts`, `opportunities`, `interactions`, `tasks`, `agent_runs`,
-`agent_actions`, `approvals` — following the domain entities field-for-field, `agent_actions.run_id`
-nullable per ADR-0002, no `onupdate`/cascade-delete on the three audit tables, `organization_id`
-indexed everywhere, unique `(organization_id, domain)` on accounts and `(organization_id, email)`
-on contacts) plus `tests/unit/infrastructure/{__init__.py,persistence/__init__.py,persistence/test_models.py}`.
-**None of this is verified** — `ruff`, `mypy` and `lint-imports` alone say nothing wrong (mypy and
-ruff read files directly off disk, not through the broken import path), but `pytest` — the thing
-that actually proves the tables are correct — cannot exercise this code at all until the blocker is
-fixed. Do not tick tasks.md section 3's first checkbox on the strength of this draft.
+**What is NOT done as a result:** Item 2's tasks.md checkbox is **not ticked** — the migration
+content is verified by inspection and the upgrade leg is proven, but the done criterion explicitly
+requires the full round-trip's output as evidence, and that is incomplete. Items 3 and 4 were not
+started — they depend on Item 2 being complete, per the queue's own ordering rule.
 
 ## Done (prior sessions — condensed; full detail in git history and `.handoff/log/`)
 
 - Domain layer, application layer (all 6 SPEC-001 tasks.md section 2 items, merged to `develop` at
-  `adce03d`), and SPEC-001 persistence Phase 0 (Alembic bootstrap, checkpoint-restart spike,
-  ADR-0002, queue rewrite) — see `.handoff/log/2026-08-29-1929-claude.md` for full detail and every
-  commit SHA; nothing here has changed.
+  `adce03d`).
+- SPEC-001 persistence Phase 0 (Alembic scaffolding, checkpoint-restart spike, ADR-0002, queue
+  rewrite) — `.handoff/log/2026-08-29-1929-claude.md`.
+- **Item 1 (SQLAlchemy models)** — done, verified, ticked, committed for real in the main checkout
+  (commit `ea2b9b4`), after the worktree/editable-install blocker documented in that same commit
+  and in `0581bd2` (which retracted `EnterWorktree` guidance for this project entirely — see
+  `.handoff/AUTONOMOUS_QUEUE.md`'s "Rules for the loop" and the playbook, both updated).
 
 ## Next
 
-1. **Decide how `revops` should resolve inside a worktree**, then have a human (not an unattended
-   loop) apply it. Two real options, not exhaustive:
-   - Reinstall editable **from the main checkout** normally (`pip install -e ".[dev]"`), and give
-     future loop runs a **project-local `.venv`** instead of the global per-user site-packages —
-     then each worktree gets its own `pip install -e ".[dev]"` inside its own `.venv`, cleanly
-     isolated, no shared-state risk. Bigger one-time setup change.
-   - Add a root `conftest.py` (`sys.path.insert(0, ...)` pointing at `sys.argv`/`__file__`-relative
-     `packages/core`) as a deliberate, reviewed change — then add its path to
-     `.handoff/AUTONOMOUS_QUEUE.md`'s always-allowed prefixes (alongside `.handoff/`, `.claude/`,
-     `docs/playbooks/`, `scripts/`) so future loop runs don't halt on it. Smaller change, still
-     shared-repo-wide, needs a real decision on whether that's the right permanent shape.
-2. Once fixed, verified with a real `pytest` run of `tests/unit/infrastructure/persistence/test_models.py`
-   from inside a fresh worktree (not the one from this run, which should be discarded once its draft
-   is reviewed/reused) — then resume the loop at Item 1 with a clean gate-state reset.
-3. Look at the `lint-imports` Windows `cp1252` `UnicodeEncodeError` noted above, independently of
-   item 1 — it will hit again the moment any item's gate run needs `lint-imports` to actually report
-   something (right now it's masked because the failure happens before it prints a real result).
-4. Resume `.handoff/AUTONOMOUS_QUEUE.md` items 1-4 in order once (1) and (2) are done. Nothing about
-   the plan, ADR-0002, or the queue's scope/ordering needs to change — this is a pure tooling
-   blocker, not a design one.
-5. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode — unchanged
-   from before this run.
+1. **A human needs to run the missing half of Item 2's round-trip once**, in a real terminal (not
+   an unattended `dontAsk` session), against the current `revops-postgres` (already up and
+   healthy):
+   ```bash
+   cd "SISTEMA_PORTFOLIO_AI_ENG"
+   alembic downgrade -1
+   alembic upgrade head
+   ```
+   Paste or save the output as the evidence Item 2's done criterion requires, then either tick
+   the checkbox and hand back to a session to continue, or ask the next session to do it having
+   pasted that output into context.
+   - Alternative, if this project wants `dontAsk` sessions to be able to prove migration
+     round-trips unattended going forward: move `"Bash(alembic downgrade:*)"` from `.claude/
+     settings.json`'s `ask` list to `allow`. That is a real security-policy tradeoff (it is grouped
+     there deliberately, next to `git push`/`git merge`), not something to decide inside this loop
+     — flagging it per rule 5, not deciding it.
+2. Once Item 2's round-trip evidence exists, tick `docs/specs/SPEC-001-vertical-slice-account-
+   prioritization/tasks.md` section 3's second box, commit the migration file (currently untracked:
+   `packages/core/revops/infrastructure/persistence/migrations/versions/
+   bcc6f6ed88c4_create_core_schema_and_audit_tables.py`) with the round-trip evidence in the commit
+   message, then resume Items 3 and 4 in order exactly as scoped in `AUTONOMOUS_QUEUE.md`.
+3. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode —
+   unchanged from before this run.
 
 ## Gotchas
 
-- **A git worktree does not see a global/per-user editable Python install.** `pip install -e` (this
-  repo has never used a project-local `.venv` — confirmed no `.venv` in the repo, `uv` not on `PATH`)
-  bakes an absolute path to the checkout it was run from into a PEP 660 finder in
-  `AppData\Roaming\Python\Python312\site-packages`. Every worktree's copy of `packages/core/revops`
-  is invisible to `pytest` (and therefore to `scripts/autonomous_gate.py`) until this is fixed for
-  real — see `## Now` and `## Next` above. This blocks **every future worktree-isolated loop run
-  that touches `packages/core/revops`**, not just this one.
-- `mypy .` and `ruff check .` do NOT surface the above problem — they read the files being checked
-  directly off disk rather than through the installed package's import path, so they will happily
-  pass on worktree edits that `pytest` can never see. Don't trust a green `mypy`/`ruff` alone as
-  proof that worktree code is real; `pytest` passing is the only proof that matters here.
-- `lint-imports` crashes with a Windows `cp1252` `UnicodeEncodeError` from its `rich`-console
-  renderer in at least one environment state (seen once, inside the worktree, cause not yet
-  isolated — see `## Next` item 3).
+- **`.claude/settings.json`'s `ask` list is auto-denied, not auto-approved, under `dontAsk`
+  permission mode.** This is correct and by design for `git push`/`git merge`/etc. (see
+  `docs/playbooks/autonomous-loop.md`), but it also silently blocks any queue item whose *done
+  criterion itself* requires one of those commands — `alembic downgrade` for Item 2 is the first
+  concrete case. Check every remaining queue item's done criterion against the `ask` list before
+  assuming a `dontAsk` session can complete it unattended.
+- Compound/chained Bash commands (`cmd1 && cmd2`) are matched and denied as a whole if any part
+  falls outside the allow-list — do not try to sneak an ask/deny-listed command through by
+  chaining it after an allowed one.
+- `docker compose ps` can report an empty table (no error) when containers exist but are stopped —
+  check `docker ps -a` / `docker compose ps -a` for `Exited` containers before concluding Docker
+  "isn't running"; `docker compose up -d` restarts already-created containers without recreating
+  them.
 - All gotchas from `.handoff/log/2026-08-29-1929-claude.md` (OneDrive/Defender git & filesystem
   interference, psycopg's Windows event-loop policy requirement, the checkpoint-table autogenerate
   trap, pre-commit unreliability, missing `__init__.py` in declared scope) still apply unchanged.
+- The worktree/editable-install blocker from the prior session is fully retracted guidance now —
+  see `AUTONOMOUS_QUEUE.md`'s "Rules for the loop" and `docs/playbooks/autonomous-loop.md`:
+  **never call `EnterWorktree` for this project**, always run as a plain foreground session in the
+  main checkout.
 
 ## Resume
 
 ```bash
 cd "SISTEMA_PORTFOLIO_AI_ENG"
-git status                                          # main checkout: should still be clean, on feature/SPEC-001-persistence
-git worktree list                                   # find .claude/worktrees/spec-001-persistence-loop and its branch
-git log --oneline feature/spec-001-persistence-loop -5   # see the WIP commit(s) left there
+git status                                          # should show only the untracked migration file
 docker compose ps                                   # confirm revops-postgres still healthy
+alembic downgrade -1 && alembic upgrade head         # the missing round-trip leg - run this by hand
+python scripts/autonomous_gate.py                   # re-check after ticking Item 2
 ```
-Read `## Next` above before doing anything else. This is a tooling decision, not a design one —
-do not re-derive ADR-0002 or re-plan the persistence layer, both are still correct.
+Read `## Next` above before doing anything else. This is a tooling/permission blocker, not a
+design one — do not re-derive ADR-0002 or re-plan the persistence layer, both are still correct,
+and do not re-run `alembic revision --autogenerate` again (it would generate a second, redundant
+migration on top of `bcc6f6ed88c4`, which is already correct).
 
 ## Open questions
 
-- Which of the two `## Next` item 1 options (project-local `.venv` per worktree, vs. a permanent
-  root `conftest.py`) does the user want? Needs the user — this is exactly the kind of environment
-  decision with more than one defensible answer that an unattended loop should not pick on its own.
+- Should `"Bash(alembic downgrade:*)"` move from `.claude/settings.json`'s `ask` list to `allow`
+  for this project, given that Item 2's (and presumably every future migration's) done criterion
+  requires running it unattended? This is a real security-policy tradeoff, not a default to guess
+  at — flagged per the seed prompt's rule 5.
 - Same open questions as `.handoff/log/2026-08-29-1929-claude.md`: OneDrive/Defender exclusion,
   provider keys not configured, `docs/tooling/RESEARCH.md` items still just-in-time.
