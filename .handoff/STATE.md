@@ -3,11 +3,27 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 12 (ADR) is complete, unblocked by the user via commit 1d31891. Item 13 (README) is next. Overnight loop for items 10-15 in progress."
-status: item12-done-item13-next-overnight-loop-running
+phase: "SPEC-001 Item 13 (README) is complete. Item 14 (acceptance evidence) is next, no permission blocker expected. Overnight loop for items 10-15 in progress."
+status: item13-done-item14-next-overnight-loop-running
 ---
 
 # Current state
+
+## Claude Code overnight loop (2026-08-30, Item 13 - completed)
+
+Updated `README.md`: replaced the stale "phase 0 complete, phase 1 next" status banner (SPEC-001 is
+now code-complete, pending merge) and added a "Trying the vertical slice" section - minting a demo
+JWT (`revops.infrastructure.persistence.demo_seed.DEMO_ORGANIZATION_ID`/`DEMO_USER_ID` with
+`apps.api.auth.create_access_token`, since this slice has no login endpoint), starting a run,
+approving the proposed task, and listing/streaming runs - every command checked against the actual
+route/schema code (`apps/api/routes/agent_runs.py`, `apps/api/schemas.py`) rather than guessed.
+Disclosed honestly, not glossed over: `apps/api/dependencies.py`'s `default_llm_gateway()` is
+`UnconfiguredLLMGateway`, so a freshly-started API's `POST /agent/runs` returns 503 at the reasoning
+step until a real provider adapter exists - the full path is verified today via
+`pytest tests/integration -q` (injects `FakeLLMGateway`), which the README now says explicitly.
+Committed the README change alone first (`3bce7e4`), confirmed the gate green on that clean commit,
+then ticked and committed the `tasks.md` box separately (`546e619`) - correct sequencing this time.
+Re-ran the gate -> correctly advanced with no violation: `Item 14 gate is green but not yet ticked`.
 
 ## Claude Code overnight loop (2026-08-30, Item 12 - unblocked and completed)
 
