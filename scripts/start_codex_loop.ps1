@@ -77,5 +77,9 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
+# Codex sandboxed child sessions may not write to the Windows user temp directory.
+# Keep pytest's temporary files in an ignored path so mypy never mistakes them for source.
+$env:PYTEST_ADDOPTS = "--basetemp=.pytest_cache/autonomous-loop"
+
 $prompt | & codex @args -
 exit $LASTEXITCODE

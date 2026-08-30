@@ -13,10 +13,10 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 - **What:** generalize the gate and activate the scoped SPEC-002 queue.
 - **Done when:** gate tests pass and both matching tasks.md checkboxes are ticked.
 
-## Item 2 - Domain import state
+## Item 2 - Domain import state and loop test isolation
 
-- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
-- **What:** add pure import job/item state models, outcomes, and transitions.
+- **Scope:** `packages/core/revops/domain/`, `scripts/`, `tests/unit/domain/`, `tests/unit/scripts/`
+- **What:** add pure import job/item state models, outcomes, and transitions; keep loop-created pytest artifacts out of mypy's source walk.
 - **Done when:** state transition tests pass and the matching tasks.md checkbox is ticked.
 
 ## Item 3 - Application contracts
