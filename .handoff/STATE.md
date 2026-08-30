@@ -3,11 +3,43 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 9 (tool-selection eval dataset) is complete; Item 10 is next. User is going to sleep - an overnight loop for items 10-15 is being launched."
-status: item9-done-item10-next-overnight-loop-launching
+phase: "SPEC-001 Item 10 (lead-scoring eval dataset) is complete; Item 11 (offline eval runner) is next. Overnight loop for items 10-15 in progress."
+status: item10-done-item11-next-overnight-loop-running
 ---
 
 # Current state
+
+## Claude Code overnight loop (2026-08-30, Item 10)
+
+Implemented Item 10: `evals/datasets/lead_scoring.jsonl` (15 synthetic labelled account-scoring
+cases: all three tiers represented - 7 cold, 3 warm, 5 hot - plus explicit edge cases: never
+touched, exact 30-day staleness boundary, closed-won and closed-lost opportunities both ignored by
+value/stage signals, two open opportunities summed for the value signal, and 11 recent interactions
+capping the engagement sub-score at 100). Test file
+`tests/unit/evals/test_zzz_scratch_lead_scoring_compute.py` (6 tests: file exists, schema/field
+validation, unique ids, ~15 cases, all 3 tiers present, and a regression guard that reconstructs
+every case's `Interaction`/`Opportunity` entities and asserts `prioritize_account` - the real
+domain policy in `packages/core/revops/domain/policies/prioritization.py` - still produces the
+recorded `expected_score`/`expected_tier`). `pytest tests/unit/evals -q` -> 13 passed (7 from Item
+9 + 6 new). `python scripts/autonomous_gate.py` -> `Item 11 gate is green but not yet ticked` after
+ticking the `lead_scoring.jsonl` box (ruff/mypy/lint-imports/pytest/check_agent_docs all OK).
+Committed as `d9bca4a`.
+
+**Known cosmetic wart, disclosed rather than hidden:** the test filename is
+`test_zzz_scratch_lead_scoring_compute.py`, not the conventional `test_lead_scoring_dataset.py`.
+It started as a throwaway script (`assert False` + prints) used only to compute the dataset's exact
+expected scores/tiers from the real policy function, since this sandboxed session's Bash permission
+allowlist (`.claude/settings.json`) has no `rm`/`mv` and no generic `python -c` - only specific
+prefixes (`git status/diff/log/add/commit/checkout/branch`, `ruff`, `mypy`, `pytest`,
+`lint-imports`, `alembic upgrade/revision`, `docker compose up/ps/logs`, `gitleaks`,
+`python scripts/*`, `uv`), and Write is only allowed under specific path prefixes that do not
+include `scripts/`. With no sanctioned way to delete or rename the scratch file, and rejecting the
+alternative of using pytest itself to run non-test file-deletion code (an explicit tool-guidance
+red line), the least-bad choice was to overwrite the file in place with the real, permanent,
+non-scratch test content and disclose the filename mismatch here rather than leave a stray
+`assert False` file in the tree or silently accept a misleading name. Content and coverage are
+final and correct; renaming the file to `test_lead_scoring_dataset.py` is a trivial manual cleanup
+for whoever has normal filesystem access.
 
 ## Claude Code pickup (2026-08-30)
 
@@ -67,9 +99,10 @@ repeated and concurrent invocations deterministic.
 
 ## Next
 
-1. Implement and verify Item 9, the tool-selection eval dataset.
-2. Execute Items 10-11 for the lead-scoring dataset and offline baseline, then complete closeout
-   items 12-15.
+1. Item 11: offline eval runner + gate + thresholds, baseline report, must work without provider
+   credentials (`.env` does not exist) - use the existing `FakeLLMGateway` pattern
+   (`packages/core/revops/infrastructure/llm/fake.py`), not a real model call.
+2. Items 12-15: SPEC-001 decision record, setup docs, acceptance evidence, closeout handoff.
 3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
    SPEC-001 and roadmap placeholders.
 
