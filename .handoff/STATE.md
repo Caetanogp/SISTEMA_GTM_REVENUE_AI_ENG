@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "Item 7 (policy and security coverage) has been implemented in the feature branch; the autonomous queue now starts at Item 8."
-status: gate-green-spec-incomplete
+phase: "SPEC-001 remaining data/evals and closeout work is queued; Item 8 is next."
+status: queue-reconciled-item8-ready
 ---
 
 # Current state
@@ -28,8 +28,8 @@ The policy/security work is implemented in the feature branch. The API compositi
 run/approval endpoints, adversarial coverage, and dependency audit now exist. However, the active
 SPEC-001 checklist still has the entire `## 7. Data and evals` section unchecked, and the closeout
 section is also unchecked. The queue and `autonomous_gate.py` currently do not model those sections:
-the gate counts only the persistence section, so its `GOAL ACHIEVED` result is not evidence that
-SPEC-001 is complete.
+the gate counts the remaining data/evals and closeout sections now. The queue parser and gate were
+fixed and committed as `a356437`; the implementation baseline was committed as `da756d6`.
 
 ## Done (this spec; full narrative in `.handoff/log/2026-08-30-0106-claude.md`)
 
@@ -47,10 +47,10 @@ SPEC-001 is complete.
 
 ## Next
 
-1. Reconcile the autonomous queue and gate with the actual remaining SPEC-001 data/evals checklist.
-2. Implement and verify the synthetic seed and offline eval baseline before closeout.
-3. Complete the closeout evidence, then materialize the next spec before queuing unattended code;
-   `docs/specs/` currently only contains SPEC-001 and roadmap placeholders.
+1. Implement and verify Item 8, the synthetic seed, using the reconciled queue.
+2. Execute Items 9-11 for the eval datasets and offline baseline, then complete closeout items 12-15.
+3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
+   SPEC-001 and roadmap placeholders.
 
 ## Gotchas
 
@@ -80,6 +80,8 @@ git log -1 --oneline --decorate
   trio to hand to an unattended loop yet.
 - The JWT helper now uses PyJWT instead of python-jose, which removed the `ecdsa` dependency from
   the project tree.
+- The two earlier autonomous HALTs were caused by the queue parser/dirty pre-commit baseline and
+  are resolved by commits `a356437` and `da756d6`; the current gate reaches Item 8 as expected.
 
 ## Autonomous loop HALT (2026-08-30T07:36:55+00:00)
 
@@ -88,6 +90,12 @@ Queue and tasks.md are out of sync - done_count is not covered by any item's clo
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
 
 ## Autonomous loop HALT (2026-08-30T07:37:33+00:00)
+
+Item 8 declares scope ('scripts/', 'packages/core/revops/infrastructure/persistence/', 'tests/'), but changes touch files outside it: ['apps/api/__init__.py', 'apps/api/auth.py', 'apps/api/dependencies.py', 'apps/api/main.py', 'apps/api/routes/__init__.py', 'apps/api/routes/agent_runs.py', 'apps/api/runtime.py', 'apps/api/schemas.py', 'apps/api/settings.py', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'packages/core/revops/application/use_cases/decide_approval.py', 'packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/reason_about_accounts.py', 'packages/core/revops/domain/policies/task.py', 'packages/core/revops/infrastructure/agent/__init__.py', 'packages/core/revops/infrastructure/agent/checkpointer.py', 'packages/core/revops/infrastructure/agent/graph.py', 'packages/core/revops/infrastructure/agent/nodes.py', 'packages/core/revops/infrastructure/agent/prompt_loader.py', 'packages/core/revops/infrastructure/agent/prompts/prioritize_accounts.v1.md', 'packages/core/revops/infrastructure/agent/runner.py', 'packages/core/revops/infrastructure/agent/state.py', 'packages/core/revops/infrastructure/llm/__init__.py', 'packages/core/revops/infrastructure/llm/fake.py', 'pyproject.toml']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-08-30T07:38:29+00:00)
 
 Item 8 declares scope ('scripts/', 'packages/core/revops/infrastructure/persistence/', 'tests/'), but changes touch files outside it: ['apps/api/__init__.py', 'apps/api/auth.py', 'apps/api/dependencies.py', 'apps/api/main.py', 'apps/api/routes/__init__.py', 'apps/api/routes/agent_runs.py', 'apps/api/runtime.py', 'apps/api/schemas.py', 'apps/api/settings.py', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'packages/core/revops/application/use_cases/decide_approval.py', 'packages/core/revops/application/use_cases/prioritize_accounts.py', 'packages/core/revops/application/use_cases/reason_about_accounts.py', 'packages/core/revops/domain/policies/task.py', 'packages/core/revops/infrastructure/agent/__init__.py', 'packages/core/revops/infrastructure/agent/checkpointer.py', 'packages/core/revops/infrastructure/agent/graph.py', 'packages/core/revops/infrastructure/agent/nodes.py', 'packages/core/revops/infrastructure/agent/prompt_loader.py', 'packages/core/revops/infrastructure/agent/prompts/prioritize_accounts.v1.md', 'packages/core/revops/infrastructure/agent/runner.py', 'packages/core/revops/infrastructure/agent/state.py', 'packages/core/revops/infrastructure/llm/__init__.py', 'packages/core/revops/infrastructure/llm/fake.py', 'pyproject.toml']. Revert the out-of-scope changes or stop and ask.
 
