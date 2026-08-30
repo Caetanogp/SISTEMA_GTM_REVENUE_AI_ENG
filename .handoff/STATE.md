@@ -3,11 +3,99 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 10 (lead-scoring eval dataset) is complete; Item 11 (offline eval runner) is next. Overnight loop for items 10-15 in progress."
-status: item10-done-item11-next-overnight-loop-running
+phase: "SPEC-001 Item 10 is complete. Item 11 is blocked on a permission-allowlist gap in .claude/settings.json that this session cannot fix itself - overnight loop HALTED, needs the user."
+status: item10-done-item11-blocked-needs-user
 ---
 
 # Current state
+
+## Claude Code overnight loop HALT (2026-08-30, Item 11 - needs the user)
+
+**This is a real halt, not the gate's own `HALT:` mechanism** - `python scripts/autonomous_gate.py`
+still prints "Item 11 gate is green but not yet ticked in tasks.md - tick it." That is the same
+false-positive signal the user warned about at the start of this session for Item 10: the gate's
+quality checks (ruff/mypy/lint-imports/pytest/check_agent_docs) are green because everything that
+exists is clean, not because Item 11 is done. **Do not tick Item 11's `tasks.md` checkbox or trust
+that gate line** - the deliverables it names do not exist on disk.
+
+**The blocker:** `.claude/settings.json`'s `permissions.allow` list only grants `Write`/`Edit`
+under these specific `evals/` subdirectories:
+```
+Write(./evals/datasets/**)   Edit(./evals/datasets/**)
+Write(./evals/scorers/**)    Edit(./evals/scorers/**)
+Write(./evals/regression/**) Edit(./evals/regression/**)
+Write(./evals/reports/**)    Edit(./evals/reports/**)
+```
+There is no rule for bare files directly under `evals/` (no `Write(./evals/*.py)` or similar). This
+session is running with `--permission-mode dontAsk` (the autonomous-loop playbook's own
+recommendation, so an unattended run can't sit waiting on a prompt nobody will answer) - under that
+mode, any tool call outside the allowlist is denied automatically, with no prompt to the user at
+all. Confirmed directly: attempting `Write` to `evals/run.py` (verbatim content, no unusual path)
+was denied with "Permission to use Write has been denied because Claude Code is running in don't
+ask mode" - the identical denial shape seen earlier this session for `Bash` calls to `rm`, `mv`, and
+plain `python -c` (none of those are on the `Bash` allowlist either; see the note on
+`tests/unit/evals/test_zzz_scratch_lead_scoring_compute.py`'s filename below for that one).
+
+**Why this is a real stop, not something to work around:** AUTONOMOUS_QUEUE.md's Item 11 and
+`tasks.md` line 81 both name the exact deliverables - `evals/run.py`, `evals/gate.py`,
+`evals/thresholds.yaml` - as bare files directly under `evals/`, and AGENTS.md's own Commands
+section documents `python -m evals.run --suite all` as the intended invocation, which requires
+`evals/run.py` to exist at exactly that path. There is no way to deliver what Item 11 actually asks
+for without either (a) writing to a path this session has no permission for, or (b) restructuring
+the deliverable into a location the allowlist does cover (e.g. nesting the runner inside
+`evals/scorers/` instead) and changing the documented `python -m evals.run` command to match. Option
+(b) is exactly the kind of "more than one defensible answer" design substitution the standing rule
+in `AGENTS.md` says to stop and ask about rather than guess on - it would change a documented public
+command surface, not just an eval-tooling implementation detail. Editing `.claude/settings.json`
+myself to add the missing allow-rule is not something this session does unprompted - it is a
+permissions/config change, not code, and self-expanding one's own write permissions is precisely
+the kind of escalation `--permission-mode dontAsk` exists to prevent by construction.
+
+**What is actually done vs. still needed for Item 11** (commit `3b09026`):
+- Done and tested: `evals/scorers/lead_scoring.py` (wraps the real, production
+  `prioritize_account` domain policy as a regression-guard scorer - not a new capability, just a
+  reusable entry point so a runner can call it) and `evals/scorers/tool_selection.py` (an
+  explicitly-labelled naive keyword-based baseline, documented in its own module docstring as a
+  stand-in for a future LLM-backed tool router that does not exist yet in the shipped graph -
+  `propose_action` always drafts exactly one `create_task`, deterministically, never picks among
+  tools). `pytest tests/unit/evals -q` -> 24 passed (13 from Items 9-10 + 11 new: 4 for
+  `lead_scoring` scorer, 7 for `tool_selection` scorer). `ruff check .`, `mypy .`, `lint-imports`
+  all clean. Both scorers expose plain functions (`score_lead_scoring_dataset()` /
+  `score_tool_selection_dataset()` returning a `ScoreResult(total, correct, failed_ids, accuracy)`)
+  specifically so a future `evals/run.py` can import and call them with no further scorer work.
+- Still needed once the permission is granted: `evals/run.py` (CLI matching
+  `python -m evals.run --suite all` from AGENTS.md, writing a JSON report per suite to
+  `evals/reports/` - already writable), `evals/gate.py` (reads a thresholds file, re-scores fresh
+  - never trusts a stale report - and exits 0/1), and a thresholds file. On the thresholds file: I
+  was leaning `evals/thresholds.toml` (stdlib `tomllib`, zero new dependency) over the literal
+  `evals/thresholds.yaml` named in `tasks.md`, because PyYAML is not in `pyproject.toml`'s
+  dependencies or dev-dependencies, and the autonomous-loop playbook's "What this does not do"
+  section is explicit that a new dependency is itself a signal to stop and ask, not to add one -
+  I had not yet added it when the `evals/run.py` Write call was denied, so this is also unresolved
+  and worth the user's input alongside the path issue.
+- With `evals/run.py` and `evals/gate.py` in place, the actual measured baseline (from the scorers
+  already committed) would be: `lead_scoring` 15/15 exact match (1.00 - it's the same deterministic
+  function under test, so a threshold of 1.00 is a real regression tripwire, not aspirational);
+  `tool_selection` 13/13 against the current dataset (1.00) using the naive heuristic baseline - I
+  was planning a threshold of 0.80, not 1.00, so future adversarial dataset growth has headroom
+  without instantly failing the gate the day someone adds a harder case the heuristic misses.
+
+**Suggested next step for the user:** add an allow-rule to `.claude/settings.json` covering bare
+files under `evals/` (e.g. `Write(./evals/*.py)` and `Edit(./evals/*.py)`, plus a rule for whichever
+thresholds-file format is chosen), confirm the YAML-vs-TOML call, then resume the loop - Items 10's
+scorers are ready to be consumed by `evals/run.py` as soon as it can be written.
+
+## Known cosmetic wart (Item 10, disclosed rather than hidden)
+
+The Item 10 test file is named `tests/unit/evals/test_zzz_scratch_lead_scoring_compute.py`, not the
+conventional `test_lead_scoring_dataset.py`. It started as a throwaway script (`assert False` +
+prints) used only to compute the dataset's exact expected scores/tiers from the real policy
+function, since this sandboxed session's `Bash` permission allowlist has no `rm`/`mv` and no
+generic `python -c`. With no sanctioned way to delete or rename it, and ruling out the alternative
+of using `pytest` itself to run non-test file-deletion code (an explicit tool-guidance red line),
+the file was overwritten in place with the real, permanent, non-scratch test content instead.
+Content and coverage are final and correct; renaming it to `test_lead_scoring_dataset.py` is a
+trivial manual cleanup for whoever has normal filesystem access.
 
 ## Claude Code overnight loop (2026-08-30, Item 10)
 
@@ -99,10 +187,14 @@ repeated and concurrent invocations deterministic.
 
 ## Next
 
-1. Item 11: offline eval runner + gate + thresholds, baseline report, must work without provider
-   credentials (`.env` does not exist) - use the existing `FakeLLMGateway` pattern
-   (`packages/core/revops/infrastructure/llm/fake.py`), not a real model call.
-2. Items 12-15: SPEC-001 decision record, setup docs, acceptance evidence, closeout handoff.
+1. **Blocked - needs the user first:** grant `Write`/`Edit` on bare `evals/*.py` files (and the
+   chosen thresholds-file format) in `.claude/settings.json`, and confirm TOML vs. YAML for the
+   thresholds file - see the HALT entry above for the full reasoning. Do not resume the loop
+   against Item 11 until this is resolved; it will burn iterations hitting the same denial.
+2. Once unblocked: `evals/run.py` + `evals/gate.py` + thresholds file, using the scorers already
+   committed (`evals/scorers/lead_scoring.py`, `evals/scorers/tool_selection.py`), then the
+   baseline report under `docs/specs/SPEC-001-vertical-slice-account-prioritization/`.
+3. Items 12-15: SPEC-001 decision record, setup docs, acceptance evidence, closeout handoff.
 3. Materialize the next spec only after SPEC-001 closeout; `docs/specs/` currently only contains
    SPEC-001 and roadmap placeholders.
 
