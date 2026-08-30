@@ -149,7 +149,14 @@ def changed_files(baseline: str) -> list[str]:
     return sorted({*committed, *working_paths})
 
 
-_ALWAYS_ALLOWED_PREFIXES = (".handoff/", ".claude/", ".gitignore", "docs/playbooks/", "scripts/")
+_ALWAYS_ALLOWED_PREFIXES = (
+    ".handoff/",
+    ".claude/",
+    ".gitignore",
+    "docs/playbooks/",
+    "scripts/",
+    "docs/specs/",  # ticking any item's tasks.md checkbox is part of the loop protocol itself
+)
 
 
 def scope_violation(item: QueueItem, baseline: str) -> list[str]:
