@@ -2,8 +2,9 @@
 
 import pytest
 from revops.domain.entities.ingestion import (
+    AccountOutcome,
+    ContactOutcome,
     EnrichmentOutcome,
-    ImportOutcome,
     IngestionItemState,
     IngestionItemStatus,
     IngestionJobState,
@@ -46,49 +47,87 @@ def test_queue_failure_can_be_retried_and_completion_can_have_errors() -> None:
     assert job.status is IngestionJobStatus.COMPLETED_WITH_ERRORS
 
 
-def test_valid_item_records_import_and_enrichment_before_becoming_terminal() -> None:
-    item = IngestionItemState()
+def test_valid_item_records_account_contact_and_enrichment_before_terminal() -> None:
+    item = IngestionItemState(has_contact=True)
 
     item.begin_processing()
-    item.record_import(ImportOutcome.CREATED)
+    item.record_account(AccountOutcome.CREATED)
+    item.record_contact(ContactOutcome.CREATED)
     item.record_enrichment(EnrichmentOutcome.CREATED)
 
     assert item.status is IngestionItemStatus.COMPLETED
     assert item.status.is_terminal
-    assert item.import_outcome is ImportOutcome.CREATED
+    assert item.account_outcome is AccountOutcome.CREATED
+    assert item.contact_outcome is ContactOutcome.CREATED
     assert item.enrichment_outcome is EnrichmentOutcome.CREATED
 
 
 def test_duplicate_item_can_complete_with_an_enrichment_failure() -> None:
-    item = IngestionItemState()
+    item = IngestionItemState(has_contact=True)
 
     item.begin_processing()
-    item.record_import(ImportOutcome.DUPLICATE)
+    item.record_account(AccountOutcome.DUPLICATE)
+    item.record_contact(ContactOutcome.DUPLICATE)
     item.record_enrichment(EnrichmentOutcome.FAILED)
 
     assert item.status is IngestionItemStatus.COMPLETED
     assert item.enrichment_outcome is EnrichmentOutcome.FAILED
 
 
-def test_import_failure_completes_item_without_enrichment() -> None:
-    item = IngestionItemState()
+def test_account_failure_skips_remaining_operations_and_completes_item() -> None:
+    item = IngestionItemState(has_contact=True)
 
     item.begin_processing()
-    item.record_import(ImportOutcome.FAILED)
+    item.record_account(AccountOutcome.FAILED)
 
     assert item.status is IngestionItemStatus.COMPLETED
-    assert item.enrichment_outcome is EnrichmentOutcome.NOT_REQUESTED
+    assert item.contact_outcome is ContactOutcome.SKIPPED
+    assert item.enrichment_outcome is EnrichmentOutcome.SKIPPED
 
 
 def test_item_rejects_outcomes_in_an_invalid_order() -> None:
     item = IngestionItemState()
 
     with pytest.raises(InvalidTransitionError, match="processing"):
-        item.record_import(ImportOutcome.CREATED)
+        item.record_account(AccountOutcome.CREATED)
 
     item.begin_processing()
-    with pytest.raises(InvalidTransitionError, match="successful import"):
+    with pytest.raises(InvalidTransitionError, match="successful account"):
         item.record_enrichment(EnrichmentOutcome.CREATED)
+
+
+def test_existing_account_can_have_a_new_contact() -> None:
+    item = IngestionItemState(has_contact=True)
+
+    item.begin_processing()
+    item.record_account(AccountOutcome.DUPLICATE)
+    item.record_contact(ContactOutcome.CREATED)
+    item.record_enrichment(EnrichmentOutcome.CREATED)
+
+    assert item.account_outcome is AccountOutcome.DUPLICATE
+    assert item.contact_outcome is ContactOutcome.CREATED
+
+
+def test_absent_contact_is_distinct_from_a_skipped_or_failed_contact() -> None:
+    item = IngestionItemState()
+
+    item.begin_processing()
+    item.record_account(AccountOutcome.CREATED)
+    item.record_enrichment(EnrichmentOutcome.CREATED)
+
+    assert item.contact_outcome is ContactOutcome.NOT_PROVIDED
+
+
+def test_contact_failure_does_not_prevent_account_enrichment() -> None:
+    item = IngestionItemState(has_contact=True)
+
+    item.begin_processing()
+    item.record_account(AccountOutcome.CREATED)
+    item.record_contact(ContactOutcome.FAILED)
+    item.record_enrichment(EnrichmentOutcome.CREATED)
+
+    assert item.status is IngestionItemStatus.COMPLETED
+    assert item.contact_outcome is ContactOutcome.FAILED
 
 
 def test_invalid_item_is_terminal_without_processing() -> None:

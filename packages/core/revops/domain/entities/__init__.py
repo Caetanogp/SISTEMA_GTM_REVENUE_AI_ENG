@@ -3,8 +3,9 @@
 from revops.domain.entities.account import Account
 from revops.domain.entities.contact import Contact
 from revops.domain.entities.ingestion import (
+    AccountOutcome,
+    ContactOutcome,
     EnrichmentOutcome,
-    ImportOutcome,
     IngestionItemState,
     IngestionItemStatus,
     IngestionJobState,
@@ -18,9 +19,10 @@ from revops.domain.entities.user import User
 
 __all__ = [
     "Account",
+    "AccountOutcome",
     "Contact",
+    "ContactOutcome",
     "EnrichmentOutcome",
-    "ImportOutcome",
     "IngestionItemState",
     "IngestionItemStatus",
     "IngestionJobState",

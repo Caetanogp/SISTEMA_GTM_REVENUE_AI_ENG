@@ -41,22 +41,36 @@ class IngestionItemStatus(StrEnum):
         return self in {IngestionItemStatus.VALIDATION_FAILED, IngestionItemStatus.COMPLETED}
 
 
-class ImportOutcome(StrEnum):
-    """The non-PII result of attempting to persist an item's business records."""
+class AccountOutcome(StrEnum):
+    """The non-PII result of attempting to persist an item's account."""
 
+    NOT_ATTEMPTED = "not_attempted"
     PENDING = "pending"
     CREATED = "created"
     DUPLICATE = "duplicate"
     FAILED = "failed"
 
 
+class ContactOutcome(StrEnum):
+    """The result of the optional contact operation, distinct from account persistence."""
+
+    NOT_PROVIDED = "not_provided"
+    NOT_ATTEMPTED = "not_attempted"
+    PENDING = "pending"
+    CREATED = "created"
+    DUPLICATE = "duplicate"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class EnrichmentOutcome(StrEnum):
     """The result of the optional deterministic enrichment step."""
 
-    NOT_REQUESTED = "not_requested"
+    NOT_ATTEMPTED = "not_attempted"
     PENDING = "pending"
     CREATED = "created"
     FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 @dataclass(slots=True)
@@ -96,36 +110,71 @@ class IngestionJobState:
 class IngestionItemState:
     """Pure transition rules and outcomes for one staged import record."""
 
+    has_contact: bool = False
     status: IngestionItemStatus = IngestionItemStatus.PENDING
-    import_outcome: ImportOutcome = ImportOutcome.PENDING
-    enrichment_outcome: EnrichmentOutcome = EnrichmentOutcome.NOT_REQUESTED
+    account_outcome: AccountOutcome = AccountOutcome.NOT_ATTEMPTED
+    contact_outcome: ContactOutcome = ContactOutcome.NOT_PROVIDED
+    enrichment_outcome: EnrichmentOutcome = EnrichmentOutcome.NOT_ATTEMPTED
+
+    def __post_init__(self) -> None:
+        if self.has_contact and self.contact_outcome is ContactOutcome.NOT_PROVIDED:
+            self.contact_outcome = ContactOutcome.NOT_ATTEMPTED
 
     def mark_validation_failed(self) -> None:
         self._transition_to(IngestionItemStatus.VALIDATION_FAILED)
 
     def begin_processing(self) -> None:
         self._transition_to(IngestionItemStatus.PROCESSING)
+        self.account_outcome = AccountOutcome.PENDING
+        if self.has_contact:
+            self.contact_outcome = ContactOutcome.PENDING
 
-    def record_import(self, outcome: ImportOutcome) -> None:
+    def record_account(self, outcome: AccountOutcome) -> None:
         if self.status is not IngestionItemStatus.PROCESSING:
             raise InvalidTransitionError(
-                "an ingestion item must be processing before recording import"
+                "an ingestion item must be processing before recording an account"
             )
-        if outcome is ImportOutcome.PENDING:
-            raise InvalidTransitionError("an import outcome must be final")
-        self.import_outcome = outcome
-        if outcome is ImportOutcome.FAILED:
+        if self.account_outcome is not AccountOutcome.PENDING:
+            raise InvalidTransitionError("an account outcome was already recorded")
+        if outcome not in {AccountOutcome.CREATED, AccountOutcome.DUPLICATE, AccountOutcome.FAILED}:
+            raise InvalidTransitionError("an account outcome must be final")
+        self.account_outcome = outcome
+        if outcome is AccountOutcome.FAILED:
+            if self.has_contact:
+                self.contact_outcome = ContactOutcome.SKIPPED
+            self.enrichment_outcome = EnrichmentOutcome.SKIPPED
             self._transition_to(IngestionItemStatus.COMPLETED)
-        else:
-            self.enrichment_outcome = EnrichmentOutcome.PENDING
+
+    def record_contact(self, outcome: ContactOutcome) -> None:
+        if self.status is not IngestionItemStatus.PROCESSING:
+            raise InvalidTransitionError(
+                "an ingestion item must be processing before recording a contact"
+            )
+        if not self.has_contact:
+            raise InvalidTransitionError(
+                "an item without a contact cannot record a contact outcome"
+            )
+        if self.account_outcome not in {AccountOutcome.CREATED, AccountOutcome.DUPLICATE}:
+            raise InvalidTransitionError("an item must have a successful account before a contact")
+        if self.contact_outcome is not ContactOutcome.PENDING:
+            raise InvalidTransitionError("a contact outcome was already recorded")
+        if outcome not in {ContactOutcome.CREATED, ContactOutcome.DUPLICATE, ContactOutcome.FAILED}:
+            raise InvalidTransitionError("a contact outcome must be final")
+        self.contact_outcome = outcome
 
     def record_enrichment(self, outcome: EnrichmentOutcome) -> None:
         if self.status is not IngestionItemStatus.PROCESSING:
             raise InvalidTransitionError(
                 "an ingestion item must be processing before recording enrichment"
             )
-        if self.import_outcome not in {ImportOutcome.CREATED, ImportOutcome.DUPLICATE}:
-            raise InvalidTransitionError("an item must have a successful import before enrichment")
+        if self.account_outcome not in {AccountOutcome.CREATED, AccountOutcome.DUPLICATE}:
+            raise InvalidTransitionError("an item must have a successful account before enrichment")
+        if self.has_contact and self.contact_outcome is ContactOutcome.PENDING:
+            raise InvalidTransitionError(
+                "an item must have a final contact outcome before enrichment"
+            )
+        if self.enrichment_outcome is not EnrichmentOutcome.NOT_ATTEMPTED:
+            raise InvalidTransitionError("an enrichment outcome was already recorded")
         if outcome not in {EnrichmentOutcome.CREATED, EnrichmentOutcome.FAILED}:
             raise InvalidTransitionError("an enrichment outcome must be final")
         self.enrichment_outcome = outcome

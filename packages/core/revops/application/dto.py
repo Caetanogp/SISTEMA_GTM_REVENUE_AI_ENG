@@ -15,6 +15,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from revops.domain.entities.ingestion import (
+    AccountOutcome,
+    ContactOutcome,
+    EnrichmentOutcome,
+    IngestionItemStatus,
+    IngestionJobStatus,
+)
 from revops.domain.values.score import ScoreTier
 
 
@@ -114,3 +121,72 @@ class ApprovalDecisionInput(BaseModel):
     organization_id: UUID
     decided_by: UUID
     edited: CreateTaskDraft | None = None
+
+
+class IngestionRecordInput(BaseModel):
+    """One structurally safe import record before business-value validation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    company_name: str | None = None
+    domain: str | None = None
+    email: str | None = None
+    full_name: str | None = None
+    title: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalIngestionRecord:
+    """Normalized business values persisted only after a confirmed import."""
+
+    company_name: str
+    domain: str
+    email: str | None
+    full_name: str | None
+    title: str | None
+
+    @property
+    def has_contact(self) -> bool:
+        return self.email is not None
+
+
+@dataclass(frozen=True, slots=True)
+class IngestionValidationIssue:
+    row_number: int
+    code: str
+
+
+@dataclass(frozen=True, slots=True)
+class StagedIngestionItem:
+    row_number: int
+    record: CanonicalIngestionRecord | None
+    validation_codes: tuple[str, ...]
+    status: IngestionItemStatus
+    account_outcome: AccountOutcome
+    contact_outcome: ContactOutcome
+    enrichment_outcome: EnrichmentOutcome
+
+
+@dataclass(frozen=True, slots=True)
+class StagedIngestionJob:
+    id: UUID
+    organization_id: UUID
+    requested_by: UUID
+    source: str
+    idempotency_key: str
+    content_hash: str
+    status: IngestionJobStatus
+    items: tuple[StagedIngestionItem, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StageIngestionResult:
+    job: StagedIngestionJob
+    replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmIngestionResult:
+    job: StagedIngestionJob
+    published: bool
+    replayed: bool
