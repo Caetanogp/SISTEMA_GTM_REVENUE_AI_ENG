@@ -33,6 +33,8 @@
       "Edit(./apps/mcp/**)",
       "Write(./tests/**)",
       "Edit(./tests/**)",
+      "Write(./evals/*)",
+      "Edit(./evals/*)",
       "Write(./evals/datasets/**)",
       "Edit(./evals/datasets/**)",
       "Write(./evals/scorers/**)",
