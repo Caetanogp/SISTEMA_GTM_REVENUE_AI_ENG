@@ -13,45 +13,51 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 - **What:** generalize the gate and activate the scoped SPEC-002 queue.
 - **Done when:** gate tests pass and both matching tasks.md checkboxes are ticked.
 
-## Item 2 - Application contracts
+## Item 2 - Domain import state
+
+- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
+- **What:** add pure import job/item state models, outcomes, and transitions.
+- **Done when:** state transition tests pass and the matching tasks.md checkbox is ticked.
+
+## Item 3 - Application contracts
 
 - **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
 - **What:** add canonical ingestion DTOs, ports, and unit-tested use cases.
 - **Done when:** application tests prove staging, confirmation, grouping, idempotency, and partial results.
 
-## Item 3 - Persistence and migration
+## Item 4 - Persistence and migration
 
 - **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`, `tests/integration/`
 - **Closes:** 2 tasks.md checkboxes
 - **What:** add ingestion/enrichment models, repositories, additive migration, and the authorized round-trip proof.
 - **Done when:** repository integration tests and `upgrade -> downgrade -1 -> upgrade` pass.
 
-## Item 4 - CSV and synthetic enrichment adapters
+## Item 5 - CSV and synthetic enrichment adapters
 
 - **Scope:** `packages/core/revops/infrastructure/`, `tests/unit/infrastructure/`
 - **What:** parse bounded CSV input and add the schema-validated deterministic enrichment gateway.
 - **Done when:** parser and provider unit tests pass.
 
-## Item 5 - Celery worker and dispatcher
+## Item 6 - Celery worker and dispatcher
 
 - **Scope:** `packages/core/revops/infrastructure/queue/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
 - **What:** add a minimal Redis/Celery dispatch path and idempotent worker composition root.
 - **Done when:** duplicate delivery and broker failure behavior are tested.
 
-## Item 6 - Administrative ingestion API
+## Item 7 - Administrative ingestion API
 
 - **Scope:** `apps/api/`, `tests/unit/apps/`, `tests/integration/`
 - **Closes:** 2 tasks.md checkboxes
 - **What:** add admin-only JSON/CSV staging, confirmation, status, and paginated item routes.
 - **Done when:** API integration tests cover the happy path and polling contract.
 
-## Item 7 - Security and failure coverage
+## Item 8 - Security and failure coverage
 
 - **Scope:** `tests/adversarial/`, `tests/integration/`, `tests/unit/`
 - **What:** add malformed-input, authorization, PII-safe failure, queue failure, and tenant-isolation coverage.
 - **Done when:** adversarial and failure-path tests pass.
 
-## Item 8 - Documentation and closeout
+## Item 9 - Documentation and closeout
 
 - **Scope:** `README.md`, `docs/decisions/`, `docs/specs/SPEC-002-lead-account-ingestion/`, `.handoff/`
 - **Closes:** 3 tasks.md checkboxes

@@ -18,6 +18,15 @@ SPEC-002 items and committed their checkboxes in `ee3b2e2`. The observed pilot r
 `Item 2 gate is green but not yet ticked in tasks.md`; this proves the queue advanced cleanly after
 Item 1. The branch is ready for an unattended run limited to SPEC-002; it must not push or merge.
 
+## SPEC-002 long-loop preflight correction (2026-08-30)
+
+The first long-loop launch stopped without changing files. It correctly rejected a queue sequencing
+defect: Item 1 had been repurposed for gate setup, but the required domain-state work was omitted
+before the application-contract item. The queue now restores the order `setup -> domain ->
+application -> persistence -> adapters -> worker -> API -> security -> closeout`; its declared
+checkbox closes still total the 14 SPEC-002 tasks. Relaunch only after the corrected queue passes a
+fresh pilot gate.
+
 ## SPEC-002 kickoff (2026-08-30)
 
 User-approved scope: admin-only CSV and inbound JSON import for `Account` plus optional `Contact`,
