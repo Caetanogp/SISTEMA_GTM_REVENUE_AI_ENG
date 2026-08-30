@@ -3,11 +3,27 @@ agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-002-lead-account-ingestion
 spec: SPEC-002-lead-account-ingestion
-phase: "SPEC-002 autonomous-loop setup and pilot complete; ready for the long implementation run."
+phase: "SPEC-002 application transaction design resolved; Item 3 ready to resume."
 status: spec-002-in-progress
 ---
 
 # Current state
+
+## SPEC-002 application design resolution (2026-08-30)
+
+The user approved the deliberate design pass required by Item 3. `plan.md` now fixes the use-case
+boundaries, a dedicated application-owned ingestion UoW factory, normalized-envelope idempotency,
+commit-before-publish confirmation with safe `queued` republication, and per-domain transactional
+row locking for duplicate delivery and crash recovery. Business-value validation is per-row;
+unsafe transport structure is rejected before staging. Existing accounts are enriched once per
+job, and any validation, persistence, or enrichment failure yields `completed_with_errors` while
+ordinary duplicates do not.
+
+The pass also found that Item 2's single `import_outcome` cannot represent the required mixed case
+of an existing account plus a newly created contact. Item 3 now explicitly includes the domain and
+domain-test paths so it can split account, contact, and enrichment outcomes before defining the
+application contracts. Resume the loop from Item 3 only after committing this design update and
+observing a clean gate run.
 
 ## SPEC-002 autonomous loop pause (2026-08-30)
 

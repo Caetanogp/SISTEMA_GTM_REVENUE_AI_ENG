@@ -19,10 +19,10 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 - **What:** add pure import job/item state models, outcomes, and transitions; keep loop-created pytest artifacts out of mypy's source walk.
 - **Done when:** state transition tests pass and the matching tasks.md checkbox is ticked.
 
-## Item 3 - Application contracts
+## Item 3 - Ingestion outcomes and application contracts
 
-- **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
-- **What:** add canonical ingestion DTOs, ports, and unit-tested use cases.
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `tests/unit/domain/`, `tests/unit/application/`
+- **What:** split account/contact/enrichment outcomes, then add canonical ingestion DTOs, ports, and unit-tested use cases using the approved transaction design in `plan.md`.
 - **Done when:** application tests prove staging, confirmation, grouping, idempotency, and partial results.
 
 ## Item 4 - Persistence and migration
