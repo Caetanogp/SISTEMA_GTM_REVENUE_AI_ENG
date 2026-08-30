@@ -3,11 +3,20 @@ agent: codex
 updated_at: 2026-08-30
 branch: feature/SPEC-002-lead-account-ingestion
 spec: SPEC-002-lead-account-ingestion
-phase: "SPEC-002 application transaction design resolved; Item 3 ready to resume."
+phase: "SPEC-002 Item 3 complete; Item 4 persistence and migration is next."
 status: spec-002-in-progress
 ---
 
 # Current state
+
+## SPEC-002 Item 3 complete (2026-08-30)
+
+Committed `c1ef6ee feat(ingestion): add application contracts`. It splits account, contact, and
+enrichment outcomes; adds canonical ingestion DTOs, dedicated UoW/repository/dispatcher ports,
+and unit-tested staging, idempotency, confirmation/republication, tenant-scoped reads, and domain
+group selection. Observed: `ruff check` passed, `mypy .` passed (108 files), `lint-imports` passed,
+and the focused unit suite passed (64 tests). Item 4 is the next queue item; it requires SQLAlchemy
+models, repositories, additive migration, and the authorized upgrade/downgrade/upgrade proof.
 
 ## Autonomous loop evidence guard (2026-08-30)
 
