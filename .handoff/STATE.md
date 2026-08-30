@@ -1,10 +1,10 @@
 ---
-agent: claude-code
+agent: codex
 updated_at: 2026-08-30
-branch: feature/SPEC-001-persistence
+branch: develop
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - SPEC-001 persistence (tasks.md section 3) fully done, gate green, not yet merged to develop. Item 5 (LangGraph) is next, needs a fresh session, Opus, plan mode."
-status: persistence-complete-not-merged-item5-langgraph-next
+phase: "1 done - SPEC-001 persistence merged to develop. Item 5 (LangGraph) remains halted and needs plan mode with the user before any graph code."
+status: persistence-merged-item5-halted
 ---
 
 # Current state
@@ -16,88 +16,57 @@ reasoning -> proposed action -> HITL approval -> write tool -> audit trail.
 
 ## Now
 
-On `feature/SPEC-001-persistence`, HEAD `d1557c9`, working tree clean. `docker compose ps` shows
-`revops-postgres`/`revops-redis` healthy. **`python scripts/autonomous_gate.py` reports
-`GOAL ACHIEVED: all queue items done, full gate green`** (ruff, mypy, lint-imports,
-`pytest tests/unit tests/architecture -q`, check_agent_docs all OK). Integration suite also green:
-`pytest tests/integration -q` — 12/12 passed.
+On `develop`, HEAD `2176685`, working tree clean. `feature/SPEC-001-persistence` is fast-forwarded
+into `develop` at the same commit. The last verified gate for this slice was
+`python scripts/autonomous_gate.py` => `GOAL ACHIEVED: all queue items done, full gate green`
+(ruff, mypy, lint-imports, `pytest tests/unit tests/architecture -q`, check_agent_docs all OK).
+Integration was also green: `pytest tests/integration -q` => 12/12 passed.
 
-**Not yet merged into `develop`.** Handoff happened before the merge step — do that first, see Next.
+Item 5 is still halted by design. LangGraph node/checkpoint/interrupt wiring needs a user plan-mode
+decision before any graph code is written.
 
-## Done (this spec; full narrative for section 3 in `.handoff/log/2026-08-30-0106-claude.md`)
+## Done (this spec; full narrative in `.handoff/log/2026-08-30-0106-claude.md`)
 
-- Domain + application layers (tasks.md sections 1-2), merged to `develop` at `adce03d`.
-- **SPEC-001 persistence (tasks.md section 3) — all 5 items done, ticked, committed.** Models,
-  first migration (10 tables), repositories + `SqlAlchemyUnitOfWork`, integration tests (12/12).
-  Along the way: retracted `EnterWorktree` for this project entirely (a git worktree silently runs
-  stale code — this repo's editable install resolves `revops.*` to absolute paths baked in at
-  `pip install -e` time); found and fixed a real gate-script indexing bug
-  (`scripts/autonomous_gate.py`'s `item_for_done_count`, see `QueueItem.closes`); found and fixed a
-  real schema defect (every `datetime` column was naive `TIMESTAMP`, now `TIMESTAMPTZ` via
-  `Base.type_annotation_map`) that Item 4's integration tests caught for real, exactly as designed.
-  Full detail, every commit SHA, every command output: `.handoff/log/2026-08-30-0106-claude.md`.
+- SPEC-001 persistence (tasks.md section 3) completed, verified, committed, and merged to
+  `develop` at `2176685`. Models, first migration (10 tables), repositories +
+  `SqlAlchemyUnitOfWork`, integration tests (12/12).
+- Along the way, the repo retained the no-worktree rule after a real incident showed editable
+  installs resolve `revops.*` through absolute paths baked in at `pip install -e` time.
+- A gate-script indexing bug (`scripts/autonomous_gate.py` / `item_for_done_count`) was fixed when
+  Item 4 exposed it.
+- A schema defect was fixed: naive `datetime` columns were changed to `TIMESTAMPTZ` via
+  `Base.type_annotation_map`.
 
 ## Next
 
-1. **Merge `feature/SPEC-001-persistence` into `develop`** (self-service once verified — gate is
-   already green above). This session did not do it: switching branches on this machine has a
-   known, reproduced failure (`error: cannot stat '.claude': Invalid argument` — see Gotchas) and
-   there wasn't time left to work around it safely. Try `git checkout develop && git pull &&
-   git merge feature/SPEC-001-persistence` directly first; if it fails with that error, do not
-   force anything — see the workaround in Gotchas.
-2. **Item 5 (LangGraph node/checkpoint/interrupt wiring)** is next — marked `HALT:
-   PLAN-MODE-REQUIRED` in `.handoff/AUTONOMOUS_QUEUE.md`. Per `AGENTS.md`'s standing
-   complexity-flagging rule this needs a fresh session, in plan mode, with the user — not a
-   continuation of unattended work. Open design questions it must resolve: checkpoint state shape,
-   `thread_id` identity (`== agent_run_id`?), static vs. dynamic interrupt placement, who executes
-   `DecideApproval` (the node or the API endpoint).
-3. Once Item 5 is designed and scoped into queue items, `.handoff/AUTONOMOUS_QUEUE.md` needs
-   rewriting for it (same pattern as the section-2-to-section-3 rewrite already done twice) before
-   any unattended loop can run against it.
+1. Open Item 5 in plan mode with the user before writing any LangGraph code.
+2. Resolve the open design questions for the graph: checkpoint state shape, `thread_id`
+   identity, static vs. dynamic interrupt placement, and whether `DecideApproval` is called by the
+   node or the API endpoint.
+3. After the design is fixed, rewrite `.handoff/AUTONOMOUS_QUEUE.md` with concrete graph queue
+   items, then only after that start any unattended loop.
 
 ## Gotchas
 
-- **`git checkout <branch>` can fail with `error: cannot stat '.claude': Invalid argument`** when
-  the target branch's `.claude/` tree differs from the current one (OneDrive/Defender interference,
-  suspected not confirmed). Workaround that touches no working-tree files: from a branch that is
-  *not* the target, `git fetch . <source>:<target>` fast-forwards `<target>` without a checkout.
-  Doesn't work if you're already on the branch you need to update (as was the case at handoff time)
-  — the only path then is a plain `git checkout <target>` and hoping, or worst case share the diff.
-- **Never call `EnterWorktree` for this project, in any mode.** `revops` resolves through a PEP 660
-  editable install pinned to absolute paths from `pip install -e` time; a worktree silently runs
-  stale code (a full queue item was drafted and "verified" this way, then found to have never
-  actually run the new code — see `.handoff/AUTONOMOUS_QUEUE.md`'s "Rules for the loop"). Unattended
-  work on this repo is always a plain foreground interactive session in the main checkout.
-- **`.claude/settings.json`'s `ask` list is auto-denied, not auto-approved, under a `dontAsk`-style
-  unattended session** — `alembic downgrade` is the concrete case so far (grouped with `git push`/
-  `git merge` on purpose). Any queue item whose own done-criterion needs an `ask`-listed command
-  needs a human to run that one command from a normal session; that's expected, not a bug.
-- `docs/playbooks/autonomous-loop.md` is shared with Codex verbatim (`.codex/prompts/
-  autonomous-loop.md` just points to it) — it already has every lesson above baked in. Adapt the
-  *mechanics* (worktree tooling, permission-mode flags, cross-session messaging) to whatever Codex's
-  own equivalents are; the *rules* (never worktree, foreground only, `ask`-list blocks unattended
-  migrations, trust the gate script's exit code over any self-report) are tool-agnostic and apply
-  as-is.
-- All gotchas from `.handoff/log/2026-08-29-1929-claude.md` (psycopg's Windows event-loop policy
-  requirement, the checkpoint-table autogenerate trap, pre-commit unreliability) still apply.
+- `git checkout <branch>` can fail with `error: cannot stat '.claude': Invalid argument` when the
+  target branch's `.claude/` tree differs from the current one.
+- Never call `EnterWorktree` for this project. Editable installs resolve to absolute paths from
+  installation time, so a worktree can silently run stale code.
+- `docs/playbooks/autonomous-loop.md` is the shared source of truth for unattended-loop rules.
+- `alembic downgrade` is in the unattended `ask` list and remains a human-run step.
 
 ## Resume
 
 ```bash
 cd "SISTEMA_PORTFOLIO_AI_ENG"
-git status                                  # confirm branch and clean tree first
-git rev-parse --abbrev-ref HEAD             # currently feature/SPEC-001-persistence
-docker compose ps                           # confirm revops-postgres, revops-redis healthy
-python scripts/autonomous_gate.py           # should report GOAL ACHIEVED
-pytest tests/integration -q                 # should report 12 passed
+git status
+git rev-parse --abbrev-ref HEAD
+git log -1 --oneline --decorate
 ```
 
 ## Open questions
 
-- `"Bash(alembic downgrade:*)"` in `.claude/settings.json`'s `ask` list vs. `allow` — open,
-  deliberately not decided inside a loop (real security-policy tradeoff). Current pattern (human
-  runs it once per migration) is fine for this project's pace.
-- OneDrive/Defender exclusion for this folder (would likely fix the git-checkout gotcha above) —
-  needs the user, not something fixable from inside a sandboxed session.
-- Provider keys not configured (`.env` does not exist yet) — needed before Item 5's graph runs
-  against a real model; the fake gateway covers everything until then.
+- OneDrive/Defender exclusion for this folder would likely remove the checkout gotcha, but needs the
+  user.
+- Provider keys are still not configured (`.env` does not exist yet) for running the graph against a
+  real model.
