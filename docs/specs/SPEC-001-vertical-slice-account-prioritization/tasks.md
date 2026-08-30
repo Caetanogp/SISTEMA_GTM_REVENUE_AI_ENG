@@ -111,7 +111,7 @@ extend it.
 
 - [x] ADR for anything decided along the way that constrains future work
 - [x] `README.md` updated with real setup steps that a stranger can follow
-- [ ] All 10 acceptance criteria in `spec.md` demonstrated, with evidence
+- [x] All 10 acceptance criteria in `spec.md` demonstrated, with evidence
 - [ ] `.handoff/STATE.md` updated; PR opened into `develop` with the template filled in
 
 ### Acceptance criteria evidence (Item 14, recorded 2026-08-30)
