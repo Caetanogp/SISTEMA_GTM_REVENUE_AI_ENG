@@ -25,13 +25,13 @@ venv found no known vulnerabilities. The final `python scripts/autonomous_gate.p
 all of its checks.
 
 The policy/security work is implemented in the feature branch. The API composition root, JWT auth,
-run/approval endpoints, adversarial coverage, and dependency audit now exist. However, the active
-SPEC-001 checklist still has the entire `## 7. Data and evals` section unchecked, and the closeout
-section is also unchecked. The queue and `autonomous_gate.py` currently do not model those sections:
-the gate counts the remaining data/evals and closeout sections now. The queue parser and gate were
-fixed and committed as `a356437`; the implementation baseline was committed as `da756d6`.
+run/approval endpoints, adversarial coverage, and dependency audit now exist. The active SPEC-001
+checklist has its first `## 7. Data and evals` checkbox complete; the remaining three data/evals
+checkboxes and all four closeout checkboxes are still pending. The queue and `autonomous_gate.py`
+now model those sections. The queue parser and gate were fixed and committed as `a356437`; the
+implementation baseline was committed as `da756d6`.
 
-Item 8 is complete on this branch. `python scripts/seed_demo.py` ran successfully twice
+Item 8 is complete on this branch and was committed as `c729380`. `python scripts/seed_demo.py` ran successfully twice
 sequentially and twice concurrently after `alembic upgrade head`; both concurrent processes exited
 0. The database contains exactly 1 demo organization, 1 user, 30 accounts, 30 contacts, 30
 opportunities, and 60 interactions. Stable UUIDs plus a PostgreSQL transaction advisory lock make
