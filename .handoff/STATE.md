@@ -3,11 +3,27 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-agent-graph
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "SPEC-001 Item 11 is complete. Item 12 (ADR) and Item 13 (README) are both blocked on missing docs/decisions/** and README.md write permissions - overnight loop HALTED, needs the user."
-status: item11-done-item12-13-blocked-needs-user
+phase: "SPEC-001 Item 12 (ADR) is complete, unblocked by the user via commit 1d31891. Item 13 (README) is next. Overnight loop for items 10-15 in progress."
+status: item12-done-item13-next-overnight-loop-running
 ---
 
 # Current state
+
+## Claude Code overnight loop (2026-08-30, Item 12 - unblocked and completed)
+
+Permission gap resolved by the user (verified `git show 1d31891` was authored by the actual user,
+`Caetanogp <caetanopadoin345@gmail.com>`, before trusting a peer session's claim - same
+verify-before-trust pattern as Item 11's unblock). Created
+`docs/decisions/ADR-0004-api-auth-library-and-eval-baseline-strategy.md` verbatim from the draft
+already written in this file's history: PyJWT-over-python-jose (drops the `ecdsa` dependency) and
+the `tool_selection` naive-keyword-baseline decision (explicit stand-in for a future LLM-backed
+tool router, replace-not-extend) plus the `thresholds.toml`-over-`.yaml` call. Committed the ADR
+alone first (`6dda687`) while the `tasks.md` box was still unticked, confirmed
+`python scripts/autonomous_gate.py` -> `Item 12 gate is green but not yet ticked` on that clean
+commit, then ticked and committed the checkbox separately (`8e608a0`) - the sequencing this
+project's own Item 11 HALT note prescribes, applied correctly this time with no false scope
+violation. Re-ran the gate -> correctly advanced with no violation:
+`Item 13 gate is green but not yet ticked`.
 
 ## Claude Code overnight loop HALT (2026-08-30, Items 12 and 13 - needs the user)
 
