@@ -29,6 +29,7 @@ from revops.domain.values.company_domain import CompanyDomain
 from revops.domain.values.email import EmailAddress
 from revops.infrastructure.persistence.models import Account as AccountModel
 from revops.infrastructure.persistence.models import AgentAction as AgentActionModel
+from revops.infrastructure.persistence.models import AgentRun as AgentRunModel
 from revops.infrastructure.persistence.models import Contact as ContactModel
 from revops.infrastructure.persistence.models import Interaction as InteractionModel
 from revops.infrastructure.persistence.models import Opportunity as OpportunityModel
@@ -278,23 +279,44 @@ class TestTaskRepository:
 
 
 class TestAuditTrail:
-    async def test_record_persists_a_row_with_a_null_run_id(self, session: AsyncSession) -> None:
+    async def test_record_persists_a_full_audit_row(self, session: AsyncSession) -> None:
         org_id = await _seed_organization(session)
         actor_id = await _seed_user(session, org_id)
+        run_id = uuid4()
+        action_id = uuid4()
+        session.add(
+            AgentRunModel(
+                id=run_id,
+                organization_id=org_id,
+                requested_by=actor_id,
+                request_text="prioritize",
+                graph_version="account-prioritization.v1",
+                prompt_version="prioritize_accounts.v1",
+                model_config_json={},
+                status="started",
+                started_at=datetime(2026, 1, 1, tzinfo=UTC),
+            )
+        )
+        await session.flush()
         audit = SqlAlchemyAuditTrail(session)
 
         await audit.record(
+            action_id=action_id,
+            run_id=run_id,
             organization_id=org_id,
             actor_id=actor_id,
             action="create_task",
             payload={"title": "call the customer"},
             outcome="approved",
             occurred_at=datetime(2026, 1, 1, tzinfo=UTC),
+            approved_by=actor_id,
+            executed_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
         stmt = select(AgentActionModel).where(AgentActionModel.organization_id == org_id)
         row = (await session.execute(stmt)).scalar_one()
-        assert row.run_id is None
+        assert row.id == action_id
+        assert row.run_id == run_id
         assert row.action == "create_task"
         assert row.outcome == "approved"
         assert row.payload == {"title": "call the customer"}

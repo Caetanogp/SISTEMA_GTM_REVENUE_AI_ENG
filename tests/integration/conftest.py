@@ -9,6 +9,9 @@ segment SQLAlchemy uses to pick a DBAPI. psycopg itself doesn't understand that 
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -52,3 +55,17 @@ def _require_postgres(postgres_dsn: str) -> None:
             f"run `docker compose up -d` first. Connection error: {exc}",
             pytrace=False,
         )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _apply_migrations(database_url: str) -> None:
+    """Keep the shared Postgres schema aligned with the repo before integration tests run."""
+    repo_root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    env["DATABASE_URL"] = database_url
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=repo_root,
+        env=env,
+        check=True,
+    )

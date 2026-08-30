@@ -22,7 +22,7 @@ dependencies = [
     "httpx>=0.27",
     "celery>=5.4",
     "redis>=5.2",
-    "python-jose[cryptography]>=3.3",
+    "PyJWT>=2.13",
     "structlog>=24.4",
     "opentelemetry-sdk>=1.28",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
@@ -146,6 +146,7 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
+mypy_path = ["packages/core"]
 exclude = ["apps/web", "infra"]
 
 [[tool.mypy.overrides]]

@@ -15,11 +15,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from revops.application.dto import ApprovalDecisionType
+from revops.application.ports import AgentRunEventRecord, AgentRunRecord, ApprovalRecord
 from revops.domain.entities.account import Account
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity, OpportunityStage
@@ -27,6 +29,9 @@ from revops.domain.entities.task import Task, TaskStatus
 from revops.domain.values.company_domain import CompanyDomain
 from revops.infrastructure.persistence.models import Account as AccountModel
 from revops.infrastructure.persistence.models import AgentAction as AgentActionModel
+from revops.infrastructure.persistence.models import AgentRun as AgentRunModel
+from revops.infrastructure.persistence.models import AgentRunEvent as AgentRunEventModel
+from revops.infrastructure.persistence.models import Approval as ApprovalModel
 from revops.infrastructure.persistence.models import Interaction as InteractionModel
 from revops.infrastructure.persistence.models import Opportunity as OpportunityModel
 from revops.infrastructure.persistence.models import Task as TaskModel
@@ -161,11 +166,7 @@ class SqlAlchemyTaskRepository:
 
 
 class SqlAlchemyAuditTrail:
-    """Append-only writes to `agent_actions`, backing the `AuditTrail` port.
-
-    `run_id` is always `None` here - ADR-0002, there is no real `agent_run` to reference until
-    the graph phase exists. This is expected, not a bug to work around.
-    """
+    """Append-only writes to `agent_actions`, backing the `AuditTrail` port."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -173,23 +174,108 @@ class SqlAlchemyAuditTrail:
     async def record(
         self,
         *,
+        action_id: UUID,
+        run_id: UUID,
         organization_id: UUID,
         actor_id: UUID,
         action: str,
         payload: Mapping[str, object],
         outcome: str,
         occurred_at: datetime,
+        approved_by: UUID | None,
+        executed_at: datetime | None,
     ) -> None:
         self._session.add(
             AgentActionModel(
-                id=uuid4(),
-                run_id=None,
+                id=action_id,
+                run_id=run_id,
                 organization_id=organization_id,
                 actor_id=actor_id,
                 action=action,
                 payload=dict(payload),
                 outcome=outcome,
                 occurred_at=occurred_at,
+                approved_by=approved_by,
+                executed_at=executed_at,
+            )
+        )
+        await self._session.flush()
+
+
+class SqlAlchemyApprovalRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_for_action(self, organization_id: UUID, action_id: UUID) -> ApprovalRecord | None:
+        stmt = select(ApprovalModel).where(
+            ApprovalModel.organization_id == organization_id,
+            ApprovalModel.action_id == action_id,
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return None
+        return ApprovalRecord(
+            id=row.id,
+            action_id=row.action_id,
+            organization_id=row.organization_id,
+            decision=ApprovalDecisionType(row.decision),
+            payload=row.payload,
+            decided_by=row.decided_by,
+            decided_at=row.decided_at,
+        )
+
+    async def add(self, approval: ApprovalRecord) -> None:
+        self._session.add(
+            ApprovalModel(
+                id=approval.id,
+                action_id=approval.action_id,
+                organization_id=approval.organization_id,
+                decision=approval.decision.value,
+                payload=dict(approval.payload),
+                decided_by=approval.decided_by,
+                decided_at=approval.decided_at,
+            )
+        )
+        await self._session.flush()
+
+
+class SqlAlchemyAgentRunRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, run: AgentRunRecord) -> None:
+        self._session.add(
+            AgentRunModel(
+                id=run.id,
+                organization_id=run.organization_id,
+                requested_by=run.requested_by,
+                request_text=run.request_text,
+                graph_version=run.graph_version,
+                prompt_version=run.prompt_version,
+                model_config_json=dict(run.model_config_json),
+                status="started",
+                started_at=run.started_at,
+            )
+        )
+        await self._session.flush()
+
+    async def add_event(self, event: AgentRunEventRecord) -> None:
+        self._session.add(
+            AgentRunEventModel(
+                id=event.id,
+                run_id=event.run_id,
+                organization_id=event.organization_id,
+                event_type=event.event_type,
+                occurred_at=event.occurred_at,
+                graph_version=event.graph_version,
+                prompt_version=event.prompt_version,
+                model_config_json=dict(event.model_config_json),
+                latency_ms=event.latency_ms,
+                input_tokens=event.input_tokens,
+                output_tokens=event.output_tokens,
+                token_cost_usd=event.token_cost_usd,
+                error=event.error,
+                event_metadata=dict(event.metadata) if event.metadata is not None else None,
             )
         )
         await self._session.flush()

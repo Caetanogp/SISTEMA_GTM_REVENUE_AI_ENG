@@ -1,9 +1,9 @@
-"""Structural checks on the SQLAlchemy models — no database needed.
+"""Structural checks on the SQLAlchemy models - no database needed.
 
-Verifies the ten tables SPEC-001 tasks.md section 3 requires exist on `Base.metadata`, that
-`agent_actions.run_id` is nullable (ADR-0002 — there is no real `agent_run` to reference yet), and
-that the three append-only audit tables (`agent_runs`, `agent_actions`, `approvals`) carry no
-update-enabling construct: no column with `onupdate`, and no foreign key using `ondelete="CASCADE"`.
+Verifies the eleven tables SPEC-001 tasks.md section 4 requires exist on `Base.metadata`, that
+`agent_actions.run_id` is now non-null, and that the four append-only audit tables
+(`agent_runs`, `agent_actions`, `approvals`, `agent_run_events`) carry no update-enabling
+construct: no column with `onupdate`, and no foreign key using `ondelete="CASCADE"`.
 """
 
 from __future__ import annotations
@@ -21,18 +21,19 @@ _EXPECTED_TABLES = {
     "agent_runs",
     "agent_actions",
     "approvals",
+    "agent_run_events",
 }
 
-_APPEND_ONLY_TABLES = {"agent_runs", "agent_actions", "approvals"}
+_APPEND_ONLY_TABLES = {"agent_runs", "agent_actions", "approvals", "agent_run_events"}
 
 
-def test_all_ten_tables_are_registered_on_base_metadata() -> None:
+def test_all_eleven_tables_are_registered_on_base_metadata() -> None:
     assert set(Base.metadata.tables) >= _EXPECTED_TABLES
 
 
-def test_agent_actions_run_id_is_nullable() -> None:
+def test_agent_actions_run_id_is_not_nullable() -> None:
     run_id_column = Base.metadata.tables["agent_actions"].columns["run_id"]
-    assert run_id_column.nullable is True
+    assert run_id_column.nullable is False
 
 
 def test_append_only_tables_have_no_update_enabling_construct() -> None:

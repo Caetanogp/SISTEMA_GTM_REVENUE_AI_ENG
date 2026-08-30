@@ -144,11 +144,13 @@ class AgentRun(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    requested_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    request_text: Mapped[str] = mapped_column(String(2000), default="legacy/unattributed")
     graph_version: Mapped[str] = mapped_column(String(64))
     prompt_version: Mapped[str] = mapped_column(String(64))
     model_config_json: Mapped[dict[str, object]] = mapped_column(JSONB)
-    latency_ms: Mapped[int]
-    token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 4))
+    latency_ms: Mapped[int | None] = mapped_column(default=None)
+    token_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), default=None)
     status: Mapped[str] = mapped_column(String(32))
     error: Mapped[str | None] = mapped_column(String(2000), default=None)
     started_at: Mapped[datetime]
@@ -168,7 +170,7 @@ class AgentAction(Base):
     __tablename__ = "agent_actions"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    run_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_runs.id"), nullable=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), nullable=False)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(64))
@@ -187,6 +189,7 @@ class Approval(Base):
     """
 
     __tablename__ = "approvals"
+    __table_args__ = (UniqueConstraint("action_id", name="uq_approvals_action_id"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
@@ -195,3 +198,24 @@ class Approval(Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB)
     decided_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     decided_at: Mapped[datetime]
+
+
+class AgentRunEvent(Base):
+    """An immutable lifecycle fact with enough configuration to reproduce a terminal event."""
+
+    __tablename__ = "agent_run_events"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime]
+    graph_version: Mapped[str] = mapped_column(String(64))
+    prompt_version: Mapped[str] = mapped_column(String(64))
+    model_config_json: Mapped[dict[str, object]] = mapped_column(JSONB)
+    latency_ms: Mapped[int | None] = mapped_column(default=None)
+    input_tokens: Mapped[int | None] = mapped_column(default=None)
+    output_tokens: Mapped[int | None] = mapped_column(default=None)
+    token_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), default=None)
+    error: Mapped[str | None] = mapped_column(String(2000), default=None)
+    event_metadata: Mapped[dict[str, object] | None] = mapped_column(JSONB, default=None)

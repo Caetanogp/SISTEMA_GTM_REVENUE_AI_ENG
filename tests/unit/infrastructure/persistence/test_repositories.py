@@ -13,10 +13,19 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from revops.application.ports import AccountRepository, AuditTrail, TaskRepository, UnitOfWork
+from revops.application.ports import (
+    AccountRepository,
+    AgentRunRepository,
+    ApprovalRepository,
+    AuditTrail,
+    TaskRepository,
+    UnitOfWork,
+)
 from revops.domain.entities.task import Task, TaskStatus
 from revops.infrastructure.persistence.repositories import (
     SqlAlchemyAccountRepository,
+    SqlAlchemyAgentRunRepository,
+    SqlAlchemyApprovalRepository,
     SqlAlchemyAuditTrail,
     SqlAlchemyTaskRepository,
 )
@@ -47,6 +56,14 @@ def test_sql_alchemy_task_repository_satisfies_the_protocol_structurally() -> No
     assert isinstance(SqlAlchemyTaskRepository(_mock_session()), TaskRepository)
 
 
+def test_sql_alchemy_approval_repository_satisfies_the_protocol_structurally() -> None:
+    assert isinstance(SqlAlchemyApprovalRepository(_mock_session()), ApprovalRepository)
+
+
+def test_sql_alchemy_agent_run_repository_satisfies_the_protocol_structurally() -> None:
+    assert isinstance(SqlAlchemyAgentRunRepository(_mock_session()), AgentRunRepository)
+
+
 def test_sql_alchemy_audit_trail_satisfies_the_protocol_structurally() -> None:
     assert isinstance(SqlAlchemyAuditTrail(_mock_session()), AuditTrail)
 
@@ -61,6 +78,8 @@ def test_unit_of_work_shares_one_session_across_all_three_ports() -> None:
     assert uow.accounts._session is session
     assert uow.tasks._session is session
     assert uow.audit._session is session
+    assert uow.approvals._session is session
+    assert uow.runs._session is session
 
 
 async def test_unit_of_work_commit_delegates_to_the_session() -> None:
@@ -94,20 +113,25 @@ async def test_unit_of_work_does_not_roll_back_on_clean_exit() -> None:
     session.rollback.assert_not_awaited()
 
 
-async def test_audit_trail_record_writes_a_run_id_none_row() -> None:
+async def test_audit_trail_record_writes_the_full_audit_row() -> None:
     session = _mock_session()
     audit = SqlAlchemyAuditTrail(session)
+    run_id = uuid4()
     await audit.record(
+        action_id=uuid4(),
+        run_id=run_id,
         organization_id=uuid4(),
         actor_id=uuid4(),
         action="create_task",
         payload={"title": "call the customer"},
         outcome="approved",
         occurred_at=datetime(2026, 1, 1, tzinfo=UTC),
+        approved_by=uuid4(),
+        executed_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     session.add.assert_called_once()
     added_row = session.add.call_args.args[0]
-    assert added_row.run_id is None
+    assert added_row.run_id == run_id
     session.flush.assert_awaited_once()
 
 
