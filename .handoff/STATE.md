@@ -3,8 +3,8 @@ agent: claude-code
 updated_at: 2026-08-30
 branch: feature/SPEC-001-persistence
 spec: SPEC-001-vertical-slice-account-prioritization
-phase: "1 in progress - Items 1-3 of SPEC-001 persistence (tasks.md section 3) done and verified for real; Item 4 (integration tests against Docker Postgres) next"
-status: persistence-item3-done-item4-next
+phase: "1 blocked - Item 4 integration tests surfaced a real, systemic timezone-storage gap in the already-committed schema (Items 1-2); fixing it needs a design decision outside Item 4's declared file scope"
+status: persistence-item4-blocked-on-naive-datetime-columns
 ---
 
 # Current state
@@ -122,6 +122,81 @@ spurious `Numeric` generic/arg-type errors that do **not** reproduce when `mypy 
 invocation, whole project) runs — confirmed not a stale-cache artifact via `mypy --no-incremental
 .` too. Trust `mypy .` (what the gate actually runs), not a single-file invocation, for this repo.
 
+**Item 4 (integration tests against Docker Postgres) — blocked, not ticked.** Wrote
+`tests/integration/test_persistence_repositories.py` (scope-correct: only this file, reusing
+`tests/integration/conftest.py`'s `database_url` fixture, no second conftest). Each test runs
+inside its own connection-bound transaction with a SAVEPOINT
+(`AsyncSession(connection, join_transaction_mode="create_savepoint")`, rolled back at teardown) so
+nothing pollutes the shared dev database. Also had to add a session-scoped `event_loop_policy`
+fixture forcing `WindowsSelectorEventLoopPolicy` on `sys.platform == "win32"` — the same psycopg
+async/`ProactorEventLoop` issue ADR-0002 and `migrations/env.py` already hit, now hitting
+pytest-asyncio's own loop too; this fixture lives inside the test file itself, not a new/edited
+conftest, so it stays in scope.
+
+12 tests written, covering every method on all three repositories, `SqlAlchemyAuditTrail`, both
+value-object round-trips the queue names (`CompanyDomain` via `AccountRepository.get`,
+`EmailAddress` via a directly-seeded `Contact` row — there is no `ContactRepository` port to go
+through, ports.py never defines one), a `Score` computed from persisted `Interaction`/
+`Opportunity` rows, `Task.mark_done` persisted and reloaded, an illegal transition
+(`InvalidTransitionError`) still raised after a real save/reload, and the explicit tenant-isolation
+test (`TestTenantIsolation::test_repository_calls_never_return_or_mutate_another_organizations_rows`
+— two orgs, `get`/`update` scoped to the wrong org both raise `NoResultFound`, the right org's row
+is provably untouched afterward).
+
+**Result: 10 passed, 2 failed — for a real reason, not a test bug.**
+```
+FAILED ...TestTaskRepository::test_add_then_get_round_trips_the_task
+  AssertionError: due_at: datetime.datetime(2026, 2, 1, 0, 0) != datetime.datetime(2026, 2, 1, 0, 0, tzinfo=datetime.timezone.utc)
+FAILED ...TestValueObjectRoundTrips::test_score_computes_correctly_from_persisted_interactions_and_opportunities
+  TypeError: can't subtract offset-naive and offset-aware datetimes
+    (packages/core/revops/domain/policies/prioritization.py:52, recency_signal: `now - last.occurred_at`)
+```
+**Root cause, confirmed by inspection, not guessed:** every `Mapped[datetime]` column in
+`packages/core/revops/infrastructure/persistence/models.py` (`Account.created_at`,
+`Interaction.occurred_at`, `Task.due_at`, `AgentRun.started_at`/`completed_at`,
+`AgentAction.occurred_at`/`executed_at`, `Approval.decided_at` — 6 distinct columns, checked via
+`grep -n "Mapped\[datetime\]" models.py`) maps to a plain `sa.DateTime()`, which Postgres stores
+and returns as `TIMESTAMP WITHOUT TIME ZONE`. Every domain entity is reidrated with a **naive**
+datetime regardless of what was written in. Every other timestamp in this codebase is
+timezone-aware by convention — `Clock.now()`'s only real implementation would return
+`datetime.now(UTC)`, `_FakeClock` in `tests/unit/application/test_ports.py` returns
+`datetime(2026, 1, 1, tzinfo=UTC)`, `docs/decisions/` and the checkpoint spike are UTC throughout.
+The moment a real `Clock` adapter and this persistence layer meet (exactly what Item 4 is supposed
+to prove happens safely), `domain/policies/prioritization.py`'s `recency_signal` — and by
+extension `PrioritizeAccounts`, SPEC-001's actual vertical slice — crashes on `now -
+last.occurred_at` with real data. This is not cosmetic and not a false alarm from an unrealistic
+test: it is what the real DB genuinely does today.
+
+**Why I stopped instead of fixing it inline:** two real, differently-costed, defensible fixes
+exist, and both require touching files outside Item 4's declared scope
+(`tests/integration/test_persistence_repositories.py` only):
+1. **Fix the schema**: change every `Mapped[datetime]` column to `DateTime(timezone=True)`
+   (`TIMESTAMPTZ`) in `models.py` — the textbook-correct fix for storing instants in Postgres — but
+   that means amending Item 1's already-ticked, already-committed file and writing a **second**
+   Alembic migration (an `ALTER COLUMN ... TYPE timestamptz` across 6 columns in 6 tables) on top
+   of Item 2's already-ticked, already-committed migration. Bigger blast radius than "add a test
+   file."
+2. **Normalize at the repository boundary**: have `repositories.py`'s `_to_account`/`_to_task`/
+   `_to_interaction`/`_to_opportunity` attach `tzinfo=UTC` when reidrating (`row.due_at.replace(
+   tzinfo=UTC)`), on the assumption "everything this schema stores is implicitly UTC." Cheaper,
+   no new migration, but it is an implicit convention nowhere written down, it only covers what
+   Item 3's repositories already read (not `AgentRun`/`Approval`, which have no adapter yet per
+   ADR-0002), and it means editing Item 3's already-ticked, already-committed `repositories.py`.
+   This is also technically outside Item 4's declared scope.
+Both are real architectural decisions with tradeoffs, discovered mid-implementation of a
+downstream item, on a question ADR-0002 never addressed (it covers checkpoint-table ownership,
+`run_id` nullability, and the async story — not column timezone-awareness). This is exactly the
+class of thing `AGENTS.md`'s standing complexity-flagging rule requires stopping for: *"a new
+component shape... anything with more than one defensible approach... stop and say so explicitly
+before writing code."* Making the test pass by comparing naive-vs-naive, or by hand-normalizing
+inside the test file only, was rejected too — it would hide a defect Item 4's own purpose is to
+surface, not paper over it (`AGENTS.md` golden rule 8: never weaken a check to make it pass).
+
+**State left behind:** `tests/integration/test_persistence_repositories.py` is written and
+committed as-is (10/12 passing, the 2 failures are the finding, not noise) —
+`docs/specs/.../tasks.md`'s Item 4 checkbox is **not** ticked. Nothing in `models.py`,
+`repositories.py`, or the migration was touched to work around this.
+
 ## Done (prior sessions — condensed; full detail in git history and `.handoff/log/`)
 
 - Domain layer, application layer (all 6 SPEC-001 tasks.md section 2 items, merged to `develop` at
@@ -134,16 +209,21 @@ invocation, whole project) runs — confirmed not a stale-cache artifact via `my
 
 ## Next
 
-1. **Item 4 (integration tests against Docker Postgres)** is next — `python
-   scripts/autonomous_gate.py` confirms it: `Item 4 gate is green but not yet ticked`. Scope:
-   `tests/integration/test_persistence_repositories.py` only, reusing the existing
-   `tests/integration/conftest.py` fixtures (`database_url`/`postgres_dsn`) — do not write a
-   second conftest. Must cover, per `AUTONOMOUS_QUEUE.md`: each repository method round-tripped
-   against real rows, each value object (`CompanyDomain`, `EmailAddress`, `Score`) round-tripped,
-   `Task.mark_done`/`cancel` persisted with an illegal transition still raising
-   `InvalidTransitionError` after a real save/reload, and the tenant-isolation test named
-   explicitly in the evidence (not just "integration tests pass").
-2. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode —
+1. **A human needs to pick between the two options above** (schema fix + new migration, vs.
+   repository-boundary normalization) for the naive-datetime-column finding, or propose a third —
+   this is a real design decision, not something to default on. Whichever is chosen will touch
+   files outside every currently-open item's declared scope (`models.py` and/or a new migration
+   file, and/or `repositories.py`), so it likely wants its own small queue item /
+   `AUTONOMOUS_QUEUE.md` entry, or the user doing it directly in a plan-mode session, rather than
+   an unattended `dontAsk` session picking it unilaterally.
+2. Once fixed, re-run `pytest tests/integration/test_persistence_repositories.py -q` — the file
+   itself does not need to change, only the schema/repository fix underneath it — confirm all 12
+   tests pass, then tick Item 4's `tasks.md` box with that as evidence, `python
+   scripts/autonomous_gate.py` should then report `GOAL ACHIEVED` (all 5 tasks.md §3 boxes ticked,
+   full gate green — `pytest tests/unit tests/architecture -q`, note the gate itself does not run
+   `tests/integration`, so re-confirming the integration suite by hand each time is on the human/
+   session doing this, not automatic).
+3. Item 5 (LangGraph) is still untouched and still needs a fresh session, Opus, plan mode —
    unchanged from before this run. It is reached via the gate's `exit 0` "GOAL ACHIEVED" path once
    all 5 tasks.md §3 checkboxes are ticked (same functional-equivalence reasoning as the
    application-layer run before it), not an explicit `exit 2` HALT — `completed_task_count()` only
@@ -184,13 +264,16 @@ cd "SISTEMA_PORTFOLIO_AI_ENG"
 git status                                  # confirm branch and clean tree first
 git rev-parse --abbrev-ref HEAD             # should be feature/SPEC-001-persistence
 docker compose ps                           # confirm revops-postgres, revops-redis healthy
-python scripts/autonomous_gate.py           # should point at Item 4
-cat .handoff/AUTONOMOUS_QUEUE.md
-cat docs/playbooks/autonomous-loop.md
+python scripts/autonomous_gate.py           # still points at Item 4 - it doesn't know about the finding
+pytest tests/integration/test_persistence_repositories.py -q   # 10 passed, 2 failed - see ## Now
 ```
+Read `## Now` above before doing anything else — the finding and both real fix options are there.
 
 ## Open questions
 
+- **Should datetime columns be `TIMESTAMPTZ` (schema + new migration) or should the repository
+  boundary normalize to UTC on read (edit `repositories.py`)?** New, from this session — see
+  `## Now`'s Item 4 entry for the full finding and both options' tradeoffs. Blocks Item 4.
 - Should `"Bash(alembic downgrade:*)"` move from `.claude/settings.json`'s `ask` list to `allow`
   for this project, given that every migration's done criterion needs the round-trip run? Still
   open, deliberately not decided inside a loop session — real security-policy tradeoff (grouped
