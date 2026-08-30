@@ -36,7 +36,7 @@ Tick as you go, not in a batch at the end. This file feeds the `Next` section of
 - [x] SQLAlchemy models for all entities + audit tables
 - [x] First Alembic migration; `upgrade` → `downgrade` → `upgrade` verified locally
 - [x] Indexes: `organization_id` everywhere, unique `accounts(domain)` and `contacts(email)` per org
-- [ ] Repositories implementing the ports; `organization_id` filtered inside the repository
+- [x] Repositories implementing the ports; `organization_id` filtered inside the repository
 - [ ] Integration tests against the docker Postgres, including the isolation test
 
 ## 4. Agent graph
