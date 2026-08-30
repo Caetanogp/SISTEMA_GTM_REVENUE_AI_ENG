@@ -18,7 +18,8 @@ clean `develop` tree. `python scripts/autonomous_gate.py` was intentionally not 
 the merge because it stops on `develop` by policy; the full gate passed on the feature branch
 immediately before merge.
 
-Next: the user publishes the PR/release workflow as desired, then confirms SPEC-002 scope before
+Next: `origin` is now configured locally as `https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG.git`;
+the user still controls the first push and PR/release workflow. Then confirm SPEC-002 scope before
 any `spec.md` is written. SPEC-002 remains a roadmap placeholder only.
 
 ## Codex verify-before-done (2026-08-30)
