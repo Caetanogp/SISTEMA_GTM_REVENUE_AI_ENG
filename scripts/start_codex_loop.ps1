@@ -51,6 +51,11 @@ Launch the Codex autonomous loop for this repository checkout.
 Repository root: $repo
 Current branch: $branch
 
+This is a Codex session. Execute the queue directly in this Codex process. Do not launch Claude
+Code, `claude`, `claude --bare`, or any other external coding agent or delegate the queue to one.
+The user's normal Claude Code sessions in this repository are independent and must not be changed,
+restarted, or inspected as part of this loop.
+
 Read and follow AGENTS.md, .handoff/STATE.md, .handoff/AUTONOMOUS_QUEUE.md, and
 docs/playbooks/autonomous-loop.md before making any change. Work the queue one item at a time in
 order. Use scripts/autonomous_gate.py as the sole judge of done. Stop immediately on a HALT item
