@@ -77,12 +77,18 @@ class FakeScans:
     async def add(
         self,
         organization_id: UUID,
+        requested_by: UUID,
         scan_id: UUID,
         record_types: tuple[DeduplicationRecordType, ...],
         key: str,
     ) -> None:
         self.rows[scan_id] = DeduplicationScanRecord(
-            scan_id, organization_id, tuple(record_types), DeduplicationScanStatus.QUEUED, key
+            scan_id,
+            organization_id,
+            requested_by,
+            tuple(record_types),
+            DeduplicationScanStatus.QUEUED,
+            key,
         )
 
 
@@ -192,16 +198,22 @@ def candidate(organization_id: UUID, scan_id: UUID) -> DeduplicationCandidateRec
 async def test_scan_is_idempotent_and_tenant_scoped() -> None:
     uow = FakeUow()
     org = uuid4()
+    requested_by = uuid4()
     use_case = StartDeduplicationScan(factory(uow))
     args = DeduplicationScanArgs(record_types=(DeduplicationRecordType.ACCOUNT,))
-    first = await use_case.execute(organization_id=org, idempotency_key="scan", args=args)
-    replay = await use_case.execute(organization_id=org, idempotency_key="scan", args=args)
+    first = await use_case.execute(
+        organization_id=org, requested_by=requested_by, idempotency_key="scan", args=args
+    )
+    replay = await use_case.execute(
+        organization_id=org, requested_by=requested_by, idempotency_key="scan", args=args
+    )
     assert replay.replayed
     assert replay.id == first.id
     assert uow.commits == 1
     with pytest.raises(DeduplicationIdempotencyConflictError):
         await use_case.execute(
             organization_id=org,
+            requested_by=requested_by,
             idempotency_key="scan",
             args=DeduplicationScanArgs(record_types=(DeduplicationRecordType.CONTACT,)),
         )

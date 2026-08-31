@@ -100,6 +100,7 @@ class DeduplicationCandidate:
 
 @dataclass(slots=True)
 class RecordAlias:
+    organization_id: UUID
     record_type: DeduplicationRecordType
     alias_id: UUID
     canonical_id: UUID

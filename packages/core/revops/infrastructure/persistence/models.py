@@ -90,6 +90,78 @@ class Contact(Base):
     email: Mapped[str] = mapped_column(String(320))
     full_name: Mapped[str] = mapped_column(String(255))
     title: Mapped[str] = mapped_column(String(255), default="")
+    phone: Mapped[str | None] = mapped_column(String(16), default=None)
+
+
+class DeduplicationScan(Base):
+    __tablename__ = "deduplication_scans"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_dedupe_scans_org_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    record_types: Mapped[list[str]] = mapped_column(JSONB)
+    policy_version: Mapped[str] = mapped_column(String(64))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class DeduplicationCandidate(Base):
+    __tablename__ = "deduplication_candidates"
+    __table_args__ = (
+        UniqueConstraint("scan_id", "left_id", "right_id", name="uq_dedupe_candidate_pair"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    record_type: Mapped[str] = mapped_column(String(16))
+    left_id: Mapped[UUID]
+    right_id: Mapped[UUID]
+    score: Mapped[int] = mapped_column(Integer)
+    reasons: Mapped[list[str]] = mapped_column(JSONB)
+    policy_version: Mapped[str] = mapped_column(String(64))
+    left_fingerprint: Mapped[str] = mapped_column(String(64))
+    right_fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))
+
+
+class DeduplicationAlias(Base):
+    __tablename__ = "deduplication_aliases"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_alias_source"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    record_type: Mapped[str] = mapped_column(String(16))
+    alias_id: Mapped[UUID]
+    canonical_id: Mapped[UUID]
+    merge_event_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_events.id"))
+    created_at: Mapped[datetime]
+    reverted_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
+class DeduplicationEvent(Base):
+    __tablename__ = "deduplication_events"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_dedupe_events_org_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    candidate_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_candidates.id"), default=None
+    )
+    action: Mapped[str] = mapped_column(String(32))
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB)
+    occurred_at: Mapped[datetime]
 
 
 class IngestionJob(Base):

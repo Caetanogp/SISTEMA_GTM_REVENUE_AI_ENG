@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from revops.domain.entities.account import Account
@@ -133,6 +133,7 @@ def test_candidate_requires_ordered_ids_and_has_one_way_decision() -> None:
 
 def test_alias_is_reversible_once() -> None:
     alias = RecordAlias(
+        organization_id=uuid4(),
         record_type=DeduplicationRecordType.ACCOUNT,
         alias_id=ACCOUNT_ID,
         canonical_id=OTHER_ACCOUNT_ID,

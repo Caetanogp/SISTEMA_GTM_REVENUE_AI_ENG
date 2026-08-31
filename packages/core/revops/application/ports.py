@@ -294,6 +294,7 @@ type IngestionUnitOfWorkFactory = Callable[[], IngestionUnitOfWork]
 class DeduplicationScanRecord:
     id: UUID
     organization_id: UUID
+    requested_by: UUID
     record_types: tuple[DeduplicationRecordType, ...]
     status: DeduplicationScanStatus
     idempotency_key: str
@@ -310,6 +311,7 @@ class DeduplicationScanRepository(Protocol):
     async def add(
         self,
         organization_id: UUID,
+        requested_by: UUID,
         scan_id: UUID,
         record_types: Sequence[DeduplicationRecordType],
         idempotency_key: str,

@@ -35,6 +35,9 @@ existing read/write use cases that require it.
 ## Alias model and transactions
 
 - Aliases are logical: original account/contact rows and their FKs never move or delete.
+- Tenant identity is explicit at the application boundary: `RecordAlias` carries
+  `organization_id`, and scan creation receives the authenticated `requested_by` user separately
+  from the tenant. Persistence adapters must never derive either value from the other.
 - Separate account/contact alias tables provide concrete FKs. An active alias points directly to a
   non-alias canonical row; chains are forbidden.
 - A standalone record may become an alias of another standalone record. A master with aliases may

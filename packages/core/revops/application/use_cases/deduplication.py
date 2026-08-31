@@ -60,7 +60,12 @@ class StartDeduplicationScan:
     factory: DeduplicationUnitOfWorkFactory
 
     async def execute(
-        self, *, organization_id: UUID, idempotency_key: str, args: DeduplicationScanArgs
+        self,
+        *,
+        organization_id: UUID,
+        requested_by: UUID,
+        idempotency_key: str,
+        args: DeduplicationScanArgs,
     ) -> DeduplicationScanResult:
         async with self.factory() as uow:
             existing = await uow.scans.get_by_idempotency_key(organization_id, idempotency_key)
@@ -78,7 +83,9 @@ class StartDeduplicationScan:
                     replayed=True,
                 )
             scan_id = uuid5(NAMESPACE_URL, f"dedupe-scan:{organization_id}:{idempotency_key}")
-            await uow.scans.add(organization_id, scan_id, args.record_types, idempotency_key)
+            await uow.scans.add(
+                organization_id, requested_by, scan_id, args.record_types, idempotency_key
+            )
             await uow.commit()
             return DeduplicationScanResult(
                 id=scan_id,
@@ -231,6 +238,7 @@ class MergeDeduplicationCandidate:
                 raise DeduplicationConflictError("record already has an active alias")
             event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
             alias = RecordAlias(
+                organization_id,
                 candidate.candidate.record_type,
                 alias_id,
                 master_record_id,

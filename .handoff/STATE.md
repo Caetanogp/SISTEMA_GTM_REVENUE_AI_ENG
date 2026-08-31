@@ -85,3 +85,20 @@ python scripts/autonomous_gate.py
   everything until then.
 - `origin` remote and a possible `develop` push - confirm before assuming public state (see Now).
 - SPEC-003's exact scope is not decided - see Next.
+
+## Autonomous loop HALT (2026-08-31T00:00:00Z)
+
+Stopped at SPEC-003 Item 4 before committing. The Item 3 application contract does not carry
+organization_id on RecordAlias, while the tenant-scoped persistence port requires it for alias
+creation; StartDeduplicationScan also needs an authenticated requested_by actor rather than a
+tenant identifier. A deliberate contract redesign is required before persistence work can safely
+continue. Item 4 changes are uncommitted draft work and must not be treated as complete.
+
+## Deliberate design resolution (2026-08-31)
+
+The Item 4 contract mismatch was resolved before resuming the autonomous loop. `RecordAlias` now
+carries the explicit tenant `organization_id`, and scan creation receives authenticated
+`requested_by` separately from the tenant. The persistence draft uses those values directly; no
+tenant or actor identity is inferred. The loop launcher now allocates an ignored per-process pytest
+basetemp instead of the OneDrive reparse-point cache. Unit tests and import architecture checks pass;
+Item 4 still requires persistence and integration evidence.

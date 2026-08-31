@@ -13,6 +13,7 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+scripts/.pytest_loop_temp_*/
 .mypy_cache/
 .ruff_cache/
 .coverage

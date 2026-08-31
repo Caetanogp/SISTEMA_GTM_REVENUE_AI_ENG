@@ -82,10 +82,11 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
-# Codex sandboxed child sessions may not write to the Windows user temp directory.
-# Keep pytest's temporary files in an ignored path below scripts, which mypy does not discover.
-# A direct child of scripts is intentional: pytest creates the basetemp itself but not parents.
-$env:PYTEST_ADDOPTS = "--basetemp=scripts/.pytest_cache"
+# Keep each loop's pytest files in a fresh ignored directory. The shared .pytest_cache path may
+# be a OneDrive reparse point and can fail cleanup when multiple sessions use this checkout.
+$pytestBaseTemp = Join-Path $repo ("scripts/.pytest_loop_temp_{0}" -f $PID)
+New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
+$env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"
 
 $prompt | & codex @args -
 exit $LASTEXITCODE
