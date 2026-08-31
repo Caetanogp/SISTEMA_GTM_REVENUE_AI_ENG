@@ -43,7 +43,7 @@ committed. `scripts/autonomous_gate.py` is the sole judge of completion.
 
 ## Item 6 - Celery worker and dispatcher
 
-- **Scope:** `packages/core/revops/application/`, `packages/core/revops/infrastructure/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
+- **Scope:** `packages/core/revops/application/`, `packages/core/revops/infrastructure/`, `apps/worker/`, `tests/unit/`, `tests/integration/`, `pyproject.toml`
 - **Requires:** `packages/core/revops/application/use_cases/ingestion.py`, `packages/core/revops/infrastructure/persistence/`, `packages/core/revops/infrastructure/queue/`, `apps/worker/`, `tests/unit/application/`, `tests/integration/`
 - **What:** complete the approved per-domain processing contracts, persistence writes and enrichment FK, then add a minimal Redis/Celery dispatch path and idempotent worker composition root.
 - **Done when:** duplicate delivery and broker failure behavior are tested.
