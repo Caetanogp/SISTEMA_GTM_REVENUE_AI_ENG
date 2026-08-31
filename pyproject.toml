@@ -153,6 +153,12 @@ exclude = ["apps/web", "infra"]
 module = ["tests.*"]
 disallow_untyped_defs = false
 
+# Celery 5 does not publish PEP 561 metadata. Keep the adapter boundary typed locally while mypy
+# treats only this third-party package as untyped.
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
