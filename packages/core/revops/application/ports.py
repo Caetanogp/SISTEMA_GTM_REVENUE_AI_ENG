@@ -29,6 +29,13 @@ from revops.application.dto import (
 )
 from revops.domain.entities.account import Account
 from revops.domain.entities.contact import Contact
+from revops.domain.entities.deduplication import (
+    DeduplicationCandidate,
+    DeduplicationCandidateStatus,
+    DeduplicationRecordType,
+    DeduplicationScanStatus,
+    RecordAlias,
+)
 from revops.domain.entities.ingestion import IngestionJobStatus
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
@@ -281,6 +288,116 @@ class IngestionUnitOfWork(Protocol):
 
 
 type IngestionUnitOfWorkFactory = Callable[[], IngestionUnitOfWork]
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationScanRecord:
+    id: UUID
+    organization_id: UUID
+    record_types: tuple[DeduplicationRecordType, ...]
+    status: DeduplicationScanStatus
+    idempotency_key: str
+
+
+@runtime_checkable
+class DeduplicationScanRepository(Protocol):
+    async def get(self, organization_id: UUID, scan_id: UUID) -> DeduplicationScanRecord | None: ...
+
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> DeduplicationScanRecord | None: ...
+
+    async def add(
+        self,
+        organization_id: UUID,
+        scan_id: UUID,
+        record_types: Sequence[DeduplicationRecordType],
+        idempotency_key: str,
+    ) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationCandidateRecord:
+    id: UUID
+    scan_id: UUID
+    organization_id: UUID
+    candidate: DeduplicationCandidate
+
+
+@runtime_checkable
+class DeduplicationCandidateRepository(Protocol):
+    async def get_for_update(
+        self, organization_id: UUID, candidate_id: UUID
+    ) -> DeduplicationCandidateRecord | None: ...
+
+    async def list(
+        self,
+        organization_id: UUID,
+        scan_id: UUID,
+        *,
+        status: DeduplicationCandidateStatus | None,
+        record_type: DeduplicationRecordType | None,
+        offset: int,
+        limit: int,
+    ) -> Sequence[DeduplicationCandidateRecord]: ...
+
+    async def save(self, candidate: DeduplicationCandidateRecord) -> None: ...
+
+
+@runtime_checkable
+class DeduplicationAliasRepository(Protocol):
+    async def get_active(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> RecordAlias | None: ...
+
+    async def add(self, alias: RecordAlias) -> None: ...
+
+    async def get_for_update(
+        self, organization_id: UUID, merge_event_id: UUID
+    ) -> RecordAlias | None: ...
+
+    async def save(self, alias: RecordAlias) -> None: ...
+
+
+@runtime_checkable
+class DeduplicationEventRepository(Protocol):
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> Mapping[str, object] | None: ...
+
+    async def add(self, event: Mapping[str, object]) -> None: ...
+
+
+@runtime_checkable
+class CanonicalResolver(Protocol):
+    async def resolve(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> UUID: ...
+
+
+@runtime_checkable
+class DeduplicationUnitOfWork(Protocol):
+    scans: DeduplicationScanRepository
+    candidates: DeduplicationCandidateRepository
+    aliases: DeduplicationAliasRepository
+    events: DeduplicationEventRepository
+    resolver: CanonicalResolver
+
+    async def __aenter__(self) -> DeduplicationUnitOfWork: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+type DeduplicationUnitOfWorkFactory = Callable[[], DeduplicationUnitOfWork]
 
 
 @runtime_checkable

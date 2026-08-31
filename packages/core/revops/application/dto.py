@@ -15,6 +15,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from revops.domain.entities.deduplication import (
+    DeduplicationCandidateStatus,
+    DeduplicationRecordType,
+    DeduplicationScanStatus,
+)
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
@@ -23,6 +28,63 @@ from revops.domain.entities.ingestion import (
     IngestionJobStatus,
 )
 from revops.domain.values.score import ScoreTier
+
+
+class DeduplicationScanArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_types: tuple[DeduplicationRecordType, ...] = Field(min_length=1)
+
+
+class DismissCandidateArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(pattern=r"^(not_duplicate|insufficient_evidence)$")
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationScanResult:
+    id: UUID
+    organization_id: UUID
+    record_types: tuple[DeduplicationRecordType, ...]
+    status: DeduplicationScanStatus
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationCandidateResult:
+    id: UUID
+    scan_id: UUID
+    organization_id: UUID
+    record_type: DeduplicationRecordType
+    left_id: UUID
+    right_id: UUID
+    score: int
+    reasons: tuple[str, ...]
+    policy_version: str
+    status: DeduplicationCandidateStatus
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationDecisionResult:
+    candidate_id: UUID
+    status: DeduplicationCandidateStatus
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalRecordResult:
+    record_type: DeduplicationRecordType
+    requested_id: UUID
+    canonical_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationMergeResult:
+    event_id: UUID
+    alias_id: UUID
+    canonical_id: UUID
+    replayed: bool = False
 
 
 class CreateTaskArgs(BaseModel):
