@@ -19,12 +19,16 @@ from typing import Protocol, TypeVar, runtime_checkable
 from uuid import UUID
 
 from revops.application.dto import (
+    AccountEnrichmentRecord,
     ApprovalDecisionType,
+    EnrichmentProfile,
+    IngestionItemSummary,
     LLMResult,
     StagedIngestionItem,
     StagedIngestionJob,
 )
 from revops.domain.entities.account import Account
+from revops.domain.entities.contact import Contact
 from revops.domain.entities.ingestion import IngestionJobStatus
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
@@ -143,6 +147,12 @@ class AgentRunRepository(Protocol):
 T = TypeVar("T")
 
 
+@dataclass(frozen=True, slots=True)
+class CreatedRecord[T]:
+    value: T
+    created: bool
+
+
 @runtime_checkable
 class LLMGateway(Protocol):
     """Structured-output access to the LLM. Free text never crosses this boundary unvalidated."""
@@ -193,6 +203,10 @@ class IngestionJobRepository(Protocol):
 
     async def add(self, job: StagedIngestionJob) -> None: ...
 
+    async def get_for_update(
+        self, organization_id: UUID, job_id: UUID
+    ) -> StagedIngestionJob | None: ...
+
     async def set_status(
         self, organization_id: UUID, job_id: UUID, status: IngestionJobStatus
     ) -> StagedIngestionJob: ...
@@ -216,6 +230,31 @@ class IngestionItemRepository(Protocol):
         self, organization_id: UUID, job_id: UUID, domain: str
     ) -> Sequence[StagedIngestionItem]: ...
 
+    async def save_result(
+        self, organization_id: UUID, job_id: UUID, item: StagedIngestionItem
+    ) -> None: ...
+
+    async def summarize(self, organization_id: UUID, job_id: UUID) -> IngestionItemSummary: ...
+
+
+@runtime_checkable
+class IngestionAccountRepository(Protocol):
+    async def get_or_create(self, account: Account) -> CreatedRecord[Account]: ...
+
+
+@runtime_checkable
+class IngestionContactRepository(Protocol):
+    async def get_or_create(self, contact: Contact) -> CreatedRecord[Contact]: ...
+
+
+@runtime_checkable
+class AccountEnrichmentRepository(Protocol):
+    """Append-only enrichment snapshots; no update or delete operation exists."""
+
+    async def get_or_create(
+        self, enrichment: AccountEnrichmentRecord
+    ) -> CreatedRecord[AccountEnrichmentRecord]: ...
+
 
 @runtime_checkable
 class IngestionUnitOfWork(Protocol):
@@ -223,6 +262,9 @@ class IngestionUnitOfWork(Protocol):
 
     jobs: IngestionJobRepository
     items: IngestionItemRepository
+    accounts: IngestionAccountRepository
+    contacts: IngestionContactRepository
+    enrichments: AccountEnrichmentRepository
 
     async def __aenter__(self) -> IngestionUnitOfWork: ...
 
@@ -252,4 +294,8 @@ class IngestionDispatcher(Protocol):
 class EnrichmentGateway(Protocol):
     """Validated deterministic enrichment boundary implemented in infrastructure."""
 
-    async def enrich(self, *, domain: str) -> Mapping[str, object]: ...
+    async def enrich(self, *, domain: str) -> EnrichmentProfile: ...
+
+
+class EnrichmentGatewayError(Exception):
+    """An expected provider failure that should become a per-item outcome."""

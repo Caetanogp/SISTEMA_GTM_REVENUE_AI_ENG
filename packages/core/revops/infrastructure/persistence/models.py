@@ -137,7 +137,9 @@ class IngestionItem(Base):
     enrichment_outcome: Mapped[str] = mapped_column(String(32))
     account_id: Mapped[UUID | None] = mapped_column(ForeignKey("accounts.id"), default=None)
     contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id"), default=None)
-    enrichment_id: Mapped[UUID | None] = mapped_column(default=None)
+    enrichment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("account_enrichments.id"), default=None
+    )
 
 
 class AccountEnrichment(Base):

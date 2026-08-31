@@ -9,21 +9,29 @@ from typing import Final
 from uuid import UUID, uuid4
 
 from revops.application.dto import (
+    AccountEnrichmentRecord,
     CanonicalIngestionRecord,
     ConfirmIngestionResult,
     IngestionRecordInput,
+    ProcessIngestionResult,
     StagedIngestionItem,
     StagedIngestionJob,
     StageIngestionResult,
 )
 from revops.application.ports import (
+    Clock,
+    EnrichmentGateway,
+    EnrichmentGatewayError,
     IngestionDispatcher,
     IngestionUnitOfWorkFactory,
 )
+from revops.domain.entities.account import Account
+from revops.domain.entities.contact import Contact
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
     EnrichmentOutcome,
+    IngestionItemState,
     IngestionItemStatus,
     IngestionJobStatus,
 )
@@ -290,18 +298,149 @@ class ListIngestionItems:
 
 @dataclass(frozen=True, slots=True)
 class ProcessIngestionJob:
-    """Expose ordered domain groups; infrastructure performs each group transaction in Item 4."""
+    """Process a confirmed import with one atomic transaction per normalized domain."""
 
     uow_factory: IngestionUnitOfWorkFactory
+    enrichment_gateway: EnrichmentGateway
+    clock: Clock
 
-    async def execute(self, *, organization_id: UUID, job_id: UUID) -> tuple[str, ...]:
+    async def execute(self, *, organization_id: UUID, job_id: UUID) -> ProcessIngestionResult:
+        initial_status = await self._begin_or_resume(organization_id, job_id)
+        if initial_status is not IngestionJobStatus.PROCESSING:
+            return ProcessIngestionResult(job_id, initial_status, ())
+
         async with self.uow_factory() as uow:
-            job = await uow.jobs.get(organization_id, job_id)
+            domains = tuple(await uow.items.list_processable_domains(organization_id, job_id))
+
+        processed_domains = []
+        for domain in domains:
+            if await self._process_domain(organization_id, job_id, domain):
+                processed_domains.append(domain)
+
+        final_status = await self._complete_if_ready(organization_id, job_id)
+        return ProcessIngestionResult(job_id, final_status, tuple(processed_domains))
+
+    async def _begin_or_resume(self, organization_id: UUID, job_id: UUID) -> IngestionJobStatus:
+        async with self.uow_factory() as uow:
+            job = await uow.jobs.get_for_update(organization_id, job_id)
             if job is None:
                 raise IngestionNotFoundError("ingestion job was not found")
             if job.status is IngestionJobStatus.QUEUED:
-                await uow.jobs.set_status(organization_id, job_id, IngestionJobStatus.PROCESSING)
+                job = await uow.jobs.set_status(
+                    organization_id, job_id, IngestionJobStatus.PROCESSING
+                )
                 await uow.commit()
-            elif job.status is not IngestionJobStatus.PROCESSING:
-                return ()
-            return tuple(await uow.items.list_processable_domains(organization_id, job_id))
+            return job.status
+
+    async def _process_domain(self, organization_id: UUID, job_id: UUID, domain: str) -> bool:
+        async with self.uow_factory() as uow:
+            locked = await uow.items.lock_domain_items(organization_id, job_id, domain)
+            items = [item for item in locked if item.status is IngestionItemStatus.PENDING]
+            if not items:
+                return False
+
+            first_record = items[0].record
+            if first_record is None:
+                return False
+            now = self.clock.now()
+            account_result = await uow.accounts.get_or_create(
+                Account(
+                    id=uuid4(),
+                    organization_id=organization_id,
+                    company_name=first_record.company_name,
+                    domain=CompanyDomain(first_record.domain),
+                    created_at=now,
+                )
+            )
+
+            contact_results: dict[int, tuple[UUID, bool]] = {}
+            for item in items:
+                record = item.record
+                if record is None or not record.has_contact:
+                    continue
+                assert record.email is not None
+                assert record.full_name is not None
+                result = await uow.contacts.get_or_create(
+                    Contact(
+                        id=uuid4(),
+                        organization_id=organization_id,
+                        account_id=account_result.value.id,
+                        email=EmailAddress(record.email),
+                        full_name=record.full_name,
+                        title=record.title or "",
+                    )
+                )
+                contact_results[item.row_number] = (result.value.id, result.created)
+
+            enrichment_id: UUID | None = None
+            enrichment_outcome = EnrichmentOutcome.CREATED
+            try:
+                profile = await self.enrichment_gateway.enrich(domain=domain)
+                enrichment = await uow.enrichments.get_or_create(
+                    AccountEnrichmentRecord(
+                        id=uuid4(),
+                        ingestion_job_id=job_id,
+                        organization_id=organization_id,
+                        account_id=account_result.value.id,
+                        profile=profile,
+                        created_at=now,
+                    )
+                )
+                enrichment_id = enrichment.value.id
+            except EnrichmentGatewayError:
+                enrichment_outcome = EnrichmentOutcome.FAILED
+
+            for index, item in enumerate(items):
+                record = item.record
+                if record is None:
+                    continue
+                state = IngestionItemState(has_contact=record.has_contact)
+                state.begin_processing()
+                account_outcome = (
+                    AccountOutcome.CREATED
+                    if account_result.created and index == 0
+                    else AccountOutcome.DUPLICATE
+                )
+                state.record_account(account_outcome)
+                contact_id = None
+                if record.has_contact:
+                    contact_id, contact_created = contact_results[item.row_number]
+                    state.record_contact(
+                        ContactOutcome.CREATED if contact_created else ContactOutcome.DUPLICATE
+                    )
+                state.record_enrichment(enrichment_outcome)
+                await uow.items.save_result(
+                    organization_id,
+                    job_id,
+                    replace(
+                        item,
+                        status=state.status,
+                        account_outcome=state.account_outcome,
+                        contact_outcome=state.contact_outcome,
+                        enrichment_outcome=state.enrichment_outcome,
+                        account_id=account_result.value.id,
+                        contact_id=contact_id,
+                        enrichment_id=enrichment_id,
+                    ),
+                )
+            await uow.commit()
+        return True
+
+    async def _complete_if_ready(self, organization_id: UUID, job_id: UUID) -> IngestionJobStatus:
+        async with self.uow_factory() as uow:
+            job = await uow.jobs.get_for_update(organization_id, job_id)
+            if job is None:
+                raise IngestionNotFoundError("ingestion job was not found")
+            if job.status is not IngestionJobStatus.PROCESSING:
+                return job.status
+            summary = await uow.items.summarize(organization_id, job_id)
+            if summary.nonterminal_count:
+                return job.status
+            target = (
+                IngestionJobStatus.COMPLETED_WITH_ERRORS
+                if summary.error_count
+                else IngestionJobStatus.COMPLETED
+            )
+            job = await uow.jobs.set_status(organization_id, job_id, target)
+            await uow.commit()
+            return job.status

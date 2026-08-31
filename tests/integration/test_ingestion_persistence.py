@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import sys
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 from revops.application.dto import CanonicalIngestionRecord, StagedIngestionItem, StagedIngestionJob
+from revops.application.use_cases.ingestion import ProcessIngestionJob
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
@@ -16,12 +18,31 @@ from revops.domain.entities.ingestion import (
     IngestionItemStatus,
     IngestionJobStatus,
 )
+from revops.infrastructure.ingestion import SyntheticEnrichmentGateway
 from revops.infrastructure.persistence.ingestion_repositories import (
     SqlAlchemyIngestionItemRepository,
     SqlAlchemyIngestionJobRepository,
 )
-from revops.infrastructure.persistence.models import Organization, User
+from revops.infrastructure.persistence.ingestion_unit_of_work import (
+    SqlAlchemyIngestionUnitOfWork,
+)
+from revops.infrastructure.persistence.models import (
+    Account,
+    AccountEnrichment,
+    Contact,
+    IngestionItem,
+    Organization,
+    User,
+)
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+_NOW = datetime(2026, 8, 30, tzinfo=UTC)
+
+
+class _Clock:
+    def now(self) -> datetime:
+        return _NOW
 
 
 @pytest.fixture(scope="session")
@@ -95,3 +116,47 @@ async def test_ingestion_repositories_round_trip_staged_rows_and_keep_tenants_is
 
     queued = await jobs.set_status(organization_id, job.id, IngestionJobStatus.QUEUED)
     assert queued.status is IngestionJobStatus.QUEUED
+
+    process = ProcessIngestionJob(
+        lambda: SqlAlchemyIngestionUnitOfWork(session),
+        SyntheticEnrichmentGateway(),
+        _Clock(),
+    )
+    first = await process.execute(organization_id=organization_id, job_id=job.id)
+    replay = await process.execute(organization_id=organization_id, job_id=job.id)
+
+    assert first.status is IngestionJobStatus.COMPLETED
+    assert first.processed_domains == ("acme.test",)
+    assert replay.status is IngestionJobStatus.COMPLETED
+    assert replay.processed_domains == ()
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(Account)
+            .where(Account.organization_id == organization_id)
+        )
+        == 1
+    )
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(Contact)
+            .where(Contact.organization_id == organization_id)
+        )
+        == 1
+    )
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(AccountEnrichment)
+            .where(AccountEnrichment.organization_id == organization_id)
+        )
+        == 1
+    )
+    processed = (
+        await session.execute(select(IngestionItem).where(IngestionItem.ingestion_job_id == job.id))
+    ).scalar_one()
+    assert processed.status == IngestionItemStatus.COMPLETED.value
+    assert processed.account_id is not None
+    assert processed.contact_id is not None
+    assert processed.enrichment_id is not None

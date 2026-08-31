@@ -99,9 +99,23 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_account_enrichments_organization_id"), "account_enrichments", ["organization_id"]
     )
+    op.create_foreign_key(
+        "fk_ingestion_items_enrichment_id_account_enrichments",
+        "ingestion_items",
+        "account_enrichments",
+        ["enrichment_id"],
+        ["id"],
+    )
 
 
 def downgrade() -> None:
+    # This revision existed locally before the FK was added; tolerate that pre-correction shape.
+    op.execute(
+        sa.text(
+            "ALTER TABLE ingestion_items DROP CONSTRAINT IF EXISTS "
+            "fk_ingestion_items_enrichment_id_account_enrichments"
+        )
+    )
     op.drop_index(op.f("ix_account_enrichments_organization_id"), table_name="account_enrichments")
     op.drop_index(op.f("ix_account_enrichments_ingestion_job_id"), table_name="account_enrichments")
     op.drop_index(op.f("ix_account_enrichments_account_id"), table_name="account_enrichments")

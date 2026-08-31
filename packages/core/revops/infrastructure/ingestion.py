@@ -5,11 +5,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict
-
-from revops.application.dto import IngestionRecordInput
+from revops.application.dto import EnrichmentProfile, IngestionRecordInput
 
 _MAX_BODY_BYTES = 5 * 1024 * 1024
 _MAX_ROWS = 1_000
@@ -19,19 +16,6 @@ _REQUIRED_HEADERS = frozenset({"company_name", "domain"})
 
 class IngestionTransportError(ValueError):
     """A batch-level unsafe transport shape; callers must not stage it."""
-
-
-class SyntheticEnrichmentProfile(BaseModel):
-    """The versioned, strictly shaped profile persisted by the synthetic provider."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: str
-    schema_version: str
-    industry: str
-    employee_band: str
-    country: str
-    summary: str
 
 
 def parse_csv_records(body: bytes) -> list[IngestionRecordInput]:
@@ -73,9 +57,9 @@ class SyntheticEnrichmentGateway:
     _EMPLOYEE_BANDS = ("1-50", "51-200", "201-1,000", "1,001+")
     _COUNTRIES = ("Brazil", "Canada", "Germany", "United States")
 
-    async def enrich(self, *, domain: str) -> Mapping[str, object]:
+    async def enrich(self, *, domain: str) -> EnrichmentProfile:
         digest = hashlib.sha256(domain.encode("utf-8")).digest()
-        profile = SyntheticEnrichmentProfile(
+        return EnrichmentProfile(
             provider=self.provider,
             schema_version=self.schema_version,
             industry=self._INDUSTRIES[digest[0] % len(self._INDUSTRIES)],
@@ -83,4 +67,3 @@ class SyntheticEnrichmentGateway:
             country=self._COUNTRIES[digest[2] % len(self._COUNTRIES)],
             summary=f"Synthetic enrichment profile for {domain}.",
         )
-        return profile.model_dump()

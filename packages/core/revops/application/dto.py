@@ -165,6 +165,9 @@ class StagedIngestionItem:
     account_outcome: AccountOutcome
     contact_outcome: ContactOutcome
     enrichment_outcome: EnrichmentOutcome
+    account_id: UUID | None = None
+    contact_id: UUID | None = None
+    enrichment_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,3 +193,39 @@ class ConfirmIngestionResult:
     job: StagedIngestionJob
     published: bool
     replayed: bool
+
+
+class EnrichmentProfile(BaseModel):
+    """Canonical provider output accepted by the ingestion use case."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=64)
+    schema_version: str = Field(min_length=1, max_length=64)
+    industry: str = Field(min_length=1, max_length=128)
+    employee_band: str = Field(min_length=1, max_length=64)
+    country: str = Field(min_length=1, max_length=128)
+    summary: str = Field(min_length=1, max_length=2000)
+
+
+@dataclass(frozen=True, slots=True)
+class AccountEnrichmentRecord:
+    id: UUID
+    ingestion_job_id: UUID
+    organization_id: UUID
+    account_id: UUID
+    profile: EnrichmentProfile
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class IngestionItemSummary:
+    nonterminal_count: int
+    error_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessIngestionResult:
+    job_id: UUID
+    status: IngestionJobStatus
+    processed_domains: tuple[str, ...]

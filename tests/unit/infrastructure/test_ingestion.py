@@ -35,5 +35,5 @@ def test_synthetic_enrichment_is_deterministic_and_versioned() -> None:
     gateway = SyntheticEnrichmentGateway()
     first = asyncio.run(gateway.enrich(domain="acme.test"))
     assert first == asyncio.run(gateway.enrich(domain="acme.test"))
-    assert first["provider"] == "synthetic_v1"
-    assert first["schema_version"] == "v1"
+    assert first.provider == "synthetic_v1"
+    assert first.schema_version == "v1"
