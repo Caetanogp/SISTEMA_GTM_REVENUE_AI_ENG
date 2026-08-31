@@ -2,8 +2,8 @@
 
 ## Specification and loop
 
-- [ ] Record the agreed `spec.md`, implementation `plan.md`, and ordered checklist.
-- [ ] Activate a scoped SPEC-003 autonomous queue and prove its pilot gate behavior.
+- [x] Record the agreed `spec.md`, implementation `plan.md`, and ordered checklist.
+- [x] Activate a scoped SPEC-003 autonomous queue and prove its pilot gate behavior.
 
 ## Domain and application
 
