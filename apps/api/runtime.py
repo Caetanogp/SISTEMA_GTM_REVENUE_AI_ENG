@@ -8,12 +8,19 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from revops.application.ports import Clock, LLMGateway
+from revops.application.use_cases.ingestion import (
+    ConfirmIngestion,
+    GetIngestionJob,
+    ListIngestionItems,
+    StageIngestion,
+)
 from revops.infrastructure.agent.checkpointer import open_checkpointer
 from revops.infrastructure.agent.graph import build_agent_graph
 from revops.infrastructure.agent.nodes import AgentGraphDependencies, UnitOfWorkScope
 from revops.infrastructure.agent.runner import AgentGraphRunner
 from revops.infrastructure.persistence.repositories import SqlAlchemyAgentRunRepository
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
+from revops.infrastructure.queue import CeleryIngestionDispatcher, create_celery_app
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .settings import ApiSettings
@@ -30,6 +37,20 @@ class UtcClock:
 class UnconfiguredLLMGateway:
     async def complete(self, *, prompt: str, response_model: type[Any]) -> Any:
         raise RuntimeError("LLM gateway is not configured for this API instance")
+
+
+def ingestion_services(
+    *, uow_factory: Any, settings: ApiSettings
+) -> tuple[StageIngestion, ConfirmIngestion, GetIngestionJob, ListIngestionItems]:
+    dispatcher = CeleryIngestionDispatcher(
+        create_celery_app(broker_url=settings.broker_url, result_backend=settings.result_backend)
+    )
+    return (
+        StageIngestion(uow_factory),
+        ConfirmIngestion(uow_factory, dispatcher),
+        GetIngestionJob(uow_factory),
+        ListIngestionItems(uow_factory),
+    )
 
 
 @asynccontextmanager

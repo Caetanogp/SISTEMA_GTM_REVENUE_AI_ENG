@@ -20,6 +20,8 @@ class ApiSettings(BaseSettings):
     jwt_secret: str = Field(default="change-me-locally", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_ttl_minutes: int = Field(default=60, alias="ACCESS_TOKEN_TTL_MINUTES")
+    broker_url: str = Field(default="redis://localhost:6379/0", alias="CELERY_BROKER_URL")
+    result_backend: str = Field(default="redis://localhost:6379/1", alias="CELERY_RESULT_BACKEND")
 
     @cached_property
     def postgres_dsn(self) -> str:

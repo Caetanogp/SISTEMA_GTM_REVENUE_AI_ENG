@@ -80,3 +80,42 @@ class ApprovalResponse(BaseModel):
     agent_run_id: UUID
     status: str
     task: TaskResponse | None = None
+
+
+class IngestionRecordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    company_name: str | None = None
+    domain: str | None = None
+    email: str | None = None
+    full_name: str | None = None
+    title: str | None = None
+
+
+class IngestionStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source: str = Field(min_length=1, max_length=128)
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    records: list[IngestionRecordRequest] = Field(min_length=1, max_length=1000)
+
+
+class IngestionItemResponse(BaseModel):
+    row_number: int
+    status: str
+    validation_codes: tuple[str, ...]
+    account_outcome: str
+    contact_outcome: str
+    enrichment_outcome: str
+    account_id: UUID | None = None
+    contact_id: UUID | None = None
+    enrichment_id: UUID | None = None
+
+
+class IngestionJobResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    source: str
+    idempotency_key: str
+    status: str
+    items: list[IngestionItemResponse] | None = None
+    replayed: bool = False
+    published: bool | None = None

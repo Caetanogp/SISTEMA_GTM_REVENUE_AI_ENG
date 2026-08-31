@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from .dependencies import default_llm_gateway
 from .routes.agent_runs import router as agent_runs_router
+from .routes.ingestion import router as ingestion_router
 from .settings import ApiSettings
 
 
@@ -43,6 +44,7 @@ def create_app(
     app.state.settings = settings or ApiSettings()
     app.state.llm_gateway = llm_gateway or default_llm_gateway()
     app.include_router(agent_runs_router)
+    app.include_router(ingestion_router)
     return app
 
 

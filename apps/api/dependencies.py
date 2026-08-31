@@ -6,7 +6,8 @@ from collections.abc import AsyncIterator
 from typing import cast
 
 from fastapi import Request
-from revops.application.ports import LLMGateway
+from revops.application.ports import IngestionUnitOfWork, IngestionUnitOfWorkFactory, LLMGateway
+from revops.infrastructure.persistence.ingestion_unit_of_work import SqlAlchemyIngestionUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .runtime import UnconfiguredLLMGateway
@@ -33,6 +34,15 @@ async def get_session(
     session_factory = request.app.state.session_factory
     async with session_factory() as session:
         yield session
+
+
+def ingestion_uow_factory(request: Request) -> IngestionUnitOfWorkFactory:
+    session_factory = request.app.state.session_factory
+
+    def factory() -> IngestionUnitOfWork:
+        return SqlAlchemyIngestionUnitOfWork(session_factory())
+
+    return factory
 
 
 def default_llm_gateway() -> LLMGateway:
