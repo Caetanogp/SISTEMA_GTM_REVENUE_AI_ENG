@@ -98,6 +98,17 @@ async def test_admin_ingestion_staging_replay_polling_and_role_guard(database_ur
                     json=payload,
                 )
                 assert forbidden.status_code == 403
+
+                malformed_csv = await client.post(
+                    "/admin/ingestion/csv",
+                    headers={
+                        **headers,
+                        "X-Import-Source": "integration",
+                        "Idempotency-Key": "bad-csv",
+                    },
+                    content=b"company_name,domain,unknown\nAcme,acme.example,x\n",
+                )
+                assert malformed_csv.status_code == 422
     finally:
         async with session_factory() as session:
             await session.execute(
