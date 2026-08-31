@@ -1,10 +1,10 @@
 ---
-agent: claude-code
-updated_at: 2026-08-30
-branch: feature/SPEC-002-lead-account-ingestion
-spec: SPEC-002-lead-account-ingestion
-phase: "SPEC-002 fully complete, gate green (all checks including integration/adversarial/evals/gitleaks). About to run verify-before-done and merge into develop."
-status: spec-002-complete-merging-to-develop
+agent: codex
+updated_at: 2026-08-31
+branch: feature/SPEC-003-deduplication
+spec: SPEC-003-deduplication
+phase: "SPEC-003 design approved; materializing spec, plan, tasks, and autonomous queue before implementation."
+status: spec-003-planning
 ---
 
 # Current state
@@ -12,15 +12,14 @@ status: spec-002-complete-merging-to-develop
 ## Goal
 
 Ship the agentic GTM/RevOps platform's roadmap, spec by spec. SPEC-001 (vertical slice) and
-SPEC-002 (lead/account ingestion) are both done; SPEC-003 onward are roadmap placeholders only.
+SPEC-002 (lead/account ingestion) are both done and published; SPEC-003 is the active agreed spec.
 
 ## Now
 
-On `feature/SPEC-002-lead-account-ingestion`, working tree clean, HEAD `43efee7`.
-`python scripts/autonomous_gate.py` -> `GOAL ACHIEVED: all queue items done, full gate green`
-(ruff, mypy, lint-imports, pytest, check_agent_docs, ruff_format, integration, adversarial,
-evals, gitleaks all OK) - the gate script was generalized this spec to run the full
-verify-before-done command set once every queue item is ticked, not just the SPEC-001 subset.
+On `feature/SPEC-003-deduplication`, created from published `origin/develop` at `67cd775`.
+The user approved tenant-wide deterministic matching, admin-approved reversible logical aliases,
+optional E.164 phone, asynchronous Celery scans, whole-record master selection, persistent
+dismissal until data/policy change, and exact normalized matching without fuzzy or LLM behavior.
 
 Filled a real gap before merging: `tasks.md`'s "map every acceptance criterion to evidence"
 checkbox was ticked with no mapping actually recorded anywhere. Added the full 12-criterion table
@@ -48,16 +47,10 @@ assuming it's live.
 
 ## Next
 
-1. Run `docs/playbooks/verify-before-done.md` one more time, fresh, before merging (mechanical -
-   the gate above already covers most of it).
-2. Merge `feature/SPEC-002-lead-account-ingestion` into `develop`, self-service per this repo's
-   gitflow, now that the gate is green.
-3. Confirm the `origin` remote / `develop` push state noted above before assuming anything is
-   public.
-4. SPEC-003 does not exist yet - only a one-line placeholder in `docs/specs/ROADMAP.md`. Do not
-   start implementation work on it. The next real step is a deliberate scoping conversation with
-   the user (`docs/playbooks/spec-feature.md`) to write `spec.md`, then `plan.md`, then `tasks.md`
-   - only then does a fresh `AUTONOMOUS_QUEUE.md` and an unattended loop make sense again.
+1. Commit the approved SPEC-003 `spec.md`, `plan.md`, and `tasks.md` plus roadmap/handoff updates.
+2. Replace `.handoff/AUTONOMOUS_QUEUE.md` with scoped SPEC-003 items and validate a pilot.
+3. Implement inside-out: domain, application, persistence, ingestion compatibility, worker, API,
+   security, and closeout. Do not begin SPEC-004.
 
 ## Gotchas
 
