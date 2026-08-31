@@ -42,14 +42,14 @@ The application use cases are `StageIngestion`, `ConfirmIngestion`, `ProcessInge
 
 ## Public API
 
-- `POST /ingestion/imports/json`: JSON body `{source, records}`.
-- `POST /ingestion/imports/csv?source=...`: raw `text/csv` body, UTF-8 or UTF-8 BOM.
+- `POST /admin/ingestion`: JSON body `{source, idempotency_key, records}`.
+- `POST /admin/ingestion/csv`: raw CSV body with `X-Import-Source` and `Idempotency-Key` headers.
 - Both require `Idempotency-Key` (1-128 characters); first creation returns 201, an identical replay
   returns 200, and a key reused with a different content hash returns 409.
-- `POST /ingestion/imports/{job_id}/confirm`: returns 202 when dispatching work and 200 for an
+- `POST /admin/ingestion/{job_id}/confirm`: returns 202 when dispatching work and 200 for an
   idempotent replay of a queued, active, or terminal job.
-- `GET /ingestion/imports/{job_id}` returns job state and counters.
-- `GET /ingestion/imports/{job_id}/items?offset=0&limit=100` returns tenant-scoped, paginated item
+- `GET /admin/ingestion/{job_id}` returns job state and counters.
+- `GET /admin/ingestion/{job_id}/items?offset=0&limit=100` returns tenant-scoped, paginated item
   outcomes. `limit` is at most 100.
 - All routes are admin-only. Missing rights return 403; a foreign organization job returns 404.
 

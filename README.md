@@ -107,6 +107,17 @@ curl -s -X POST "localhost:8000/agent/runs/<agent_run_id>/approve" \
 `GET /agent/runs` lists runs for the caller's organization; `GET /agent/runs/{id}/stream` replays
 its events over SSE. `decision` can also be `"edit"` (with an `edited` task payload) or `"reject"`.
 
+## Importing accounts and contacts
+
+SPEC-002 adds an admin-only preview/confirm flow for synthetic account and optional contact data.
+After starting Postgres and Redis, an administrator can stage JSON at `POST /admin/ingestion` with
+`source`, `idempotency_key`, and a `records` array, or upload UTF-8 CSV to `POST /admin/ingestion/csv`
+with `X-Import-Source` and `Idempotency-Key` headers. Preview responses include row-level validation
+outcomes and do not write CRM records. Confirm with `POST /admin/ingestion/{job_id}/confirm`, then
+poll `GET /admin/ingestion/{job_id}` and `GET /admin/ingestion/{job_id}/items?offset=0&limit=100`.
+The worker processes confirmed jobs through Celery with tenant-scoped, idempotent writes and
+deterministic synthetic enrichment.
+
 **One honest gap:** this slice ships `FakeLLMGateway` for tests, not a production LLM provider
 adapter — `apps/api/dependencies.py`'s `default_llm_gateway()` returns an `UnconfiguredLLMGateway`,
 so a freshly-started API's `POST /agent/runs` returns `503` at the reasoning step until a real
