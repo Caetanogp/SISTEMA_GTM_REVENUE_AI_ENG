@@ -9,6 +9,15 @@ status: spec-002-in-progress
 
 # Current state
 
+## SPEC-002 Item 6 design approved (2026-08-30)
+
+The user approved the deliberate worker design pass. `ProcessIngestionJob` will own per-domain
+account/contact/enrichment orchestration through dedicated ingestion write ports; the Celery task
+will remain a composition root. Expected enrichment failures commit business records with failed
+outcomes, unexpected persistence errors roll back the domain and retry, and terminal item locks
+make duplicate delivery a no-op. The user chose to add the missing enrichment foreign key now and
+repeat the authorized migration round-trip. Item 6's queue scope is expanded accordingly.
+
 ## SPEC-002 Item 3 complete (2026-08-30)
 
 Committed `c1ef6ee feat(ingestion): add application contracts`. It splits account, contact, and

@@ -92,6 +92,28 @@ retries dispatch.
   transaction locks the job and completes it only when no nonterminal items remain. Validation,
   persistence, or enrichment failures produce `completed_with_errors`; duplicates do not.
 
+### Worker application contracts
+
+- `ProcessIngestionJob` owns every business decision. `apps/worker` validates the two UUID task
+  arguments, composes adapters, invokes the use case, and contains no account/contact logic.
+- The ingestion UoW exposes dedicated create-or-get account and contact repositories, an
+  append-only create-or-get enrichment repository, job locking, item-result persistence, and a
+  terminal/error summary. SPEC-001's read-only `AccountRepository` remains unchanged.
+- Create-or-get adapters use PostgreSQL conflict handling followed by a tenant-scoped read. They
+  return both the entity and whether this transaction created it, so stable row order can assign
+  one `created` outcome and later `duplicate` outcomes without overwriting existing data.
+- The enrichment gateway returns a schema-validated application DTO. Expected provider errors are
+  recorded as failed enrichment while business writes commit; unexpected persistence errors roll
+  the domain back and are retried by Celery.
+- The worker task is named `revops.ingestion.process`, carries only organization/job UUIDs, uses
+  JSON serialization, late acknowledgement, worker-loss rejection, and bounded exponential retry.
+  Publication uses three short broker retries. Outbox, DLQ, and exhausted-retry recovery remain
+  deferred to SPEC-014.
+- `ingestion_items.enrichment_id` receives a foreign key to `account_enrichments`. Because the
+  migration is still unpublished on this feature branch, its upgrade creates the FK after both
+  tables and its downgrade removes the FK before dropping the enrichment table; the authorized
+  migration round-trip is repeated after this correction.
+
 ## Persistence and processing
 
 - `ingestion_jobs` stores tenant, actor, source, content hash, idempotency key, status, timestamps,
