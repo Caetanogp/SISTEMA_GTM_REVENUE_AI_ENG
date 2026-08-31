@@ -7,8 +7,8 @@
 
 ## Domain and application
 
-- [ ] Add `PhoneNumber`, deterministic name keys, matching reasons/scores, fingerprints, and unit tests.
-- [ ] Add pure scan, candidate, alias, and decision state models with invariant tests.
+- [x] Add `PhoneNumber`, deterministic name keys, matching reasons/scores, fingerprints, and unit tests.
+- [x] Add pure scan, candidate, alias, and decision state models with invariant tests.
 - [ ] Define deduplication DTOs, ports, canonical resolver, and a dedicated unit-of-work contract.
 - [ ] Implement and unit-test scan, list, dismiss, merge, revert, and canonical-resolution use cases.
 
