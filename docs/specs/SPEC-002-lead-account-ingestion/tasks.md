@@ -19,12 +19,12 @@
 
 ## API and security
 
-- [ ] Add admin-only JSON/CSV staging, confirmation, status, and paginated item routes.
-- [ ] Add API integration coverage for partial success, idempotency, queue failure, and tenant isolation.
-- [ ] Add adversarial coverage for untrusted CSV/JSON, authorization bypass, and PII-safe failures.
+- [x] Add admin-only JSON/CSV staging, confirmation, status, and paginated item routes.
+- [x] Add API integration coverage for partial success, idempotency, queue failure, and tenant isolation.
+- [x] Add adversarial coverage for untrusted CSV/JSON, authorization bypass, and PII-safe failures.
 
 ## Closeout
 
-- [ ] Record the Celery/outbox phasing decision in an ADR and update README setup instructions.
-- [ ] Map every acceptance criterion to observed test/command evidence and update `.handoff/STATE.md`.
-- [ ] Run `docs/playbooks/verify-before-done.md` in full and prepare the feature branch for review.
+- [x] Record the Celery/outbox phasing decision in an ADR and update README setup instructions.
+- [x] Map every acceptance criterion to observed test/command evidence and update `.handoff/STATE.md`.
+- [x] Run `docs/playbooks/verify-before-done.md` in full and prepare the feature branch for review.
