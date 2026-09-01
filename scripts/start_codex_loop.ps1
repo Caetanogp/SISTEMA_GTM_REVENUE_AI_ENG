@@ -4,8 +4,17 @@
 param(
     [string]$RepoRoot = "",
     [string]$Model = $env:CODEX_MODEL,
-    [ValidateSet("read-only", "workspace-write", "danger-full-access")]
-    [string]$SandboxMode = "workspace-write",
+    [string]$ArchitectureModel = $env:CODEX_ARCHITECTURE_MODEL,
+    [ValidateSet("low", "medium", "high", "xhigh")]
+    [string]$ReasoningEffort = "medium",
+    [ValidateSet("high", "xhigh")]
+    [string]$ArchitectureReasoningEffort = "xhigh",
+    [ValidateRange(1, 1000)]
+    [int]$MaxTurns = 100,
+    [ValidateRange(0, 20)]
+    [int]$MaxProcessRetries = 2,
+    [ValidateRange(0, 3600)]
+    [int]$RetryDelaySeconds = 30,
     [switch]$UseLiveSearch
 )
 
@@ -29,7 +38,8 @@ $requiredFiles = @(
     ".handoff/AUTONOMOUS_QUEUE.md",
     "docs/playbooks/autonomous-loop.md",
     ".codex/prompts/autonomous-loop.md",
-    "scripts/autonomous_gate.py"
+    "scripts/autonomous_gate.py",
+    "scripts/codex_loop_supervisor.py"
 )
 
 foreach ($relativePath in $requiredFiles) {
@@ -44,38 +54,22 @@ if ($branch -in @("main", "develop")) {
     throw "Refusing to launch the Codex autonomous loop on branch '$branch'. Use a feature branch."
 }
 
-$promptPath = Join-Path $repo ".codex/prompts/autonomous-loop.md"
-$prompt = @"
-Launch the Codex autonomous loop for this repository checkout.
-
-Repository root: $repo
-Current branch: $branch
-
-This is a Codex session. Execute the queue directly in this Codex process. Do not launch Claude
-Code, `claude`, `claude --bare`, or any other external coding agent or delegate the queue to one.
-The user's normal Claude Code sessions in this repository are independent and must not be changed,
-restarted, or inspected as part of this loop.
-
-Read and follow AGENTS.md, .handoff/STATE.md, .handoff/AUTONOMOUS_QUEUE.md, and
-docs/playbooks/autonomous-loop.md before making any change. Work the queue one item at a time in
-order. Use scripts/autonomous_gate.py as the sole judge of done. Stop immediately on a HALT item
-or when the gate exits 0.
-
-$((Get-Content $promptPath -Raw).TrimEnd())
-"@
-
 $args = @(
-    "exec",
-    "--cd", $repo,
-    "--approve-for-me"
+    "-m", "scripts.codex_loop_supervisor",
+    "--repo", $repo,
+    "--implementation-effort", $ReasoningEffort,
+    "--architecture-effort", $ArchitectureReasoningEffort,
+    "--max-turns", $MaxTurns,
+    "--max-process-retries", $MaxProcessRetries,
+    "--retry-delay-seconds", $RetryDelaySeconds
 )
 
-if ($SandboxMode -ne "workspace-write") {
-    $args += @("--sandbox", $SandboxMode)
+if ($Model) {
+    $args += @("--implementation-model", $Model)
 }
 
-if ($Model) {
-    $args += @("--model", $Model)
+if ($ArchitectureModel) {
+    $args += @("--architecture-model", $ArchitectureModel)
 }
 
 if ($UseLiveSearch) {
@@ -90,5 +84,12 @@ $env:TEMP = $pytestBaseTemp
 $env:TMP = $pytestBaseTemp
 $env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"
 
-$prompt | & codex @args -
-exit $LASTEXITCODE
+Push-Location $repo
+try {
+    & python @args
+    $exitCode = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+exit $exitCode

@@ -89,6 +89,9 @@ properly (Claude: propose entering plan mode; Codex: propose a deliberate design
 coding) rather than pushing through on your own judgment. This applies across every spec in
 `docs/specs/ROADMAP.md`, not just the one in progress — it is a standing rule, not a one-off.
 
+In a supervised Codex loop, return `architecture_required` before implementation; only the
+external read-only architecture flow may approve and authorize a resume.
+
 ## Git workflow
 
 **`main` is fully hands-off for an agent — no commit, merge, push, rebase, ever.** It receives code
@@ -121,18 +124,14 @@ If you notice you are already on `main` or `develop` with uncommitted work:
 
 ## Autonomous loop mode
 
-Unattended sessions (`docs/playbooks/autonomous-loop.md`) work `.handoff/AUTONOMOUS_QUEUE.md` and
-nothing outside it. `scripts/autonomous_gate.py` is the sole judge of "done" — the loop's own claim
-of completion is never trusted. `HALT: PLAN-MODE-REQUIRED` stops it entirely, no exceptions; the
-user resumes deliberately, in plan mode. Every git-workflow rule above still applies in full.
+Unattended sessions work only `.handoff/AUTONOMOUS_QUEUE.md`; `scripts/autonomous_gate.py` alone
+judges completion. `architecture_required` invokes bounded architecture review; `HUMAN_REQUIRED`
+hard-stops unsafe or non-dominant decisions. Executors cannot edit their controls. Full contract:
+`docs/playbooks/autonomous-loop.md`. Every git-workflow rule still applies.
 
-**Model policy**, set as `model:` in `.claude/agents/*.md`: read-only reviewers
-(`staff-engineer-reviewer`, `security-auditor`, `clean-architecture-guardian`,
-`db-schema-reviewer`) run on Opus — they catch what automation misses, once per change, and a miss
-is expensive. Writing subagents (`test-writer`, `eval-engineer`, `observability-engineer`,
-`frontend-designer`) run on Sonnet — well-specified, high-volume work. Same split for the main
-session: Sonnet for an already-resolved design, Opus + plan mode for the calls above asking you to
-flag.
+**Model policy:** read-only Claude reviewers use Opus; writing subagents use Sonnet. Main sessions
+use Sonnet for resolved design and Opus + plan mode for flagged decisions. The Codex supervisor uses
+the equivalent split in the autonomous-loop playbook.
 
 ## Security rules (non-negotiable)
 

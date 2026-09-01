@@ -120,3 +120,9 @@ a scan and approve each candidate.
 After these three approved documents are committed, replace the SPEC-002 queue with scoped
 SPEC-003 items. Pilot the domain-policy item, then allow a long loop only on this branch. The loop
 cannot merge, push, touch `main`, weaken checks, or begin SPEC-004.
+
+When Item 7 exposed a technical application/persistence boundary outside its original API-only
+scope, the repository adopted the bounded supervisor in
+`docs/decisions/ADR-0007-bounded-autonomous-architecture-escalation.md`. Technical architecture may
+now be planned and independently reviewed read-only, then resumed under an item-bound scope
+authorization; product and security decisions remain hard human stops.

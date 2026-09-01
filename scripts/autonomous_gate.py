@@ -12,15 +12,16 @@ spec's tasks file. The queue, not a hard-coded spec number, selects the checklis
 Exit codes:
   0 - every queue item done AND the full quality gate is green. Goal achieved.
   1 - more work remains, or the gate is currently red. Keep iterating.
-  2 - HALT. Wrong branch, a scope violation, the next item is marked
-      HALT: PLAN-MODE-REQUIRED, or too many consecutive failures on the same item (anti-infinite-
-      loop). Writes the reason to .handoff/STATE.md and the process should stop - not just retry.
+  2 - HALT. Wrong branch, a scope violation, a hard human-required decision, or too many
+      consecutive failures on the same item (anti-infinite-loop). Writes the reason to
+      .handoff/STATE.md and the process should stop - not just retry.
 
 Run: python scripts/autonomous_gate.py
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
@@ -98,6 +99,183 @@ class GateState:
             "baseline_done_count": self.baseline_done_count,
         }
         GATE_STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class ScopeAuthorization:
+    """A supervisor-issued, item-bound scope overlay stored outside the checkout."""
+
+    branch: str
+    item_number: int
+    baseline_sha: str
+    allowed_paths: tuple[str, ...]
+    plan_sha256: str
+
+    @classmethod
+    def load(
+        cls,
+        path: Path,
+        *,
+        branch: str,
+        item_number: int,
+        baseline_sha: str,
+    ) -> ScopeAuthorization:
+        resolved = path.resolve()
+        if resolved.is_relative_to(ROOT.resolve()):
+            raise ValueError("scope authorization must be stored outside the repository")
+        try:
+            raw = json.loads(resolved.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"scope authorization is unreadable: {exc}") from exc
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            raise ValueError("scope authorization has an unsupported format")
+        if raw.get("review_status") != "approved":
+            raise ValueError("scope authorization was not approved by the independent reviewer")
+        if raw.get("branch") != branch:
+            raise ValueError("scope authorization belongs to a different branch")
+        if raw.get("item_number") != item_number:
+            raise ValueError("scope authorization belongs to a different queue item")
+        if raw.get("baseline_sha") != baseline_sha:
+            raise ValueError("scope authorization belongs to a different item baseline")
+        plan_sha256 = raw.get("plan_sha256")
+        if not isinstance(plan_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", plan_sha256):
+            raise ValueError("scope authorization has an invalid plan digest")
+        allowed_raw = raw.get("allowed_paths")
+        if not isinstance(allowed_raw, list) or not allowed_raw:
+            raise ValueError("scope authorization must contain non-empty allowed paths")
+        allowed: list[str] = []
+        for value in allowed_raw:
+            if not isinstance(value, str):
+                raise ValueError("scope authorization paths must be strings")
+            normalized = value.strip().replace("\\", "/").rstrip("/")
+            parts = normalized.split("/")
+            if (
+                not normalized
+                or normalized in {".", ".."}
+                or normalized.startswith("/")
+                or ".." in parts
+                or any(character in normalized for character in "*?[]")
+            ):
+                raise ValueError(f"scope authorization contains unsafe path {value!r}")
+            if authorization_path_is_forbidden(normalized):
+                raise ValueError(
+                    f"scope authorization may not modify control-plane path {normalized!r}"
+                )
+            allowed.append(normalized)
+        return cls(branch, item_number, baseline_sha, tuple(dict.fromkeys(allowed)), plan_sha256)
+
+
+@dataclass(frozen=True)
+class BaselineRolloverAuthorization:
+    """An external, one-time approval to move the gate baseline to an exact commit."""
+
+    branch: str
+    previous_baseline_sha: str
+    target_sha: str
+    baseline_done_count: int
+    changed_paths: tuple[str, ...]
+
+    @classmethod
+    def load(
+        cls,
+        path: Path,
+        *,
+        branch: str,
+        previous_baseline_sha: str,
+        target_sha: str,
+        baseline_done_count: int,
+    ) -> BaselineRolloverAuthorization:
+        resolved = path.resolve()
+        if resolved.is_relative_to(ROOT.resolve()):
+            raise ValueError(
+                "baseline rollover authorization must be stored outside the repository"
+            )
+        try:
+            raw = json.loads(resolved.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"baseline rollover authorization is unreadable: {exc}") from exc
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            raise ValueError("baseline rollover authorization has an unsupported format")
+        expected = {
+            "action": "rollover-supervisor-baseline",
+            "branch": branch,
+            "previous_baseline_sha": previous_baseline_sha,
+            "target_sha": target_sha,
+            "baseline_done_count": baseline_done_count,
+        }
+        for field, value in expected.items():
+            if raw.get(field) != value:
+                raise ValueError(f"baseline rollover authorization has a mismatched {field}")
+        changed_raw = raw.get("changed_paths")
+        if not isinstance(changed_raw, list) or not changed_raw:
+            raise ValueError("baseline rollover authorization must list changed paths")
+        changed_paths: list[str] = []
+        for value in changed_raw:
+            if not isinstance(value, str):
+                raise ValueError("baseline rollover changed paths must be strings")
+            normalized = value.strip().replace("\\", "/")
+            if not normalized or normalized.startswith("/") or ".." in normalized.split("/"):
+                raise ValueError(f"baseline rollover contains unsafe path {value!r}")
+            changed_paths.append(normalized)
+        if len(set(changed_paths)) != len(changed_paths):
+            raise ValueError("baseline rollover changed paths must be unique")
+        return cls(
+            branch,
+            previous_baseline_sha,
+            target_sha,
+            baseline_done_count,
+            tuple(sorted(changed_paths)),
+        )
+
+
+_AUTHORIZATION_FORBIDDEN_PATHS = {
+    ".handoff/AUTONOMOUS_QUEUE.md",
+    ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "pyproject.toml",
+    "uv.lock",
+}
+_AUTHORIZATION_FORBIDDEN_PREFIXES = (
+    ".claude/",
+    ".codex/",
+    ".github/",
+    "docs/playbooks/",
+    "infra/",
+    "scripts/",
+)
+
+
+def authorization_path_is_forbidden(path: str) -> bool:
+    normalized = path.rstrip("/")
+    return normalized in _AUTHORIZATION_FORBIDDEN_PATHS or any(
+        path_is_within(normalized, prefix) for prefix in _AUTHORIZATION_FORBIDDEN_PREFIXES
+    )
+
+
+_ROLLOVER_ALLOWED_PATHS = {
+    ".codex/config.toml",
+    ".codex/prompts/autonomous-loop.md",
+    ".handoff/AUTONOMOUS_QUEUE.md",
+    ".handoff/STATE.md",
+    ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/playbooks/autonomous-loop.md",
+    "pyproject.toml",
+    "scripts/autonomous_gate.py",
+    "scripts/codex_loop_supervisor.py",
+    "scripts/start_codex_loop.ps1",
+}
+_ROLLOVER_ALLOWED_PREFIXES = ("docs/decisions/", "tests/unit/scripts/")
+
+
+def baseline_rollover_path_is_allowed(path: str) -> bool:
+    return (
+        path in _ROLLOVER_ALLOWED_PATHS
+        or any(path_is_within(path, prefix) for prefix in _ROLLOVER_ALLOWED_PREFIXES)
+        or (path.startswith("docs/specs/SPEC-") and path.endswith("/plan.md"))
+    )
 
 
 def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -203,30 +381,34 @@ def changed_files(baseline: str) -> list[str]:
     return sorted({*committed, *working_paths})
 
 
-_ALWAYS_ALLOWED_PREFIXES = (
-    ".handoff/",
-    ".claude/",
-    ".gitignore",
-    "docs/playbooks/",
-    "scripts/",
-    "docs/specs/",  # ticking any item's tasks.md checkbox is part of the loop protocol itself
-)
+_ALWAYS_ALLOWED_PATHS = (".handoff/STATE.md",)
 
 
-def scope_violation(item: QueueItem, baseline: str) -> list[str]:
-    """Files an item may not touch, beyond a fixed allowlist of loop/repo infra.
+def path_is_within(path: str, scope: str) -> bool:
+    normalized = scope.replace("\\", "/").rstrip("/")
+    return path == normalized or path.startswith(f"{normalized}/")
 
-    The allowlist matters because a human supervisor session commits live fixes to this same
-    branch while the loop works (see AUTONOMOUS_QUEUE.md's rules) - those infra commits land
-    after an item's baseline is pinned and must never register as that item's own scope creep.
+
+def scope_violation(
+    item: QueueItem,
+    baseline: str,
+    authorized_scope: tuple[str, ...] = (),
+    protocol_paths: tuple[str, ...] = (),
+) -> list[str]:
+    """Files an item may not touch, beyond exact protocol files and approved scope.
+
+    Only STATE.md and the active tasks file are implicit protocol writes. Queue, gate, supervisor,
+    policy, and playbook edits must be in the declared item scope or a supervisor-issued overlay;
+    the executor cannot silently authorize changes to its own controls.
     """
     if not item.scope:
         return []
     offenders = []
     for path in changed_files(baseline):
-        if any(path.startswith(prefix) for prefix in _ALWAYS_ALLOWED_PREFIXES):
+        if path in (*_ALWAYS_ALLOWED_PATHS, *protocol_paths):
             continue
-        if not any(path.startswith(prefix.rstrip("/")) for prefix in item.scope):
+        effective_scope = (*item.scope, *authorized_scope)
+        if not any(path_is_within(path, prefix) for prefix in effective_scope):
             offenders.append(path)
     return offenders
 
@@ -242,7 +424,7 @@ def missing_required_evidence(item: QueueItem, baseline: str) -> list[str]:
     return [
         required
         for required in item.requires
-        if not any(path.startswith(required.rstrip("/")) for path in changed)
+        if not any(path_is_within(path, required) for path in changed)
     ]
 
 
@@ -295,7 +477,63 @@ def halt(reason: str) -> int:
     return 2
 
 
-def main() -> int:
+def rollover_baseline(path: Path, *, branch: str, tasks_file: Path) -> None:
+    if run("git", "status", "--porcelain", "--untracked-files=all").stdout.strip():
+        raise ValueError("baseline rollover requires a clean worktree")
+    gate_state = GateState.load()
+    if gate_state.baseline_sha is None:
+        raise ValueError("baseline rollover requires an existing gate baseline")
+    done_count, _ = completed_task_count(tasks_file)
+    if gate_state.baseline_done_count != done_count:
+        raise ValueError("baseline rollover may not cross a queue-item boundary")
+    target_sha = current_head()
+    authorization = BaselineRolloverAuthorization.load(
+        path,
+        branch=branch,
+        previous_baseline_sha=gate_state.baseline_sha,
+        target_sha=target_sha,
+        baseline_done_count=done_count,
+    )
+    if (
+        run("git", "merge-base", "--is-ancestor", gate_state.baseline_sha, target_sha).returncode
+        != 0
+    ):
+        raise ValueError("baseline rollover target does not descend from the previous baseline")
+    actual_paths = tuple(changed_files(gate_state.baseline_sha))
+    if actual_paths != authorization.changed_paths:
+        raise ValueError("baseline rollover changed paths do not match the authorized exact diff")
+    disallowed = [path for path in actual_paths if not baseline_rollover_path_is_allowed(path)]
+    if disallowed:
+        raise ValueError(f"baseline rollover includes non-supervisor paths: {disallowed}")
+    gate_state.baseline_sha = target_sha
+    gate_state.baseline_done_count = done_count
+    gate_state.last_item = None
+    gate_state.consecutive_failures = 0
+    gate_state.save()
+    print(
+        f"Baseline rollover approved: {authorization.previous_baseline_sha[:12]} -> "
+        f"{target_sha[:12]} for {len(actual_paths)} exact supervisor-change paths."
+    )
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    authorization_group = parser.add_mutually_exclusive_group()
+    authorization_group.add_argument(
+        "--scope-authorization",
+        type=Path,
+        help="Supervisor-issued scope overlay stored outside the repository",
+    )
+    authorization_group.add_argument(
+        "--baseline-rollover-authorization",
+        type=Path,
+        help="External one-time approval to rebaseline an exact supervisor upgrade commit",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     branch = current_branch()
     if not branch.startswith("feature/") and not branch.startswith("fix/"):
         return halt(
@@ -309,6 +547,17 @@ def main() -> int:
         done_count, total_count = completed_task_count(tasks_file)
     except ValueError as exc:
         return halt(f"Autonomous queue configuration is invalid: {exc}")
+
+    if args.baseline_rollover_authorization is not None:
+        try:
+            rollover_baseline(
+                args.baseline_rollover_authorization,
+                branch=branch,
+                tasks_file=tasks_file,
+            )
+        except ValueError as exc:
+            return halt(f"Invalid baseline rollover authorization: {exc}")
+        return 0
 
     if done_count >= total_count:
         gate_green, report = run_quality_gate(full=True)
@@ -345,7 +594,26 @@ def main() -> int:
         gate_state.baseline_done_count = done_count
         gate_state.save()
 
-    offenders = scope_violation(current_item, gate_state.baseline_sha)
+    authorized_scope: tuple[str, ...] = ()
+    if args.scope_authorization is not None:
+        try:
+            authorization = ScopeAuthorization.load(
+                args.scope_authorization,
+                branch=branch,
+                item_number=current_item.number,
+                baseline_sha=gate_state.baseline_sha,
+            )
+        except ValueError as exc:
+            return halt(f"Invalid supervisor scope authorization: {exc}")
+        authorized_scope = authorization.allowed_paths
+
+    tasks_relative = tasks_file.relative_to(ROOT).as_posix()
+    offenders = scope_violation(
+        current_item,
+        gate_state.baseline_sha,
+        authorized_scope,
+        (tasks_relative,),
+    )
     if offenders:
         return halt(
             f"Item {current_item.number} declares scope {current_item.scope!r}, but changes touch "

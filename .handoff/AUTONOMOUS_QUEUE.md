@@ -92,6 +92,10 @@ declared scope, and tick the mapped SPEC-003 checklist item only after their own
 ## Rules for the loop
 
 - Never use a worktree, push, merge, or touch `main`.
-- Stop immediately at a genuine architecture decision not covered by SPEC-003 `plan.md`.
+- Return `architecture_required` before implementation at a genuine technical architecture
+  decision not covered by SPEC-003 `plan.md`; only the external supervisor may authorize a resume.
+- Return `HUMAN_REQUIRED` for product, public-contract, dependency, destructive migration,
+  security, verification, external-action, or non-dominant decisions.
+- Never edit this queue, the gate, the supervisor, AGENTS.md, or an authorization artifact.
 - The queue is limited to SPEC-003 and must not begin SPEC-004.
 - Every item's own implementation files must be committed before its checklist boxes are ticked.
