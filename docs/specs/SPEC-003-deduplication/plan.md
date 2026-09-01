@@ -9,8 +9,11 @@ the versioned matching adapter, and Celery publication/execution. API and worker
 roots with no matching or merge decisions.
 
 Use a dedicated `DeduplicationUnitOfWork`; do not expand either existing unit of work. Canonical
-resolution is an application port implemented by the deduplication repositories and injected into
-existing read/write use cases that require it.
+resolution is an application port implemented by the deduplication repositories. Each existing
+composition root exposes a resolver backed by its own session and injects it into the use cases
+that require canonical identity; no use case nests or mixes unit-of-work transactions. The resolver
+returns a `CanonicalRecordGroup` containing the requested record's canonical master and all active
+members, and its write variant locks that complete group deterministically until the caller commits.
 
 ## Matching policy
 

@@ -14,9 +14,11 @@
 
 ## Persistence and compatibility
 
-- [ ] Add tenant-scoped scan, typed candidate/alias, and append-only event models and repositories.
-- [ ] Add the nullable contact phone and deduplication tables in one additive Alembic migration.
-- [ ] Verify `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head`.
+- [ ] Correct the pre-merge generic candidate/alias schema to typed account/contact tables with
+  concrete tenant-scoped foreign keys, active-alias uniqueness, and reversible event references.
+- [x] Add tenant-scoped scan, typed candidate/alias, and append-only event models and repositories.
+- [x] Add the nullable contact phone and deduplication tables in one additive Alembic migration.
+- [x] Verify `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head`.
 - [ ] Extend JSON/CSV ingestion with optional E.164 phone and canonical account/contact writes.
 - [ ] Make account reads aggregate aliases and make new task writes resolve canonical accounts.
 

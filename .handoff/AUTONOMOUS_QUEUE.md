@@ -45,9 +45,9 @@ declared scope, and tick the mapped SPEC-003 checklist item only after their own
 
 ## Item 5 - Ingestion and canonical write compatibility
 
-- **Scope:** `packages/core/revops/application/`, `packages/core/revops/infrastructure/ingestion/`, `apps/api/`, `tests/unit/`, `tests/integration/`
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/persistence/`, `packages/core/revops/infrastructure/ingestion.py`, `packages/core/revops/infrastructure/agent/`, `apps/api/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
 - **Requires:** `tests/integration/`
-- **Closes:** 2 tasks.md checkboxes
+- **Closes:** 3 tasks.md checkboxes
 - **What:** accept optional E.164 phone in JSON/CSV, resolve existing aliases for ingestion, and
   aggregate canonical account reads and account-bound writes.
 - **Done when:** backward-compatible ingestion and canonicalization integration tests pass.

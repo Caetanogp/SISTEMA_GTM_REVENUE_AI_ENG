@@ -15,6 +15,7 @@ venv/
 .pytest_cache/
 scripts/.pytest_loop_temp_*/
 pytest-of-Caetanogp123/
+UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-*/
 .mypy_cache/
 .ruff_cache/
 .coverage
