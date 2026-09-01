@@ -82,10 +82,12 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
-# Keep each loop's pytest files in a fresh ignored directory. The shared .pytest_cache path may
-# be a OneDrive reparse point and can fail cleanup when multiple sessions use this checkout.
-$pytestBaseTemp = Join-Path $repo ("scripts/.pytest_loop_temp_{0}" -f $PID)
+# Keep each loop's pytest files outside the checkout. The shared .pytest_cache path may be a
+# OneDrive reparse point, and pytest's fallback directory can pollute the checkout during mypy.
+$pytestBaseTemp = Join-Path $env:TEMP ("codex-revops-pytest-{0}" -f $PID)
 New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
+$env:TEMP = $pytestBaseTemp
+$env:TMP = $pytestBaseTemp
 $env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"
 
 $prompt | & codex @args -

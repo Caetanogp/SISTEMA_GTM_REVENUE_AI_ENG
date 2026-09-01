@@ -14,6 +14,7 @@ __pycache__/
 venv/
 .pytest_cache/
 scripts/.pytest_loop_temp_*/
+pytest-of-Caetanogp123/
 .mypy_cache/
 .ruff_cache/
 .coverage

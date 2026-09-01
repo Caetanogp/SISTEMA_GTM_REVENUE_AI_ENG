@@ -147,7 +147,7 @@ strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 mypy_path = ["packages/core"]
-exclude = ["apps/web", "infra"]
+exclude = ["apps/web", "infra", "(^|/)pytest-of-Caetanogp123/"]
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
