@@ -223,7 +223,7 @@ class SqlAlchemyDeduplicationAliasRepository:
     def _to_domain(row: AliasModel) -> RecordAlias:
         return RecordAlias(
             row.organization_id,
-            row.record_type,
+            DeduplicationRecordType(row.record_type),
             row.alias_id,
             row.canonical_id,
             row.merge_event_id,

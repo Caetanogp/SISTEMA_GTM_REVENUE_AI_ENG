@@ -70,3 +70,21 @@ def test_contacts_email_unique_per_organization() -> None:
         if constraint.__class__.__name__ == "UniqueConstraint"
     }
     assert tuple(sorted(("organization_id", "email"))) in unique_constraints
+
+
+def test_deduplication_tables_have_tenant_scoped_idempotency_and_alias_constraints() -> None:
+    scans = Base.metadata.tables["deduplication_scans"]
+    events = Base.metadata.tables["deduplication_events"]
+    aliases = Base.metadata.tables["deduplication_aliases"]
+    assert any(
+        {column.name for column in constraint.columns} == {"organization_id", "idempotency_key"}
+        for constraint in scans.constraints
+    )
+    assert any(
+        {column.name for column in constraint.columns} == {"organization_id", "idempotency_key"}
+        for constraint in events.constraints
+    )
+    assert any(
+        {column.name for column in constraint.columns} == {"organization_id", "alias_id"}
+        for constraint in aliases.constraints
+    )
