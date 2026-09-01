@@ -92,11 +92,11 @@ class AccountRepository(Protocol):
     async def list_for_organization(self, organization_id: UUID) -> Sequence[Account]: ...
 
     async def list_interactions(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Interaction]: ...
 
     async def list_open_opportunities(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Opportunity]: ...
 
 
@@ -183,6 +183,7 @@ class UnitOfWork(Protocol):
     audit: AuditTrail
     approvals: ApprovalRepository
     runs: AgentRunRepository
+    canonical: CanonicalResolver | None
 
     async def __aenter__(self) -> UnitOfWork: ...
 
@@ -272,6 +273,7 @@ class IngestionUnitOfWork(Protocol):
     accounts: IngestionAccountRepository
     contacts: IngestionContactRepository
     enrichments: AccountEnrichmentRepository
+    canonical: CanonicalResolver | None
 
     async def __aenter__(self) -> IngestionUnitOfWork: ...
 
@@ -326,6 +328,14 @@ class DeduplicationCandidateRecord:
     candidate: DeduplicationCandidate
 
 
+@dataclass(frozen=True, slots=True)
+class CanonicalRecordGroup:
+    """The canonical master and every active member of one logical identity group."""
+
+    canonical_id: UUID
+    member_ids: tuple[UUID, ...]
+
+
 @runtime_checkable
 class DeduplicationCandidateRepository(Protocol):
     async def get_for_update(
@@ -374,7 +384,11 @@ class DeduplicationEventRepository(Protocol):
 class CanonicalResolver(Protocol):
     async def resolve(
         self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
-    ) -> UUID: ...
+    ) -> CanonicalRecordGroup | None: ...
+
+    async def resolve_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> CanonicalRecordGroup | None: ...
 
 
 @runtime_checkable
@@ -383,7 +397,7 @@ class DeduplicationUnitOfWork(Protocol):
     candidates: DeduplicationCandidateRepository
     aliases: DeduplicationAliasRepository
     events: DeduplicationEventRepository
-    resolver: CanonicalResolver
+    canonical: CanonicalResolver
 
     async def __aenter__(self) -> DeduplicationUnitOfWork: ...
 

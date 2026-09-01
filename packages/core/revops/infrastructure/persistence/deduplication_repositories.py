@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.ports import (
+    CanonicalRecordGroup,
     DeduplicationCandidateRecord,
     DeduplicationScanRecord,
 )
@@ -21,20 +23,18 @@ from revops.domain.entities.deduplication import (
     RecordAlias,
 )
 from revops.infrastructure.persistence.models import (
-    DeduplicationAlias as AliasModel,
-)
-from revops.infrastructure.persistence.models import (
-    DeduplicationCandidate as CandidateModel,
-)
-from revops.infrastructure.persistence.models import (
-    DeduplicationEvent as EventModel,
-)
-from revops.infrastructure.persistence.models import (
-    DeduplicationScan as ScanModel,
+    Account,
+    AccountDeduplicationAlias,
+    AccountDeduplicationCandidate,
+    Contact,
+    ContactDeduplicationAlias,
+    ContactDeduplicationCandidate,
+    DeduplicationEvent,
+    DeduplicationScan,
 )
 
 
-def _scan(row: ScanModel) -> DeduplicationScanRecord:
+def _scan(row: DeduplicationScan) -> DeduplicationScanRecord:
     return DeduplicationScanRecord(
         row.id,
         row.organization_id,
@@ -45,9 +45,9 @@ def _scan(row: ScanModel) -> DeduplicationScanRecord:
     )
 
 
-def _candidate(row: CandidateModel) -> DeduplicationCandidateRecord:
+def _candidate(row: Any, record_type: DeduplicationRecordType) -> DeduplicationCandidateRecord:
     value = DeduplicationCandidate(
-        DeduplicationRecordType(row.record_type),
+        record_type,
         row.left_id,
         row.right_id,
         row.score,
@@ -60,6 +60,22 @@ def _candidate(row: CandidateModel) -> DeduplicationCandidateRecord:
     return DeduplicationCandidateRecord(row.id, row.scan_id, row.organization_id, value)
 
 
+def _candidate_model(record_type: DeduplicationRecordType) -> Any:
+    return (
+        AccountDeduplicationCandidate
+        if record_type is DeduplicationRecordType.ACCOUNT
+        else ContactDeduplicationCandidate
+    )
+
+
+def _alias_model(record_type: DeduplicationRecordType) -> Any:
+    return (
+        AccountDeduplicationAlias
+        if record_type is DeduplicationRecordType.ACCOUNT
+        else ContactDeduplicationAlias
+    )
+
+
 class SqlAlchemyDeduplicationScanRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -67,8 +83,9 @@ class SqlAlchemyDeduplicationScanRepository:
     async def get(self, organization_id: UUID, scan_id: UUID) -> DeduplicationScanRecord | None:
         row = (
             await self._session.execute(
-                select(ScanModel).where(
-                    ScanModel.organization_id == organization_id, ScanModel.id == scan_id
+                select(DeduplicationScan).where(
+                    DeduplicationScan.organization_id == organization_id,
+                    DeduplicationScan.id == scan_id,
                 )
             )
         ).scalar_one_or_none()
@@ -79,9 +96,9 @@ class SqlAlchemyDeduplicationScanRepository:
     ) -> DeduplicationScanRecord | None:
         row = (
             await self._session.execute(
-                select(ScanModel).where(
-                    ScanModel.organization_id == organization_id,
-                    ScanModel.idempotency_key == idempotency_key,
+                select(DeduplicationScan).where(
+                    DeduplicationScan.organization_id == organization_id,
+                    DeduplicationScan.idempotency_key == idempotency_key,
                 )
             )
         ).scalar_one_or_none()
@@ -97,11 +114,11 @@ class SqlAlchemyDeduplicationScanRepository:
     ) -> None:
         now = datetime.now().astimezone()
         self._session.add(
-            ScanModel(
+            DeduplicationScan(
                 id=scan_id,
                 organization_id=organization_id,
                 requested_by=requested_by,
-                record_types=[v.value for v in record_types],
+                record_types=[value.value for value in record_types],
                 policy_version="dedupe_v1",
                 idempotency_key=idempotency_key,
                 status=DeduplicationScanStatus.QUEUED.value,
@@ -119,17 +136,18 @@ class SqlAlchemyDeduplicationCandidateRepository:
     async def get_for_update(
         self, organization_id: UUID, candidate_id: UUID
     ) -> DeduplicationCandidateRecord | None:
-        row = (
-            await self._session.execute(
-                select(CandidateModel)
-                .where(
-                    CandidateModel.organization_id == organization_id,
-                    CandidateModel.id == candidate_id,
+        for record_type in DeduplicationRecordType:
+            model = _candidate_model(record_type)
+            row = (
+                await self._session.execute(
+                    select(model)
+                    .where(model.organization_id == organization_id, model.id == candidate_id)
+                    .with_for_update()
                 )
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        return _candidate(row) if row else None
+            ).scalar_one_or_none()
+            if row:
+                return _candidate(row, record_type)
+        return None
 
     async def list(
         self,
@@ -141,22 +159,23 @@ class SqlAlchemyDeduplicationCandidateRepository:
         offset: int,
         limit: int,
     ) -> Sequence[DeduplicationCandidateRecord]:
-        stmt = (
-            select(CandidateModel)
-            .where(
-                CandidateModel.organization_id == organization_id, CandidateModel.scan_id == scan_id
+        types = (record_type,) if record_type else tuple(DeduplicationRecordType)
+        result: list[DeduplicationCandidateRecord] = []
+        for current_type in types:
+            model = _candidate_model(current_type)
+            stmt = select(model).where(
+                model.organization_id == organization_id, model.scan_id == scan_id
             )
-            .offset(offset)
-            .limit(limit)
-        )
-        if status is not None:
-            stmt = stmt.where(CandidateModel.status == status.value)
-        if record_type is not None:
-            stmt = stmt.where(CandidateModel.record_type == record_type.value)
-        return [_candidate(row) for row in (await self._session.execute(stmt)).scalars().all()]
+            if status is not None:
+                stmt = stmt.where(model.status == status.value)
+            rows = (await self._session.execute(stmt.offset(offset).limit(limit))).scalars().all()
+            result.extend(_candidate(row, current_type) for row in rows)
+        return result
 
     async def save(self, candidate: DeduplicationCandidateRecord) -> None:
-        row = await self._session.get(CandidateModel, candidate.id)
+        row = await self._session.get(
+            _candidate_model(candidate.candidate.record_type), candidate.id
+        )
         if row is None:
             raise LookupError("deduplication candidate not found")
         row.status = candidate.candidate.status.value
@@ -170,29 +189,30 @@ class SqlAlchemyDeduplicationAliasRepository:
     async def get_active(
         self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
     ) -> RecordAlias | None:
+        model = _alias_model(record_type)
         row = (
             await self._session.execute(
-                select(AliasModel).where(
-                    AliasModel.organization_id == organization_id,
-                    AliasModel.record_type == record_type.value,
-                    AliasModel.alias_id == record_id,
-                    AliasModel.reverted_at.is_(None),
+                select(model).where(
+                    model.organization_id == organization_id,
+                    model.alias_id == record_id,
+                    model.reverted_at.is_(None),
                 )
             )
         ).scalar_one_or_none()
-        return self._to_domain(row) if row else None
+        return self._to_domain(row, record_type) if row else None
 
     async def add(self, alias: RecordAlias) -> None:
+        model = _alias_model(alias.record_type)
         self._session.add(
-            AliasModel(
+            model(
                 id=alias.merge_event_id,
                 organization_id=alias.organization_id,
-                record_type=alias.record_type.value,
                 alias_id=alias.alias_id,
                 canonical_id=alias.canonical_id,
                 merge_event_id=alias.merge_event_id,
                 created_at=alias.created_at,
                 reverted_at=alias.reverted_at,
+                reverted_by_event_id=alias.reverted_by_event_id,
             )
         )
         await self._session.flush()
@@ -200,35 +220,41 @@ class SqlAlchemyDeduplicationAliasRepository:
     async def get_for_update(
         self, organization_id: UUID, merge_event_id: UUID
     ) -> RecordAlias | None:
-        row = (
-            await self._session.execute(
-                select(AliasModel)
-                .where(
-                    AliasModel.organization_id == organization_id,
-                    AliasModel.merge_event_id == merge_event_id,
+        for record_type in DeduplicationRecordType:
+            model = _alias_model(record_type)
+            row = (
+                await self._session.execute(
+                    select(model)
+                    .where(
+                        model.organization_id == organization_id,
+                        model.merge_event_id == merge_event_id,
+                    )
+                    .with_for_update()
                 )
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        return self._to_domain(row) if row else None
+            ).scalar_one_or_none()
+            if row:
+                return self._to_domain(row, record_type)
+        return None
 
     async def save(self, alias: RecordAlias) -> None:
-        row = await self._session.get(AliasModel, alias.merge_event_id)
+        row = await self._session.get(_alias_model(alias.record_type), alias.merge_event_id)
         if row is None:
             raise LookupError("deduplication alias not found")
         row.reverted_at = alias.reverted_at
+        row.reverted_by_event_id = alias.reverted_by_event_id
         await self._session.flush()
 
     @staticmethod
-    def _to_domain(row: AliasModel) -> RecordAlias:
+    def _to_domain(row: Any, record_type: DeduplicationRecordType) -> RecordAlias:
         return RecordAlias(
             row.organization_id,
-            DeduplicationRecordType(row.record_type),
+            record_type,
             row.alias_id,
             row.canonical_id,
             row.merge_event_id,
             row.created_at,
             row.reverted_at,
+            row.reverted_by_event_id,
         )
 
 
@@ -241,9 +267,9 @@ class SqlAlchemyDeduplicationEventRepository:
     ) -> Mapping[str, object] | None:
         row = (
             await self._session.execute(
-                select(EventModel).where(
-                    EventModel.organization_id == organization_id,
-                    EventModel.idempotency_key == idempotency_key,
+                select(DeduplicationEvent).where(
+                    DeduplicationEvent.organization_id == organization_id,
+                    DeduplicationEvent.idempotency_key == idempotency_key,
                 )
             )
         ).scalar_one_or_none()
@@ -253,19 +279,25 @@ class SqlAlchemyDeduplicationEventRepository:
             "id": str(row.id),
             "event_id": str(row.id),
             "organization_id": str(row.organization_id),
-            "candidate_id": str(row.candidate_id) if row.candidate_id else None,
+            "candidate_id": str(row.account_candidate_id or row.contact_candidate_id)
+            if (row.account_candidate_id or row.contact_candidate_id)
+            else None,
             "action": row.action,
             **row.payload,
         }
 
     async def add(self, event: Mapping[str, object]) -> None:
+        candidate_id = UUID(str(event["candidate_id"])) if event.get("candidate_id") else None
+        record_type = str(event.get("record_type", ""))
         self._session.add(
-            EventModel(
+            DeduplicationEvent(
                 id=UUID(str(event["id"])),
                 organization_id=UUID(str(event["organization_id"])),
                 idempotency_key=str(event["idempotency_key"]),
-                candidate_id=UUID(str(event["candidate_id"]))
-                if event.get("candidate_id")
+                account_candidate_id=candidate_id if record_type == "account" else None,
+                contact_candidate_id=candidate_id if record_type == "contact" else None,
+                related_event_id=UUID(str(event["related_event_id"]))
+                if event.get("related_event_id")
                 else None,
                 action=str(event["action"]),
                 actor_id=UUID(str(event["actor_id"])),
@@ -282,15 +314,59 @@ class SqlAlchemyCanonicalResolver:
 
     async def resolve(
         self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
-    ) -> UUID:
-        row = (
-            await self._session.execute(
-                select(AliasModel.canonical_id).where(
-                    AliasModel.organization_id == organization_id,
-                    AliasModel.record_type == record_type.value,
-                    AliasModel.alias_id == record_id,
-                    AliasModel.reverted_at.is_(None),
+    ) -> CanonicalRecordGroup | None:
+        return await self._resolve(organization_id, record_type, record_id, lock=False)
+
+    async def resolve_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> CanonicalRecordGroup | None:
+        return await self._resolve(organization_id, record_type, record_id, lock=True)
+
+    async def _resolve(
+        self,
+        organization_id: UUID,
+        record_type: DeduplicationRecordType,
+        record_id: UUID,
+        *,
+        lock: bool,
+    ) -> CanonicalRecordGroup | None:
+        record_model = Account if record_type is DeduplicationRecordType.ACCOUNT else Contact
+        alias_model = _alias_model(record_type)
+        exists = await self._session.scalar(
+            select(record_model.id).where(
+                record_model.organization_id == organization_id, record_model.id == record_id
+            )
+        )
+        if exists is None:
+            return None
+        canonical_id = (
+            await self._session.scalar(
+                select(alias_model.canonical_id).where(
+                    alias_model.organization_id == organization_id,
+                    alias_model.alias_id == record_id,
+                    alias_model.reverted_at.is_(None),
                 )
             )
-        ).scalar_one_or_none()
-        return row or record_id
+            or record_id
+        )
+        if lock:
+            await self._session.execute(
+                select(record_model.id)
+                .where(
+                    record_model.organization_id == organization_id, record_model.id == canonical_id
+                )
+                .with_for_update()
+            )
+        stmt = (
+            select(alias_model.alias_id)
+            .where(
+                alias_model.organization_id == organization_id,
+                alias_model.canonical_id == canonical_id,
+                alias_model.reverted_at.is_(None),
+            )
+            .order_by(alias_model.alias_id)
+        )
+        if lock:
+            stmt = stmt.with_for_update()
+        aliases = list((await self._session.execute(stmt)).scalars().all())
+        return CanonicalRecordGroup(canonical_id, (canonical_id, *aliases))

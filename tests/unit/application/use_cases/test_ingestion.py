@@ -18,6 +18,7 @@ from revops.application.dto import (
 )
 from revops.application.ports import (
     AccountEnrichmentRepository,
+    CanonicalResolver,
     CreatedRecord,
     EnrichmentGatewayError,
     IngestionAccountRepository,
@@ -233,6 +234,7 @@ class _FakeUow:
         self.accounts = accounts
         self.contacts = contacts
         self.enrichments = enrichments
+        self.canonical: CanonicalResolver | None = None
         self.commits = 0
 
     async def __aenter__(self) -> Self:
@@ -318,6 +320,20 @@ async def test_stage_normalizes_rows_and_keeps_business_errors_per_row() -> None
     assert valid.record.domain == "acme.test"
     assert valid.record.email == "ada@acme.test"
     assert invalid.validation_codes == ("company_name_required",)
+
+
+async def test_stage_reports_invalid_phone_without_persisting_raw_value() -> None:
+    factory, _, _, _, _, _, _ = _factory()
+    result = await StageIngestion(factory).execute(
+        organization_id=uuid4(),
+        requested_by=uuid4(),
+        source="api",
+        idempotency_key="invalid-phone",
+        records=[_record(phone="555-1234")],
+    )
+    item = result.job.items[0]
+    assert item.record is None
+    assert item.validation_codes == ("invalid_phone",)
 
 
 async def test_stage_replays_identical_content_and_rejects_key_reuse() -> None:

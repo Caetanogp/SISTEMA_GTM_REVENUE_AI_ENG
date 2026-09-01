@@ -195,6 +195,7 @@ class IngestionRecordInput(BaseModel):
     email: str | None = None
     full_name: str | None = None
     title: str | None = None
+    phone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +207,7 @@ class CanonicalIngestionRecord:
     email: str | None
     full_name: str | None
     title: str | None
+    phone: str | None = None
 
     @property
     def has_contact(self) -> bool:

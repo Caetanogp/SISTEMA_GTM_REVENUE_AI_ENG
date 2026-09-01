@@ -107,6 +107,7 @@ class RecordAlias:
     merge_event_id: UUID
     created_at: datetime
     reverted_at: datetime | None = None
+    reverted_by_event_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.alias_id == self.canonical_id:
@@ -116,10 +117,11 @@ class RecordAlias:
     def is_active(self) -> bool:
         return self.reverted_at is None
 
-    def revert(self, *, occurred_at: datetime) -> None:
+    def revert(self, *, occurred_at: datetime, reverted_by_event_id: UUID | None = None) -> None:
         if not self.is_active:
             raise InvalidTransitionError("an inactive alias cannot be reverted twice")
         self.reverted_at = occurred_at
+        self.reverted_by_event_id = reverted_by_event_id
 
 
 _SCAN_TRANSITIONS: dict[DeduplicationScanStatus, frozenset[DeduplicationScanStatus]] = {

@@ -18,6 +18,13 @@ def test_parse_csv_records_accepts_bom_and_optional_contact_fields() -> None:
     assert rows[0].email == "ada@acme.test"
 
 
+def test_parse_csv_records_accepts_optional_phone() -> None:
+    rows = parse_csv_records(
+        b"company_name,domain,email,full_name,phone\r\nAcme,acme.test,ada@acme.test,Ada,+5511999999999\r\n"
+    )
+    assert rows[0].phone == "+5511999999999"
+
+
 @pytest.mark.parametrize(
     "body",
     [

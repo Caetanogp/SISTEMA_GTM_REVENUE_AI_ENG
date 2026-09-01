@@ -89,6 +89,7 @@ class IngestionRecordRequest(BaseModel):
     email: str | None = None
     full_name: str | None = None
     title: str | None = None
+    phone: str | None = None
 
 
 class IngestionStageRequest(BaseModel):

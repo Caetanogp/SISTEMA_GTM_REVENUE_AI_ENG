@@ -75,7 +75,8 @@ def test_contacts_email_unique_per_organization() -> None:
 def test_deduplication_tables_have_tenant_scoped_idempotency_and_alias_constraints() -> None:
     scans = Base.metadata.tables["deduplication_scans"]
     events = Base.metadata.tables["deduplication_events"]
-    aliases = Base.metadata.tables["deduplication_aliases"]
+    account_aliases = Base.metadata.tables["deduplication_account_aliases"]
+    contact_aliases = Base.metadata.tables["deduplication_contact_aliases"]
     assert any(
         {column.name for column in constraint.columns} == {"organization_id", "idempotency_key"}
         for constraint in scans.constraints
@@ -86,5 +87,5 @@ def test_deduplication_tables_have_tenant_scoped_idempotency_and_alias_constrain
     )
     assert any(
         {column.name for column in constraint.columns} == {"organization_id", "alias_id"}
-        for constraint in aliases.constraints
+        for constraint in (*account_aliases.constraints, *contact_aliases.constraints)
     )

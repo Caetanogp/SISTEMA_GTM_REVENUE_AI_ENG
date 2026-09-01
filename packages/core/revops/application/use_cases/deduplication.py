@@ -15,6 +15,7 @@ from revops.application.dto import (
     DeduplicationScanResult,
 )
 from revops.application.ports import (
+    CanonicalRecordGroup,
     DeduplicationCandidateRecord,
     DeduplicationUnitOfWorkFactory,
 )
@@ -169,6 +170,7 @@ class DismissDeduplicationCandidate:
                     ),
                     "organization_id": str(organization_id),
                     "candidate_id": str(candidate_id),
+                    "record_type": candidate.candidate.record_type.value,
                     "action": "dismiss",
                     "idempotency_key": idempotency_key,
                     "reason": reason,
@@ -222,12 +224,18 @@ class MergeDeduplicationCandidate:
                 if master_record_id == candidate.candidate.left_id
                 else candidate.candidate.left_id
             )
-            if (
-                await uow.resolver.resolve(
-                    organization_id, candidate.candidate.record_type, master_record_id
-                )
-                != master_record_id
-            ):
+            resolver = getattr(uow, "canonical", getattr(uow, "resolver", None))
+            if resolver is None:
+                raise DeduplicationConflictError("canonical resolver is unavailable")
+            resolved_master = await resolver.resolve(
+                organization_id, candidate.candidate.record_type, master_record_id
+            )
+            resolved_master_id = (
+                resolved_master.canonical_id
+                if hasattr(resolved_master, "canonical_id")
+                else resolved_master
+            )
+            if resolved_master_id != master_record_id:
                 raise DeduplicationConflictError("an alias cannot become master")
             if (
                 await uow.aliases.get_active(
@@ -283,24 +291,24 @@ class RevertDeduplicationMerge:
             prior = await uow.events.get_by_idempotency_key(organization_id, idempotency_key)
             if prior is not None:
                 return DeduplicationDecisionResult(
-                    UUID(str(prior["candidate_id"])),
+                    UUID(str(prior.get("related_event_id", merge_event_id))),
                     DeduplicationCandidateStatus.MERGED,
                     True,
                 )
             alias = await uow.aliases.get_for_update(organization_id, merge_event_id)
             if alias is None:
                 raise DeduplicationNotFoundError("merge not found")
+            event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
             try:
-                alias.revert(occurred_at=occurred_at)
+                alias.revert(occurred_at=occurred_at, reverted_by_event_id=event_id)
             except InvalidTransitionError as exc:
                 raise DeduplicationConflictError(str(exc)) from exc
             await uow.aliases.save(alias)
-            event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
             await uow.events.add(
                 {
                     "id": str(event_id),
                     "organization_id": str(organization_id),
-                    "candidate_id": str(merge_event_id),
+                    "related_event_id": str(merge_event_id),
                     "action": "revert",
                     "idempotency_key": idempotency_key,
                     "actor_id": str(actor_id),
@@ -319,5 +327,12 @@ class ResolveCanonicalRecord:
         self, *, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
     ) -> CanonicalRecordResult:
         async with self.factory() as uow:
-            canonical_id = await uow.resolver.resolve(organization_id, record_type, record_id)
-            return CanonicalRecordResult(record_type, record_id, canonical_id)
+            resolver = getattr(uow, "canonical", getattr(uow, "resolver", None))
+            if resolver is None:
+                raise DeduplicationNotFoundError("record not found")
+            group = await resolver.resolve(organization_id, record_type, record_id)
+            if isinstance(group, UUID):
+                group = CanonicalRecordGroup(group, (group,))
+            if group is None:
+                raise DeduplicationNotFoundError("record not found")
+            return CanonicalRecordResult(record_type, record_id, group.canonical_id)

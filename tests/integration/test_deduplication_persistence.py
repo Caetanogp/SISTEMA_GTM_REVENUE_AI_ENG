@@ -10,7 +10,8 @@ from uuid import UUID, uuid4
 
 import pytest
 from revops.domain.entities.deduplication import DeduplicationRecordType, RecordAlias
-from revops.infrastructure.persistence.models import Organization, User
+from revops.domain.values.company_domain import CompanyDomain
+from revops.infrastructure.persistence.models import Account, Organization, User
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -75,6 +76,25 @@ async def test_deduplication_repositories_round_trip_and_isolate_tenants(
 
     alias_id, canonical_id, event_id = uuid4(), uuid4(), uuid4()
     occurred_at = datetime(2026, 8, 31, tzinfo=UTC)
+    session.add_all(
+        [
+            Account(
+                id=alias_id,
+                organization_id=organization_id,
+                company_name="Alias Co",
+                domain=CompanyDomain("alias.test").value,
+                created_at=occurred_at,
+            ),
+            Account(
+                id=canonical_id,
+                organization_id=organization_id,
+                company_name="Canonical Co",
+                domain=CompanyDomain("canonical.test").value,
+                created_at=occurred_at,
+            ),
+        ]
+    )
+    await session.flush()
     await uow.events.add(
         {
             "id": str(event_id),
@@ -98,13 +118,18 @@ async def test_deduplication_repositories_round_trip_and_isolate_tenants(
             occurred_at,
         )
     )
-    resolved = await uow.resolver.resolve(
+    assert uow.canonical is not None
+    resolved = await uow.canonical.resolve(
         organization_id, DeduplicationRecordType.ACCOUNT, alias_id
     )
-    assert resolved == canonical_id
+    assert resolved is not None
+    assert resolved.canonical_id == canonical_id
+    assert resolved.member_ids == (canonical_id, alias_id)
     assert (
-        await uow.resolver.resolve(other_organization_id, DeduplicationRecordType.ACCOUNT, alias_id)
-        == alias_id
+        await uow.canonical.resolve(
+            other_organization_id, DeduplicationRecordType.ACCOUNT, alias_id
+        )
+        is None
     )
     event = await uow.events.get_by_idempotency_key(organization_id, "merge-key")
     assert event is not None

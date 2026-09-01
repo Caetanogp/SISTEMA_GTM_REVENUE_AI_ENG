@@ -47,14 +47,16 @@ class _FakeAccountRepository:
         return [a for a in self._accounts if a.organization_id == organization_id]
 
     async def list_interactions(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Interaction]:
-        return self._interactions.get(account_id, [])
+        ids = (account_ids,) if isinstance(account_ids, UUID) else account_ids
+        return [item for account_id in ids for item in self._interactions.get(account_id, [])]
 
     async def list_open_opportunities(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Opportunity]:
-        return self._opportunities.get(account_id, [])
+        ids = (account_ids,) if isinstance(account_ids, UUID) else account_ids
+        return [item for account_id in ids for item in self._opportunities.get(account_id, [])]
 
 
 async def test_ranks_the_account_with_stronger_signals_first() -> None:

@@ -14,9 +14,11 @@ the graph); this class only groups the three ports that must commit or roll back
 from __future__ import annotations
 
 from types import TracebackType
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from revops.application.ports import CanonicalResolver
 from revops.infrastructure.persistence.deduplication_repositories import (
     SqlAlchemyCanonicalResolver,
     SqlAlchemyDeduplicationAliasRepository,
@@ -36,11 +38,13 @@ from revops.infrastructure.persistence.repositories import (
 class SqlAlchemyUnitOfWork:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
-        self.accounts = SqlAlchemyAccountRepository(session)
+        canonical = cast(CanonicalResolver, SqlAlchemyCanonicalResolver(session))
+        self.accounts = SqlAlchemyAccountRepository(session, canonical)
         self.tasks = SqlAlchemyTaskRepository(session)
         self.audit = SqlAlchemyAuditTrail(session)
         self.approvals = SqlAlchemyApprovalRepository(session)
         self.runs = SqlAlchemyAgentRunRepository(session)
+        self.canonical: CanonicalResolver | None = canonical
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         return self
@@ -71,7 +75,10 @@ class SqlAlchemyDeduplicationUnitOfWork:
         self.candidates = SqlAlchemyDeduplicationCandidateRepository(session)
         self.aliases = SqlAlchemyDeduplicationAliasRepository(session)
         self.events = SqlAlchemyDeduplicationEventRepository(session)
-        self.resolver = SqlAlchemyCanonicalResolver(session)
+        self.canonical: CanonicalResolver | None = cast(
+            CanonicalResolver, SqlAlchemyCanonicalResolver(session)
+        )
+        self.resolver = self.canonical
 
     async def __aenter__(self) -> SqlAlchemyDeduplicationUnitOfWork:
         return self

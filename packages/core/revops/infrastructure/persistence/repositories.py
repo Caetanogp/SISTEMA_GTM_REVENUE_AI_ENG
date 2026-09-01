@@ -21,13 +21,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.dto import ApprovalDecisionType
-from revops.application.ports import AgentRunEventRecord, AgentRunRecord, ApprovalRecord
+from revops.application.ports import (
+    AgentRunEventRecord,
+    AgentRunRecord,
+    ApprovalRecord,
+    CanonicalResolver,
+)
 from revops.domain.entities.account import Account
+from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity, OpportunityStage
 from revops.domain.entities.task import Task, TaskStatus
 from revops.domain.values.company_domain import CompanyDomain
 from revops.infrastructure.persistence.models import Account as AccountModel
+from revops.infrastructure.persistence.models import AccountDeduplicationAlias as AccountAliasModel
 from revops.infrastructure.persistence.models import AgentAction as AgentActionModel
 from revops.infrastructure.persistence.models import AgentRun as AgentRunModel
 from revops.infrastructure.persistence.models import AgentRunEvent as AgentRunEventModel
@@ -89,10 +96,18 @@ class SqlAlchemyAccountRepository:
     by data scripts, not written through this boundary.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, canonical: CanonicalResolver | None = None) -> None:
         self._session = session
+        self._canonical = canonical
 
     async def get(self, organization_id: UUID, account_id: UUID) -> Account:
+        if self._canonical is not None:
+            group = await self._canonical.resolve(
+                organization_id, DeduplicationRecordType.ACCOUNT, account_id
+            )
+            if group is None:
+                raise LookupError("account not found")
+            account_id = group.canonical_id
         stmt = select(AccountModel).where(
             AccountModel.organization_id == organization_id, AccountModel.id == account_id
         )
@@ -100,26 +115,37 @@ class SqlAlchemyAccountRepository:
         return _to_account(row)
 
     async def list_for_organization(self, organization_id: UUID) -> Sequence[Account]:
-        stmt = select(AccountModel).where(AccountModel.organization_id == organization_id)
+        stmt = select(AccountModel).where(
+            AccountModel.organization_id == organization_id,
+            ~select(AccountAliasModel.id)
+            .where(
+                AccountAliasModel.organization_id == organization_id,
+                AccountAliasModel.alias_id == AccountModel.id,
+                AccountAliasModel.reverted_at.is_(None),
+            )
+            .exists(),
+        )
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_to_account(row) for row in rows]
 
     async def list_interactions(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Interaction]:
+        ids = (account_ids,) if isinstance(account_ids, UUID) else account_ids
         stmt = select(InteractionModel).where(
             InteractionModel.organization_id == organization_id,
-            InteractionModel.account_id == account_id,
+            InteractionModel.account_id.in_(ids),
         )
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_to_interaction(row) for row in rows]
 
     async def list_open_opportunities(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Opportunity]:
+        ids = (account_ids,) if isinstance(account_ids, UUID) else account_ids
         stmt = select(OpportunityModel).where(
             OpportunityModel.organization_id == organization_id,
-            OpportunityModel.account_id == account_id,
+            OpportunityModel.account_id.in_(ids),
             OpportunityModel.stage.in_(_OPEN_STAGE_VALUES),
         )
         rows = (await self._session.execute(stmt)).scalars().all()

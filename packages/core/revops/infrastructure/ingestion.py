@@ -10,7 +10,7 @@ from revops.application.dto import EnrichmentProfile, IngestionRecordInput
 
 _MAX_BODY_BYTES = 5 * 1024 * 1024
 _MAX_ROWS = 1_000
-_HEADERS = frozenset({"company_name", "domain", "email", "full_name", "title"})
+_HEADERS = frozenset({"company_name", "domain", "email", "full_name", "title", "phone"})
 _REQUIRED_HEADERS = frozenset({"company_name", "domain"})
 
 

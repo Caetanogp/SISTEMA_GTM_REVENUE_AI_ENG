@@ -17,12 +17,14 @@ from revops.application.ports import (
     ApprovalRecord,
     ApprovalRepository,
     AuditTrail,
+    CanonicalResolver,
     Clock,
     TaskRepository,
 )
 from revops.application.use_cases.propose_task import ProposedAction
+from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.entities.task import Task
-from revops.domain.errors import InvalidTransitionError
+from revops.domain.errors import InvalidTransitionError, PolicyViolationError
 
 
 @dataclass(slots=True)
@@ -42,6 +44,7 @@ class DecideApproval:
     audit: AuditTrail
     approvals: ApprovalRepository
     clock: Clock
+    canonical: CanonicalResolver | None = None
 
     async def approve(
         self, pending: PendingApproval, *, organization_id: UUID, actor_id: UUID
@@ -132,13 +135,14 @@ class DecideApproval:
         organization_id: UUID,
         actor_id: UUID,
     ) -> Task:
+        canonical_id = await self._canonical_account_id(organization_id, args=args)
         self._mark_decided(pending)
         now = self.clock.now()
         task = Task(
             id=pending.task_id,
             organization_id=organization_id,
             owner_id=args.owner_id,
-            account_id=args.account_id,
+            account_id=canonical_id,
             title=args.title,
             due_at=args.due_at,
         )
@@ -149,7 +153,11 @@ class DecideApproval:
             organization_id=organization_id,
             actor_id=actor_id,
             action=pending.proposal.tool_name,
-            payload=args.model_dump(mode="json"),
+            payload={
+                **args.model_dump(mode="json"),
+                "requested_account_id": str(args.account_id),
+                "canonical_account_id": str(canonical_id),
+            },
             outcome=outcome,
             occurred_at=now,
             approved_by=actor_id,
@@ -167,6 +175,16 @@ class DecideApproval:
             now,
         )
         return task
+
+    async def _canonical_account_id(self, organization_id: UUID, *, args: CreateTaskArgs) -> UUID:
+        if self.canonical is None:
+            return args.account_id
+        group = await self.canonical.resolve_for_write(
+            organization_id, DeduplicationRecordType.ACCOUNT, args.account_id
+        )
+        if group is None:
+            raise PolicyViolationError("account is unavailable")
+        return group.canonical_id
 
     async def _existing(
         self,

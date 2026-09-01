@@ -23,7 +23,16 @@ from decimal import Decimal
 from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeEngine
@@ -69,7 +78,10 @@ class Account(Base):
     """A company — the unit of prioritization. Deduplicated on its normalized domain per org."""
 
     __tablename__ = "accounts"
-    __table_args__ = (UniqueConstraint("organization_id", "domain", name="uq_accounts_org_domain"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "domain", name="uq_accounts_org_domain"),
+        UniqueConstraint("organization_id", "id", name="uq_accounts_org_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
@@ -82,7 +94,10 @@ class Contact(Base):
     """A person in an account's buying group. Deduplicated on normalized email per org."""
 
     __tablename__ = "contacts"
-    __table_args__ = (UniqueConstraint("organization_id", "email", name="uq_contacts_org_email"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "email", name="uq_contacts_org_email"),
+        UniqueConstraint("organization_id", "id", name="uq_contacts_org_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
@@ -110,16 +125,21 @@ class DeduplicationScan(Base):
     updated_at: Mapped[datetime]
 
 
-class DeduplicationCandidate(Base):
-    __tablename__ = "deduplication_candidates"
+class AccountDeduplicationCandidate(Base):
+    __tablename__ = "deduplication_account_candidates"
     __table_args__ = (
-        UniqueConstraint("scan_id", "left_id", "right_id", name="uq_dedupe_candidate_pair"),
+        UniqueConstraint("scan_id", "left_id", "right_id", name="uq_dedupe_account_candidate_pair"),
+        ForeignKeyConstraint(
+            ["organization_id", "left_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "right_id"], ["accounts.organization_id", "accounts.id"]
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"), index=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
-    record_type: Mapped[str] = mapped_column(String(16))
     left_id: Mapped[UUID]
     right_id: Mapped[UUID]
     score: Mapped[int] = mapped_column(Integer)
@@ -130,38 +150,104 @@ class DeduplicationCandidate(Base):
     status: Mapped[str] = mapped_column(String(32))
 
 
-class DeduplicationAlias(Base):
-    __tablename__ = "deduplication_aliases"
+class ContactDeduplicationCandidate(Base):
+    __tablename__ = "deduplication_contact_candidates"
     __table_args__ = (
-        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_alias_source"),
+        UniqueConstraint("scan_id", "left_id", "right_id", name="uq_dedupe_contact_candidate_pair"),
+        ForeignKeyConstraint(
+            ["organization_id", "left_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "right_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    left_id: Mapped[UUID]
+    right_id: Mapped[UUID]
+    score: Mapped[int] = mapped_column(Integer)
+    reasons: Mapped[list[str]] = mapped_column(JSONB)
+    policy_version: Mapped[str] = mapped_column(String(64))
+    left_fingerprint: Mapped[str] = mapped_column(String(64))
+    right_fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))
+
+
+class AccountDeduplicationAlias(Base):
+    __tablename__ = "deduplication_account_aliases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "alias_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "canonical_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_account_alias_source"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
-    record_type: Mapped[str] = mapped_column(String(16))
     alias_id: Mapped[UUID]
     canonical_id: Mapped[UUID]
     merge_event_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_events.id"))
     created_at: Mapped[datetime]
     reverted_at: Mapped[datetime | None] = mapped_column(default=None)
+    reverted_by_event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_events.id"), default=None
+    )
 
 
-class DeduplicationEvent(Base):
-    __tablename__ = "deduplication_events"
+class ContactDeduplicationAlias(Base):
+    __tablename__ = "deduplication_contact_aliases"
     __table_args__ = (
-        UniqueConstraint("organization_id", "idempotency_key", name="uq_dedupe_events_org_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "alias_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "canonical_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_contact_alias_source"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    alias_id: Mapped[UUID]
+    canonical_id: Mapped[UUID]
+    merge_event_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_events.id"))
+    created_at: Mapped[datetime]
+    reverted_at: Mapped[datetime | None] = mapped_column(default=None)
+    reverted_by_event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_events.id"), default=None
+    )
+
+
+class DeduplicationEvent(Base):
+    __tablename__ = "deduplication_events"
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
-    candidate_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("deduplication_candidates.id"), default=None
+    account_candidate_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_account_candidates.id"), default=None
+    )
+    contact_candidate_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_contact_candidates.id"), default=None
+    )
+    related_event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("deduplication_events.id"), default=None
     )
     action: Mapped[str] = mapped_column(String(32))
     actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     payload: Mapped[dict[str, object]] = mapped_column(JSONB)
     occurred_at: Mapped[datetime]
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_dedupe_events_org_key"),
+        CheckConstraint(
+            "(account_candidate_id IS NULL) OR (contact_candidate_id IS NULL)",
+            name="ck_dedupe_event_one_candidate",
+        ),
+    )
 
 
 class IngestionJob(Base):
@@ -202,6 +288,7 @@ class IngestionItem(Base):
     email: Mapped[str | None] = mapped_column(String(320), default=None)
     full_name: Mapped[str | None] = mapped_column(String(255), default=None)
     title: Mapped[str | None] = mapped_column(String(255), default=None)
+    phone: Mapped[str | None] = mapped_column(String(16), default=None)
     validation_codes: Mapped[list[str]] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32))
     account_outcome: Mapped[str] = mapped_column(String(32))
