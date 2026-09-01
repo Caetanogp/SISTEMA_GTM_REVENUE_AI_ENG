@@ -20,6 +20,10 @@ SPEC-003 Items 1-6 are complete. Item 7 is next and no Item 7 implementation has
 previous halt identified missing application/persistence contracts for stale merge validation,
 master/alias protection, and history pagination.
 
+Checkpoint commit `8ec1e0c` contains the supervisor, gate, launcher, policy, ADR, tests, and this
+handoff update. The branch is ready to publish, but the external baseline rollover and real Item 7
+pilot have not been run.
+
 The approved process change is implemented and ready for checkpoint commit: the economical Codex executor now
 returns structured outcomes; a clean `architecture_required` invokes separate read-only
 `gpt-5.6-sol/xhigh` architect and reviewer processes for at most two attempts. Approved plans get
@@ -46,10 +50,13 @@ temporary-directory fallback inside the checkout.
 - Real CLI probes `codex --ask-for-approval never exec --help` and
   `codex --search exec --help` both exited 0. PowerShell launcher parsing passed.
 - ADR-0007 records the bounded escalation decision and hard-stop policy.
+- Checkpoint commit `8ec1e0c` passed pre-commit checks, including ruff, format, secret detection,
+  agent-doc validation, and branch protection.
 
 ## Next
 
-1. Publish the checkpoint commit from this branch, then clone/checkout it on the other machine.
+1. Publish checkpoint commit `8ec1e0c` from this branch, then clone/checkout it on the other
+   machine.
 2. Run a second independent review over the committed supervisor change when strong-model usage is
    available, resolving every actionable finding.
 3. Create/apply the external exact-SHA baseline rollover and confirm the ordinary gate reports Item
