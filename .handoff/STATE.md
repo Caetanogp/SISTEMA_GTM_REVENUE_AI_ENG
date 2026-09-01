@@ -102,3 +102,36 @@ carries the explicit tenant `organization_id`, and scan creation receives authen
 tenant or actor identity is inferred. The loop launcher now allocates an ignored per-process pytest
 basetemp instead of the OneDrive reparse-point cache. Unit tests and import architecture checks pass;
 Item 4 still requires persistence and integration evidence.
+
+## Autonomous loop HALT (2026-08-31T06:54:44+00:00)
+
+Item 4 declares scope ('packages/core/revops/infrastructure/persistence/', 'tests/unit/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['packages/core/revops/application/ports.py', 'packages/core/revops/application/use_cases/deduplication.py', 'packages/core/revops/domain/entities/deduplication.py', 'tests/unit/application/use_cases/test_deduplication.py', 'tests/unit/domain/policies/test_deduplication.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-01T00:20:00+00:00)
+
+Item 5 requires a deliberate application-boundary design before implementation. The approved plan
+requires canonical alias resolution to be injected into existing ingestion, account-read, and task-
+write use cases, but the current code has separate ingestion and agent unit-of-work contracts and
+no defined shared resolver/composition contract for aggregated account reads. This choice affects
+application ports, persistence adapters, and API composition. Stop and resolve the design before
+continuing Item 5; no Item 5 implementation was started.
+
+## Autonomous loop HALT (2026-08-31T07:01:59+00:00)
+
+Item 4 declares scope ('packages/core/revops/infrastructure/persistence/', 'tests/unit/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['pytest-of-Caetanogp123/pytest-0/test_active_tasks_file_rejects0/.handoff/AUTONOMOUS_QUEUE.md', 'pytest-of-Caetanogp123/pytest-0/test_active_tasks_file_rejects1/.handoff/AUTONOMOUS_QUEUE.md', 'pytest-of-Caetanogp123/pytest-0/test_active_tasks_file_rejects2/.handoff/AUTONOMOUS_QUEUE.md', 'pytest-of-Caetanogp123/pytest-0/test_active_tasks_file_uses_qu0/.handoff/AUTONOMOUS_QUEUE.md', 'pytest-of-Caetanogp123/pytest-0/test_active_tasks_file_uses_qu0/docs/specs/SPEC-999-example/tasks.md', 'pytest-of-Caetanogp123/pytest-0/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-01T00:06:26+00:00)
+
+Item 4 declares scope ('packages/core/revops/infrastructure/persistence/', 'tests/unit/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['pyproject.toml']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-01T00:09:20+00:00)
+
+Item 5 declares scope ('packages/core/revops/application/', 'packages/core/revops/infrastructure/ingestion/', 'apps/api/', 'tests/unit/', 'tests/integration/'), but changes touch files outside it: ['UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects1/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects2/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_uses_qu0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_uses_qu0/docs/specs/SPEC-999-example/tasks.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
