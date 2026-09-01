@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-08-31
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "SPEC-003 design approved; materializing spec, plan, tasks, and autonomous queue before implementation."
-status: spec-003-planning
+phase: "SPEC-003 Item 5 complete; ready to implement the asynchronous scan worker."
+status: spec-003-item-6-ready
 ---
 
 # Current state
@@ -47,10 +47,26 @@ assuming it's live.
 
 ## Next
 
-1. Commit the approved SPEC-003 `spec.md`, `plan.md`, and `tasks.md` plus roadmap/handoff updates.
-2. Replace `.handoff/AUTONOMOUS_QUEUE.md` with scoped SPEC-003 items and validate a pilot.
-3. Implement inside-out: domain, application, persistence, ingestion compatibility, worker, API,
-   security, and closeout. Do not begin SPEC-004.
+1. Implement SPEC-003 Item 6: bounded asynchronous scan publication and processing in the worker.
+2. Keep the Item 6 scope limited to queue/worker code and its unit/integration evidence.
+3. Do not begin SPEC-004; the SPEC-003 queue remains active.
+
+## Item 5 evidence (2026-09-01)
+
+- Preparation/design commit: `34c7c6a` (`ADR-0006`, corrected queue scope, temporary-artifact
+  isolation, and canonical resolver decision).
+- Implementation commit: `56730cd` (`CanonicalRecordGroup`, typed account/contact persistence,
+  canonical account reads, approval/task canonical writes, optional JSON/CSV phone, and ingestion
+  canonical writes).
+- Observed: `ruff check .` passed; `mypy .` passed with no issues in 125 source files; `lint-imports`
+  passed; `pytest tests/unit -q` passed with 239 tests.
+- Migration DDL was validated with `alembic upgrade 9a4e2c6d7f80:b7c9d1e2f304 --sql` and included
+  typed candidate/alias tables, composite tenant FKs, partial active-alias indexes, event links,
+  and staging phone. Live integration execution is pending a local database migration because the
+  shared database is already stamped with the pre-correction schema; no destructive downgrade was
+  run.
+- The deterministic gate reports Item 6 as next and correctly requires `apps/worker/` and
+  `tests/integration/` evidence. No long loop is running.
 
 ## Gotchas
 
