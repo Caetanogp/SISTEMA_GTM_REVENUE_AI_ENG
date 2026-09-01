@@ -24,7 +24,7 @@
 
 ## Worker and API
 
-- [ ] Add idempotent Celery scan publication/processing with bounds, retries, and duplicate-delivery tests.
+- [x] Add idempotent Celery scan publication/processing with bounds, retries, and duplicate-delivery tests.
 - [ ] Add admin scan/status/candidate routes with pagination, replay, and queue-failure behavior.
 - [ ] Add admin dismiss/merge/history/revert routes with stale and concurrency protection.
 

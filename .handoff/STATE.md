@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-08-31
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "SPEC-003 Item 5 complete; ready to implement the asynchronous scan worker."
-status: spec-003-item-6-ready
+phase: "SPEC-003 Item 6 complete; ready to implement the administrative deduplication API."
+status: spec-003-item-7-ready
 ---
 
 # Current state
@@ -47,8 +47,8 @@ assuming it's live.
 
 ## Next
 
-1. Implement SPEC-003 Item 6: bounded asynchronous scan publication and processing in the worker.
-2. Keep the Item 6 scope limited to queue/worker code and its unit/integration evidence.
+1. Implement SPEC-003 Item 7: admin-only scan/status/candidate and decision/history/revert routes.
+2. Keep Item 7 within `apps/api/`, `tests/unit/apps/`, and `tests/integration/`.
 3. Do not begin SPEC-004; the SPEC-003 queue remains active.
 
 ## Item 5 evidence (2026-09-01)
@@ -67,6 +67,22 @@ assuming it's live.
   run.
 - The deterministic gate reports Item 6 as next and correctly requires `apps/worker/` and
   `tests/integration/` evidence. No long loop is running.
+
+## Item 6 evidence (2026-09-01)
+
+- Implementation commit: `77c1815` (`revops.deduplication.scan`, identifier-only publication,
+  observable queue failure, bounded matching, deterministic replay-safe candidate upserts, and
+  five exponential Celery retries).
+- Observed: `ruff check` passed; `mypy .` passed with no issues in 126 source files;
+  `lint-imports` passed; `pytest tests/unit -q` passed with 245 tests.
+- Observed against isolated migrated PostgreSQL `revops_codex_spec003` and dedicated Redis DBs:
+  `pytest tests/integration -q` passed with 23 tests; the real Celery scan test proved
+  `queue_failed -> completed` plus duplicate-delivery safety.
+- The shared `revops` database remains stamped with the obsolete pre-correction deduplication
+  schema. No downgrade was attempted. A failed diagnostic test left one synthetic organization,
+  one user, two accounts, two contacts, and one scan there; their exact organization ID is
+  `32886626-d626-46f8-9278-4af42cc1a8ed`. Cleanup was denied because deleting shared-database rows
+  requires explicit user authorization.
 
 ## Gotchas
 
