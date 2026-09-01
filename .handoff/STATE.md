@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-08-31
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "SPEC-003 Item 6 complete; ready to implement the administrative deduplication API."
-status: spec-003-item-7-ready
+phase: "SPEC-003 Item 6 complete; autonomous loop halted before Item 7 contract work."
+status: halt-plan-mode-required
 ---
 
 # Current state
@@ -47,8 +47,10 @@ assuming it's live.
 
 ## Next
 
-1. Implement SPEC-003 Item 7: admin-only scan/status/candidate and decision/history/revert routes.
-2. Keep Item 7 within `apps/api/`, `tests/unit/apps/`, and `tests/integration/`.
+1. Run a deliberate design pass for the missing merge-validation contract described in the latest
+   HALT entry below.
+2. Update the Item 7 queue scope or add a prerequisite item before resuming the loop; do not put
+   fingerprint or alias-group business rules in API routers.
 3. Do not begin SPEC-004; the SPEC-003 queue remains active.
 
 ## Item 5 evidence (2026-09-01)
@@ -167,3 +169,19 @@ The loop stopped itself. Do not restart it against the same queue item without a
 Item 5 declares scope ('packages/core/revops/application/', 'packages/core/revops/infrastructure/ingestion/', 'apps/api/', 'tests/unit/', 'tests/integration/'), but changes touch files outside it: ['UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects1/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_rejects2/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_uses_qu0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_active_tasks_file_uses_qu0/docs/specs/SPEC-999-example/tasks.md', 'UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-20264/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-01T03:48:11+00:00)
+
+Item 7 cannot satisfy its required stale-decision and concurrency behavior within its declared
+scope (`apps/api/`, `tests/unit/apps/`, `tests/integration/`). The existing
+`MergeDeduplicationCandidate` use case locks the candidate but does not recompute or compare current
+account/contact fingerprints, and it does not resolve the record being demoted to reject an
+established master with active aliases. The application ports expose neither a locked record
+snapshot nor a fingerprint-validation operation. Implementing these rules in an API router would
+violate the repository's composition-root boundary; implementing them correctly requires deliberate
+changes to application contracts and persistence adapters outside Item 7's approved scope. Merge
+history pagination also has no application port, so the design pass should decide whether it is an
+explicit API read model or a new application query. No Item 7 code was started.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the
+application/persistence contract and queue scope first.
