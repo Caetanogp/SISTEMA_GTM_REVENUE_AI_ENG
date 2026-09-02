@@ -106,3 +106,8 @@ corrected to snapshot only controls that exist in this checkout; no Item 7 imple
 The second pilot stopped before the executor because Python could not resolve the Windows `codex`
 alias (`WinError 2`), although `codex.cmd` is installed. The launcher now passes `codex.cmd`
 explicitly; no Item 7 implementation ran.
+
+## Gate observation (2026-09-02, authorization retry)
+
+The rollover retry was rejected because its previous baseline SHA was mistyped. The exact gate
+baseline is `92cfd4f5658d9c0e8cdb01b392105ec3acb25002`; no Item 7 implementation ran.
