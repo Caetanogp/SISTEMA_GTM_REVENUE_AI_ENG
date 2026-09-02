@@ -100,3 +100,11 @@ The ordinary gate correctly reported the supervisor/control-plane commits as out
 implementation scope before baseline rollover. This is expected rollout state; no Item 7 files
 were changed and the loop was not restarted. The exact changed-path list is recorded by the
 external rollover authorization and must not be broadened implicitly.
+
+## Gate observation (2026-09-02, pre-rollover retries)
+
+The first external authorization artifact was rejected for a UTF-8 BOM, and the retry was rejected
+because the gate HALT had made the worktree dirty. These are procedural validation results; no Item 7
+files were changed. The authorization will be recreated after this handoff-only cleanup.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
