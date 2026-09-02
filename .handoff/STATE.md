@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-01
+updated_at: 2026-09-02
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "Bounded architecture supervisor implemented; Item 7 real pilot pending."
-status: in-progress
+phase: "Item 7 architecture escalation required before API implementation."
+status: architecture-required
 ---
 
 # Current state
@@ -56,13 +56,10 @@ temporary-directory fallback inside the checkout.
 
 ## Next
 
-1. Run a second independent review over the committed supervisor change when strong-model usage is
-   available, resolving every actionable finding.
-2. Create/apply the external exact-SHA baseline rollover and confirm the ordinary gate reports Item
-   7 as pending rather than a scope HALT.
-3. Run a short real Item 7 pilot and observe economical executor -> strong architect -> independent
-   reviewer -> economical executor resume with no implementation diff before approval.
-4. Only after that pilot succeeds, launch the long SPEC-003 loop. Do not begin SPEC-004.
+1. Complete the bounded read-only architecture review for the Item 7 application/persistence
+   contracts before implementation resumes.
+2. Authorize an Item 7 scope overlay only if the review selects a dominant, spec-conformant design.
+3. Implement and test only the approved API and supporting-contract changes, then run the gate.
 
 ## Gotchas
 
@@ -85,8 +82,10 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-- None before the supervisor review and pilot. A genuine hard-policy outcome from the pilot must be
-  brought back to the user rather than inferred by the loop.
+- Item 7 needs an architecture plan for a locked current-record fingerprint validation seam,
+  established-master alias-group protection, and paginated deduplication-event history. These
+  contracts are absent from the approved Item 7 API-only scope and must not be recreated in a
+  FastAPI router.
 
 ## Gate observation (2026-09-02)
 
@@ -111,3 +110,14 @@ explicitly; no Item 7 implementation ran.
 
 The rollover retry was rejected because its previous baseline SHA was mistyped. The exact gate
 baseline is `92cfd4f5658d9c0e8cdb01b392105ec3acb25002`; no Item 7 implementation ran.
+
+## Item 7 architecture observation (2026-09-02)
+
+Direct inspection confirms the previously recorded gap remains: `MergeDeduplicationCandidate`
+locks the candidate but has no port to lock/recompute the current member fingerprints or reject a
+demoted established master with active aliases. `DeduplicationEventRepository` exposes only
+idempotency lookup and append, so it cannot serve the specified paginated merge/revert history.
+Correct implementation requires application and persistence changes outside Item 7's declared
+`apps/api/`, `tests/unit/apps/`, and `tests/integration/` scope. No Item 7 implementation or task
+checkbox change was made. Observed `python scripts/autonomous_gate.py`: exit 1, pending required
+evidence paths `apps/api/` and `tests/integration/`.
