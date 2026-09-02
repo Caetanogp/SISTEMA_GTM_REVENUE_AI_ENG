@@ -88,23 +88,9 @@ python scripts/autonomous_gate.py
 - None before the supervisor review and pilot. A genuine hard-policy outcome from the pilot must be
   brought back to the user rather than inferred by the loop.
 
-## Gate note (2026-09-02)
-
-Before the external baseline rollover, the gate correctly identified the supervisor/control-plane
-commits as outside Item 7's implementation scope. This is expected rollout state, not Item 7 code;
-the next action is the authorized baseline rollover described in the autonomous-loop playbook.
-
 ## Gate observation (2026-09-02)
 
-The ordinary gate correctly reported the supervisor/control-plane commits as outside Item 7's
-implementation scope before baseline rollover. This is expected rollout state; no Item 7 files
-were changed and the loop was not restarted. The exact changed-path list is recorded by the
-external rollover authorization and must not be broadened implicitly.
-
-## Gate observation (2026-09-02, pre-rollover retries)
-
-The first external authorization artifact was rejected for a UTF-8 BOM, and the retry was rejected
-because the gate HALT had made the worktree dirty. These are procedural validation results; no Item 7
-files were changed. The authorization will be recreated after this handoff-only cleanup.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+The first external authorization artifact was rejected for a UTF-8 BOM; after handoff cleanup, the
+exact external rollover was approved from baseline `3214ed2` to `3ff6c2c`, covering 14 exact
+supervisor-change paths. The ordinary gate then reported Item 7 pending because it has not yet
+touched `apps/api/` and `tests/integration/`; no scope HALT remains.
