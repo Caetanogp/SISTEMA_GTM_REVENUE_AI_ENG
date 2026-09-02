@@ -100,3 +100,9 @@ touched `apps/api/` and `tests/integration/`; no scope HALT remains.
 The first pilot attempt stopped before the executor because `uv.lock` is not tracked by this
 repository but was incorrectly required by the supervisor control snapshot. The supervisor was
 corrected to snapshot only controls that exist in this checkout; no Item 7 implementation ran.
+
+## Pilot observation (2026-09-02, executable resolution)
+
+The second pilot stopped before the executor because Python could not resolve the Windows `codex`
+alias (`WinError 2`), although `codex.cmd` is installed. The launcher now passes `codex.cmd`
+explicitly; no Item 7 implementation ran.
