@@ -40,7 +40,6 @@ CONTROL_PLANE_PATHS = (
     "scripts/autonomous_gate.py",
     "scripts/codex_loop_supervisor.py",
     "scripts/start_codex_loop.ps1",
-    "uv.lock",
 )
 
 type JsonObject = dict[str, Any]

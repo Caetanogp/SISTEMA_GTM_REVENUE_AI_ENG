@@ -94,3 +94,9 @@ The first external authorization artifact was rejected for a UTF-8 BOM; after ha
 exact external rollover was approved from baseline `3214ed2` to `3ff6c2c`, covering 14 exact
 supervisor-change paths. The ordinary gate then reported Item 7 pending because it has not yet
 touched `apps/api/` and `tests/integration/`; no scope HALT remains.
+
+## Pilot observation (2026-09-02)
+
+The first pilot attempt stopped before the executor because `uv.lock` is not tracked by this
+repository but was incorrectly required by the supervisor control snapshot. The supervisor was
+corrected to snapshot only controls that exist in this checkout; no Item 7 implementation ran.
