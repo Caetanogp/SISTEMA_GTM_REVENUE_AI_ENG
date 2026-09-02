@@ -20,11 +20,11 @@ SPEC-003 Items 1-6 are complete. Item 7 is next and no Item 7 implementation has
 previous halt identified missing application/persistence contracts for stale merge validation,
 master/alias protection, and history pagination.
 
-Checkpoint commit `8ec1e0c` contains the supervisor, gate, launcher, policy, ADR, tests, and this
-handoff update. The branch is ready to publish, but the external baseline rollover and real Item 7
-pilot have not been run.
+Checkpoint commits `8ec1e0c` and `7f97b47` contain the supervisor, gate, launcher, policy, ADR,
+tests, and the current handoff. The branch is published, but the external baseline rollover and
+real Item 7 pilot have not been run.
 
-The approved process change is implemented and ready for checkpoint commit: the economical Codex executor now
+The approved process change is implemented and committed: the economical Codex executor now
 returns structured outcomes; a clean `architecture_required` invokes separate read-only
 `gpt-5.6-sol/xhigh` architect and reviewer processes for at most two attempts. Approved plans get
 an external item/baseline-bound scope overlay. Product, public-contract, dependency, destructive
@@ -51,19 +51,18 @@ temporary-directory fallback inside the checkout.
   `codex --search exec --help` both exited 0. PowerShell launcher parsing passed.
 - ADR-0007 records the bounded escalation decision and hard-stop policy.
 - Checkpoint commit `8ec1e0c` passed pre-commit checks, including ruff, format, secret detection,
-  agent-doc validation, and branch protection.
+  agent-doc validation, and branch protection. Handoff commit `7f97b47` also passed its pre-commit
+  checks.
 
 ## Next
 
-1. Publish checkpoint commit `8ec1e0c` from this branch, then clone/checkout it on the other
-   machine.
-2. Run a second independent review over the committed supervisor change when strong-model usage is
+1. Run a second independent review over the committed supervisor change when strong-model usage is
    available, resolving every actionable finding.
-3. Create/apply the external exact-SHA baseline rollover and confirm the ordinary gate reports Item
+2. Create/apply the external exact-SHA baseline rollover and confirm the ordinary gate reports Item
    7 as pending rather than a scope HALT.
-4. Run a short real Item 7 pilot and observe economical executor -> strong architect -> independent
+3. Run a short real Item 7 pilot and observe economical executor -> strong architect -> independent
    reviewer -> economical executor resume with no implementation diff before approval.
-5. Only after that pilot succeeds, launch the long SPEC-003 loop. Do not begin SPEC-004.
+4. Only after that pilot succeeds, launch the long SPEC-003 loop. Do not begin SPEC-004.
 
 ## Gotchas
 
@@ -89,7 +88,13 @@ python scripts/autonomous_gate.py
 - None before the supervisor review and pilot. A genuine hard-policy outcome from the pilot must be
   brought back to the user rather than inferred by the loop.
 
-## Autonomous loop HALT (2026-09-01T17:50:55+00:00)
+## Gate note (2026-09-02)
+
+Before the external baseline rollover, the gate correctly identified the supervisor/control-plane
+commits as outside Item 7's implementation scope. This is expected rollout state, not Item 7 code;
+the next action is the authorized baseline rollover described in the autonomous-loop playbook.
+
+## Autonomous loop HALT (2026-09-02T15:23:06+00:00)
 
 Item 7 declares scope ('apps/api/', 'tests/unit/apps/', 'tests/integration/'), but changes touch files outside it: ['.codex/prompts/autonomous-loop.md', '.gitignore', '.handoff/AUTONOMOUS_QUEUE.md', 'AGENTS.md', 'docs/decisions/ADR-0007-bounded-autonomous-architecture-escalation.md', 'docs/playbooks/autonomous-loop.md', 'docs/specs/SPEC-003-deduplication/plan.md', 'pyproject.toml', 'scripts/autonomous_gate.py', 'scripts/codex_loop_supervisor.py', 'scripts/start_codex_loop.ps1', 'tests/unit/scripts/test_autonomous_gate.py', 'tests/unit/scripts/test_codex_loop_supervisor.py']. Revert the out-of-scope changes or stop and ask.
 
