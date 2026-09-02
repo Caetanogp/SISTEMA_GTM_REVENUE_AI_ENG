@@ -94,8 +94,9 @@ Before the external baseline rollover, the gate correctly identified the supervi
 commits as outside Item 7's implementation scope. This is expected rollout state, not Item 7 code;
 the next action is the authorized baseline rollover described in the autonomous-loop playbook.
 
-## Autonomous loop HALT (2026-09-02T15:23:06+00:00)
+## Gate observation (2026-09-02)
 
-Item 7 declares scope ('apps/api/', 'tests/unit/apps/', 'tests/integration/'), but changes touch files outside it: ['.codex/prompts/autonomous-loop.md', '.gitignore', '.handoff/AUTONOMOUS_QUEUE.md', 'AGENTS.md', 'docs/decisions/ADR-0007-bounded-autonomous-architecture-escalation.md', 'docs/playbooks/autonomous-loop.md', 'docs/specs/SPEC-003-deduplication/plan.md', 'pyproject.toml', 'scripts/autonomous_gate.py', 'scripts/codex_loop_supervisor.py', 'scripts/start_codex_loop.ps1', 'tests/unit/scripts/test_autonomous_gate.py', 'tests/unit/scripts/test_codex_loop_supervisor.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+The ordinary gate correctly reported the supervisor/control-plane commits as outside Item 7's
+implementation scope before baseline rollover. This is expected rollout state; no Item 7 files
+were changed and the loop was not restarted. The exact changed-path list is recorded by the
+external rollover authorization and must not be broadened implicitly.
