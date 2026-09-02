@@ -5,6 +5,7 @@ import json
 import sys
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -157,6 +158,23 @@ def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:
     )
 
     assert command[:3] == ["codex-test", "--search", "exec"]
+
+
+def test_default_runner_sends_prompts_as_utf8(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run(*args: Any, **kwargs: Any) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(supervisor.subprocess, "run", fake_run)
+
+    prompt = "decis" + chr(0xE3) + "o arquitetural"
+    supervisor.default_runner(["codex-test"], tmp_path, prompt, None, 60)
+
+    assert captured["encoding"] == "utf-8"
 
 
 def test_control_snapshot_detects_modified_or_deleted_controls(tmp_path: Path) -> None:

@@ -121,3 +121,10 @@ Correct implementation requires application and persistence changes outside Item
 `apps/api/`, `tests/unit/apps/`, and `tests/integration/` scope. No Item 7 implementation or task
 checkbox change was made. Observed `python scripts/autonomous_gate.py`: exit 1, pending required
 evidence paths `apps/api/` and `tests/integration/`.
+
+## Pilot observation (2026-09-02, architect prompt encoding)
+
+The executor correctly returned `architecture_required` and committed handoff-only evidence as
+`0696c8b`. The architect process then rejected the Windows-locale prompt encoding before any
+architecture decision. The runner now explicitly uses UTF-8 for subprocess input and output; the
+pilot must resume from this clean checkpoint.

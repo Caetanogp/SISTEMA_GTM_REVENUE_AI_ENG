@@ -268,6 +268,7 @@ def default_runner(
         input=input_text,
         env=dict(env) if env is not None else None,
         capture_output=True,
+        encoding="utf-8",
         text=True,
         timeout=timeout,
         check=False,
