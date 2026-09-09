@@ -115,6 +115,40 @@ Phone is never emitted in logs, failure codes, audit events, or eval fixtures co
 Roll out additively. No existing account/contact is automatically grouped. Administrators must run
 a scan and approve each candidate.
 
+## Item 7 design decisions
+
+The administrative API is backed by a small application/persistence boundary. The router performs
+authentication, request validation, composition, and error translation only; use cases own state,
+idempotency, concurrency, and merge policy.
+
+- `record_types` is validated without duplicates and canonicalized to `account`, then `contact`,
+  before idempotency comparison, persistence, and publication. Reversed input order is the same
+  request; duplicates and unknown values are invalid.
+- `StartDeduplicationScan` reserves a scan with tenant-scoped `INSERT ... ON CONFLICT DO NOTHING`,
+  commits `queued` before publishing, republishes only `queued` or `queue_failed` replays, and
+  changes only `queued` to `queue_failed` after a publication failure. The existing Celery adapter
+  remains the dispatcher; no transactional outbox is introduced.
+- Status exposes aggregate `total`, `pending`, `dismissed`, `merged`, and `stale` counters. Candidate
+  reads require `completed` status and return typed account summaries (`id`, `company_name`,
+  `domain`) or contact summaries (`id`, `account_id`, `full_name`, `email`, `phone`). The combined
+  page has one total order: `record_type`, `left_id`, `right_id`, `id`; offset and limit apply once
+  after the typed branches are combined.
+- Events use closed application types for dismiss, merge, and revert. Storage keeps action-specific
+  identifiers in typed columns and an allowlisted PII-safe payload; history never returns payload or
+  idempotency keys. Revert derives record type and target data only from its tenant-scoped merge
+  event.
+- Decision replay is checked once before locks and again after locks. Dismiss locks its candidate;
+  merge locks the candidate, both base records, and all relevant aliases in deterministic order;
+  revert locks the related merge event and then its alias. Persisted-event replay reads are never
+  locking, preventing an event/alias deadlock.
+- Fingerprints, policy version, tenant, candidate state, master selection, and alias-group state are
+  revalidated after locks. A stale candidate is committed as `stale` before returning `409`.
+  Repeated absorption of distinct standalones into the same established master may serialize and
+  succeed; alias reuse, master demotion, and incompatible established groups return one write and
+  one `409`.
+- The ORM alias metadata mirrors the existing partial unique indexes for active aliases. This is a
+  metadata correction only; no new migration is required.
+
 ## Autonomous loop preparation
 
 After these three approved documents are committed, replace the SPEC-002 queue with scoped
