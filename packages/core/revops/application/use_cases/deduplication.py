@@ -143,8 +143,11 @@ class ListDeduplicationCandidates:
         if offset < 0 or not 0 < limit <= 100:
             raise ValueError("candidate pagination is out of bounds")
         async with self.factory() as uow:
-            if await uow.scans.get(organization_id, scan_id) is None:
+            scan = await uow.scans.get(organization_id, scan_id)
+            if scan is None:
                 raise DeduplicationNotFoundError("deduplication scan not found")
+            if scan.status.value != "completed":
+                raise DeduplicationConflictError("deduplication scan is not completed")
             rows = await uow.candidates.list(
                 organization_id,
                 scan_id,

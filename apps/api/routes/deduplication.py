@@ -115,7 +115,7 @@ async def list_candidates(
         )
     except DeduplicationNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except DeduplicationConflictError as exc:
+    except (DeduplicationConflictError, DeduplicationIdempotencyConflictError) as exc:
         raise _conflict(exc) from exc
     return [_candidate(value) for value in values]
 
@@ -163,7 +163,7 @@ async def dismiss_candidate(
         )
     except DeduplicationNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except DeduplicationConflictError as exc:
+    except (DeduplicationConflictError, DeduplicationIdempotencyConflictError) as exc:
         raise _conflict(exc) from exc
     return DeduplicationDecisionResponse(
         candidate_id=result.candidate_id, status=result.status.value, replayed=result.replayed
