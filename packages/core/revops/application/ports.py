@@ -319,6 +319,13 @@ class DeduplicationScanRepository(Protocol):
         idempotency_key: str,
     ) -> None: ...
 
+    async def set_status(
+        self,
+        organization_id: UUID,
+        scan_id: UUID,
+        status: DeduplicationScanStatus,
+    ) -> DeduplicationScanRecord | None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class DeduplicationCandidateRecord:
@@ -379,6 +386,10 @@ class DeduplicationEventRepository(Protocol):
 
     async def add(self, event: Mapping[str, object]) -> None: ...
 
+    async def list_history(
+        self, organization_id: UUID, *, offset: int, limit: int
+    ) -> Sequence[Mapping[str, object]]: ...
+
 
 @runtime_checkable
 class CanonicalResolver(Protocol):
@@ -414,6 +425,11 @@ class DeduplicationUnitOfWork(Protocol):
 
 
 type DeduplicationUnitOfWorkFactory = Callable[[], DeduplicationUnitOfWork]
+
+
+@runtime_checkable
+class DeduplicationDispatcher(Protocol):
+    async def publish(self, *, organization_id: UUID, scan_id: UUID) -> None: ...
 
 
 @runtime_checkable

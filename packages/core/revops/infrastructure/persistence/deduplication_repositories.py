@@ -128,6 +128,25 @@ class SqlAlchemyDeduplicationScanRepository:
         )
         await self._session.flush()
 
+    async def set_status(
+        self, organization_id: UUID, scan_id: UUID, status: DeduplicationScanStatus
+    ) -> DeduplicationScanRecord | None:
+        row = (
+            await self._session.execute(
+                select(DeduplicationScan)
+                .where(
+                    DeduplicationScan.organization_id == organization_id,
+                    DeduplicationScan.id == scan_id,
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return None
+        row.status = status.value
+        await self._session.flush()
+        return _scan(row)
+
 
 class SqlAlchemyDeduplicationCandidateRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -160,7 +179,7 @@ class SqlAlchemyDeduplicationCandidateRepository:
         limit: int,
     ) -> Sequence[DeduplicationCandidateRecord]:
         types = (record_type,) if record_type else tuple(DeduplicationRecordType)
-        result: list[DeduplicationCandidateRecord] = []
+        collected: list[DeduplicationCandidateRecord] = []
         for current_type in types:
             model = _candidate_model(current_type)
             stmt = select(model).where(
@@ -168,9 +187,17 @@ class SqlAlchemyDeduplicationCandidateRepository:
             )
             if status is not None:
                 stmt = stmt.where(model.status == status.value)
-            rows = (await self._session.execute(stmt.offset(offset).limit(limit))).scalars().all()
-            result.extend(_candidate(row, current_type) for row in rows)
-        return result
+            rows = (await self._session.execute(stmt)).scalars().all()
+            collected.extend(_candidate(row, current_type) for row in rows)
+        collected.sort(
+            key=lambda item: (
+                item.candidate.record_type.value,
+                item.candidate.left_id,
+                item.candidate.right_id,
+                item.id,
+            )
+        )
+        return collected[offset : offset + limit]
 
     async def save(self, candidate: DeduplicationCandidateRecord) -> None:
         row = await self._session.get(
@@ -306,6 +333,41 @@ class SqlAlchemyDeduplicationEventRepository:
             )
         )
         await self._session.flush()
+
+    async def list_history(
+        self, organization_id: UUID, *, offset: int, limit: int
+    ) -> Sequence[Mapping[str, object]]:
+        rows = (
+            (
+                await self._session.execute(
+                    select(DeduplicationEvent)
+                    .where(
+                        DeduplicationEvent.organization_id == organization_id,
+                        DeduplicationEvent.action.in_(("merge", "revert")),
+                    )
+                    .order_by(DeduplicationEvent.occurred_at.desc(), DeduplicationEvent.id.desc())
+                    .offset(offset)
+                    .limit(limit)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return [
+            {
+                "id": row.id,
+                "record_type": "account" if row.account_candidate_id else "contact",
+                "action": row.action,
+                "candidate_id": row.account_candidate_id or row.contact_candidate_id,
+                "related_event_id": row.related_event_id,
+                "alias_id": row.payload.get("alias_id"),
+                "canonical_id": row.payload.get("canonical_id"),
+                "reason_codes": tuple(row.payload.get("reason_codes", ())),
+                "actor_id": row.actor_id,
+                "occurred_at": row.occurred_at,
+            }
+            for row in rows
+        ]
 
 
 class SqlAlchemyCanonicalResolver:

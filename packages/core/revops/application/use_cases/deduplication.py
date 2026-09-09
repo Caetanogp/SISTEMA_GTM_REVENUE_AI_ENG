@@ -17,12 +17,14 @@ from revops.application.dto import (
 from revops.application.ports import (
     CanonicalRecordGroup,
     DeduplicationCandidateRecord,
+    DeduplicationDispatcher,
     DeduplicationUnitOfWorkFactory,
 )
 from revops.domain.entities.deduplication import (
     DeduplicationCandidateStatus,
     DeduplicationRecordType,
     DeduplicationScanState,
+    DeduplicationScanStatus,
     RecordAlias,
 )
 from revops.domain.errors import InvalidTransitionError
@@ -59,6 +61,7 @@ def _candidate_result(record: DeduplicationCandidateRecord) -> DeduplicationCand
 @dataclass(frozen=True, slots=True)
 class StartDeduplicationScan:
     factory: DeduplicationUnitOfWorkFactory
+    dispatcher: DeduplicationDispatcher | None = None
 
     async def execute(
         self,
@@ -76,24 +79,48 @@ class StartDeduplicationScan:
                     raise DeduplicationIdempotencyConflictError(
                         "idempotency key has different content"
                     )
-                return DeduplicationScanResult(
+                result = DeduplicationScanResult(
                     id=existing.id,
                     organization_id=organization_id,
                     record_types=tuple(existing_types),
                     status=existing.status,
                     replayed=True,
                 )
+                if self.dispatcher is not None and existing.status.value in {
+                    "queued",
+                    "queue_failed",
+                }:
+                    if existing.status.value == "queue_failed":
+                        await uow.scans.set_status(
+                            organization_id, existing.id, DeduplicationScanState().status
+                        )
+                        await uow.commit()
+                    await self.dispatcher.publish(
+                        organization_id=organization_id, scan_id=existing.id
+                    )
+                return result
             scan_id = uuid5(NAMESPACE_URL, f"dedupe-scan:{organization_id}:{idempotency_key}")
             await uow.scans.add(
                 organization_id, requested_by, scan_id, args.record_types, idempotency_key
             )
             await uow.commit()
-            return DeduplicationScanResult(
+            result = DeduplicationScanResult(
                 id=scan_id,
                 organization_id=organization_id,
                 record_types=tuple(args.record_types),
                 status=DeduplicationScanState().status,
             )
+            if self.dispatcher is not None:
+                try:
+                    await self.dispatcher.publish(organization_id=organization_id, scan_id=scan_id)
+                except Exception:
+                    async with self.factory() as failure_uow:
+                        await failure_uow.scans.set_status(
+                            organization_id, scan_id, DeduplicationScanStatus.QUEUE_FAILED
+                        )
+                        await failure_uow.commit()
+                    raise
+            return result
 
 
 @dataclass(frozen=True, slots=True)
