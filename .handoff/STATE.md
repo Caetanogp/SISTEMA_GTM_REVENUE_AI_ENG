@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-09-02
+updated_at: 2026-09-09
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "Item 7 architecture escalation required before API implementation."
+phase: "Item 7 architecture escalation exhausted; deliberate design pass required before implementation."
 status: architecture-required
 ---
 
@@ -16,13 +16,13 @@ an unattended loop.
 
 ## Now
 
-SPEC-003 Items 1-6 are complete. Item 7 is next and no Item 7 implementation has started. Its
-previous halt identified missing application/persistence contracts for stale merge validation,
-master/alias protection, and history pagination.
+SPEC-003 Items 1-6 are complete. Item 7 is next and no Item 7 implementation has started. The real
+pilot confirmed the executor correctly stops before implementation when application/persistence
+contracts are missing.
 
-Checkpoint commits `8ec1e0c` and `7f97b47` contain the supervisor, gate, launcher, policy, ADR,
-tests, and the current handoff. The branch is published, but the external baseline rollover and
-real Item 7 pilot have not been run.
+Commits `8ec1e0c` through `e1b4609` contain the bounded supervisor, gate, Windows launcher fixes,
+policy, ADR, tests, and pilot handoff evidence. The branch is not fully published after these
+local commits; no push was performed.
 
 The approved process change is implemented and committed: the economical Codex executor now
 returns structured outcomes; a clean `architecture_required` invokes separate read-only
@@ -56,10 +56,12 @@ temporary-directory fallback inside the checkout.
 
 ## Next
 
-1. Complete the bounded read-only architecture review for the Item 7 application/persistence
-   contracts before implementation resumes.
-2. Authorize an Item 7 scope overlay only if the review selects a dominant, spec-conformant design.
-3. Implement and test only the approved API and supporting-contract changes, then run the gate.
+1. Conduct a deliberate design pass for the three reviewer findings below and update SPEC-003
+   `plan.md` before any implementation or loop restart.
+2. Re-run the bounded architect/reviewer pilot only after the design decisions are recorded and
+   the reviewer can evaluate a materially revised plan.
+3. Authorize the exact Item 7 scope overlay only after approval, then implement and test the API
+   and supporting contracts before launching a long loop.
 
 ## Gotchas
 
@@ -128,3 +130,18 @@ The executor correctly returned `architecture_required` and committed handoff-on
 `0696c8b`. The architect process then rejected the Windows-locale prompt encoding before any
 architecture decision. The runner now explicitly uses UTF-8 for subprocess input and output; the
 pilot must resume from this clean checkpoint.
+
+## Pilot result (2026-09-09)
+
+The real pilot reached the executor, which returned `architecture_required` without Item 7 changes.
+The first architect plan was revised by the reviewer; the second plan was also rejected after the
+two-attempt limit. The supervisor then issued `HUMAN_REQUIRED` and stopped as designed.
+
+The deliberate design pass must resolve:
+
+- Shared-master concurrency: repeated absorption into the same established master may serialize and
+  succeed; competing demotion or alias reuse must produce one write and one `409`.
+- Lock/replay ordering: persisted-event replay reads are non-locking; only the revert target event
+  receives the ordered lock, avoiding event/alias deadlocks.
+- Scan request identity: canonicalize `record_types` to a deterministic enum order before strict
+  idempotency comparison, persistence, and publication.
