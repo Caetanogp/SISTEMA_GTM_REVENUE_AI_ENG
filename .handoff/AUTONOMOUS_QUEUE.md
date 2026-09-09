@@ -63,8 +63,11 @@ declared scope, and tick the mapped SPEC-003 checklist item only after their own
 
 ## Item 7 - Administrative deduplication API
 
-- **Scope:** `apps/api/`, `tests/unit/apps/`, `tests/integration/`
-- **Requires:** `apps/api/`, `tests/integration/`
+- **Scope:** `packages/core/revops/domain/policies/`, `packages/core/revops/application/`,
+  `packages/core/revops/infrastructure/persistence/`, `packages/core/revops/infrastructure/queue/`,
+  `apps/api/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
+- **Requires:** `packages/core/revops/application/`, `packages/core/revops/infrastructure/persistence/`,
+  `apps/api/`, `tests/unit/`, `tests/integration/`
 - **Closes:** 2 tasks.md checkboxes
 - **What:** add admin-only scan, status, candidate pagination, dismissal, merge, history, and
   revert routes with idempotency and HTTP error contracts.

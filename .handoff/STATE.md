@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-09-09
 branch: feature/SPEC-003-deduplication
 spec: SPEC-003-deduplication
-phase: "Item 7 architecture escalation exhausted; deliberate design pass required before implementation."
-status: architecture-required
+phase: "Item 7 implementation after approved deliberate design pass."
+status: in-progress
 ---
 
 # Current state
@@ -16,7 +16,8 @@ an unattended loop.
 
 ## Now
 
-SPEC-003 Items 1-6 are complete. Item 7 is next and no Item 7 implementation has started. The real
+SPEC-003 Items 1-6 are complete. Item 7 implementation is now authorized by the approved deliberate
+design pass; no Item 7 code has started yet. The real
 pilot confirmed the executor correctly stops before implementation when application/persistence
 contracts are missing.
 
@@ -137,7 +138,7 @@ The real pilot reached the executor, which returned `architecture_required` with
 The first architect plan was revised by the reviewer; the second plan was also rejected after the
 two-attempt limit. The supervisor then issued `HUMAN_REQUIRED` and stopped as designed.
 
-The deliberate design pass must resolve:
+The deliberate design pass resolved:
 
 - Shared-master concurrency: repeated absorption into the same established master may serialize and
   succeed; competing demotion or alias reuse must produce one write and one `409`.
@@ -145,3 +146,7 @@ The deliberate design pass must resolve:
   receives the ordered lock, avoiding event/alias deadlocks.
 - Scan request identity: canonicalize `record_types` to a deterministic enum order before strict
   idempotency comparison, persistence, and publication.
+
+The approved plan is recorded in `docs/specs/SPEC-003-deduplication/plan.md` and was tightened after
+an independent review in commits `330cbbf` and `246c8b4`. Item 7's queue scope now includes the
+application, domain policy, persistence, queue, API, worker, and test layers required by that plan.
