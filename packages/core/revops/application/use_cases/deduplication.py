@@ -10,9 +10,11 @@ from revops.application.dto import (
     CanonicalRecordResult,
     DeduplicationCandidateResult,
     DeduplicationDecisionResult,
+    DeduplicationHistoryResult,
     DeduplicationMergeResult,
     DeduplicationScanArgs,
     DeduplicationScanResult,
+    DeduplicationStatusResult,
 )
 from revops.application.ports import (
     CanonicalRecordGroup,
@@ -151,6 +153,62 @@ class ListDeduplicationCandidates:
                 limit=limit,
             )
             return tuple(_candidate_result(row) for row in rows)
+
+
+@dataclass(frozen=True, slots=True)
+class GetDeduplicationStatus:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(self, *, organization_id: UUID, scan_id: UUID) -> DeduplicationStatusResult:
+        async with self.factory() as uow:
+            scan = await uow.scans.get(organization_id, scan_id)
+            if scan is None:
+                raise DeduplicationNotFoundError("deduplication scan not found")
+            counts = await uow.candidates.counts(organization_id, scan_id)
+            return DeduplicationStatusResult(
+                DeduplicationScanResult(
+                    scan.id, scan.organization_id, scan.record_types, scan.status
+                ),
+                sum(counts.values()),
+                counts.get(DeduplicationCandidateStatus.PENDING, 0),
+                counts.get(DeduplicationCandidateStatus.DISMISSED, 0),
+                counts.get(DeduplicationCandidateStatus.MERGED, 0),
+                counts.get(DeduplicationCandidateStatus.STALE, 0),
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ListDeduplicationHistory:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self, *, organization_id: UUID, offset: int = 0, limit: int = 100
+    ) -> tuple[DeduplicationHistoryResult, ...]:
+        if offset < 0 or not 0 < limit <= 100:
+            raise ValueError("history pagination is out of bounds")
+        async with self.factory() as uow:
+            rows = await uow.events.list_history(organization_id, offset=offset, limit=limit)
+            return tuple(
+                DeduplicationHistoryResult(
+                    id=UUID(str(row["id"])),
+                    record_type=DeduplicationRecordType(str(row["record_type"])),
+                    action=str(row["action"]),
+                    candidate_id=UUID(str(row["candidate_id"]))
+                    if row.get("candidate_id")
+                    else None,
+                    related_event_id=UUID(str(row["related_event_id"]))
+                    if row.get("related_event_id")
+                    else None,
+                    alias_id=(UUID(str(row["alias_id"])) if row.get("alias_id") else None),
+                    canonical_id=UUID(str(row["canonical_id"]))
+                    if row.get("canonical_id")
+                    else None,
+                    reason_codes=tuple(str(value) for value in row.get("reason_codes", ())),
+                    actor_id=UUID(str(row["actor_id"])),
+                    occurred_at=row["occurred_at"],
+                )
+                for row in rows
+            )
 
 
 @dataclass(frozen=True, slots=True)

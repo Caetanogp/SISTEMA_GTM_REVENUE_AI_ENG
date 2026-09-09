@@ -8,6 +8,15 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from revops.application.ports import Clock, LLMGateway
+from revops.application.use_cases.deduplication import (
+    DismissDeduplicationCandidate,
+    GetDeduplicationStatus,
+    ListDeduplicationCandidates,
+    ListDeduplicationHistory,
+    MergeDeduplicationCandidate,
+    RevertDeduplicationMerge,
+    StartDeduplicationScan,
+)
 from revops.application.use_cases.ingestion import (
     ConfirmIngestion,
     GetIngestionJob,
@@ -20,7 +29,11 @@ from revops.infrastructure.agent.nodes import AgentGraphDependencies, UnitOfWork
 from revops.infrastructure.agent.runner import AgentGraphRunner
 from revops.infrastructure.persistence.repositories import SqlAlchemyAgentRunRepository
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
-from revops.infrastructure.queue import CeleryIngestionDispatcher, create_celery_app
+from revops.infrastructure.queue import (
+    CeleryDeduplicationDispatcher,
+    CeleryIngestionDispatcher,
+    create_celery_app,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .settings import ApiSettings
@@ -50,6 +63,31 @@ def ingestion_services(
         ConfirmIngestion(uow_factory, dispatcher),
         GetIngestionJob(uow_factory),
         ListIngestionItems(uow_factory),
+    )
+
+
+def deduplication_services(
+    *, uow_factory: Any, settings: ApiSettings
+) -> tuple[
+    StartDeduplicationScan,
+    GetDeduplicationStatus,
+    ListDeduplicationCandidates,
+    DismissDeduplicationCandidate,
+    MergeDeduplicationCandidate,
+    RevertDeduplicationMerge,
+    ListDeduplicationHistory,
+]:
+    dispatcher = CeleryDeduplicationDispatcher(
+        create_celery_app(broker_url=settings.broker_url, result_backend=settings.result_backend)
+    )
+    return (
+        StartDeduplicationScan(uow_factory, dispatcher),
+        GetDeduplicationStatus(uow_factory),
+        ListDeduplicationCandidates(uow_factory),
+        DismissDeduplicationCandidate(uow_factory),
+        MergeDeduplicationCandidate(uow_factory),
+        RevertDeduplicationMerge(uow_factory),
+        ListDeduplicationHistory(uow_factory),
     )
 
 

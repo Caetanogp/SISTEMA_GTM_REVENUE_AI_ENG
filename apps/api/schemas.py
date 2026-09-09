@@ -120,3 +120,76 @@ class IngestionJobResponse(BaseModel):
     items: list[IngestionItemResponse] | None = None
     replayed: bool = False
     published: bool | None = None
+
+
+class DeduplicationScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_types: tuple[str, ...] = Field(min_length=1)
+
+
+class DeduplicationScanResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    record_types: tuple[str, ...]
+    status: str
+    replayed: bool = False
+
+
+class DeduplicationStatusResponse(DeduplicationScanResponse):
+    total: int
+    pending: int
+    dismissed: int
+    merged: int
+    stale: int
+
+
+class DeduplicationCandidateResponse(BaseModel):
+    id: UUID
+    scan_id: UUID
+    organization_id: UUID
+    record_type: str
+    left_id: UUID
+    right_id: UUID
+    score: int
+    reasons: tuple[str, ...]
+    policy_version: str
+    status: str
+
+
+class DeduplicationDismissRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(pattern=r"^(not_duplicate|insufficient_evidence)$")
+
+
+class DeduplicationMergeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    master_record_id: UUID
+
+
+class DeduplicationDecisionResponse(BaseModel):
+    candidate_id: UUID
+    status: str
+    replayed: bool = False
+
+
+class DeduplicationMergeResponse(BaseModel):
+    event_id: UUID
+    alias_id: UUID
+    canonical_id: UUID
+    replayed: bool = False
+
+
+class DeduplicationHistoryResponse(BaseModel):
+    id: UUID
+    record_type: str
+    action: str
+    candidate_id: UUID | None
+    related_event_id: UUID | None
+    alias_id: UUID | None
+    canonical_id: UUID | None
+    reason_codes: tuple[str, ...]
+    actor_id: UUID
+    occurred_at: datetime

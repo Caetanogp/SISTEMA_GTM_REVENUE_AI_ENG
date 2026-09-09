@@ -362,6 +362,10 @@ class DeduplicationCandidateRepository(Protocol):
 
     async def save(self, candidate: DeduplicationCandidateRecord) -> None: ...
 
+    async def counts(
+        self, organization_id: UUID, scan_id: UUID
+    ) -> Mapping[DeduplicationCandidateStatus, int]: ...
+
 
 @runtime_checkable
 class DeduplicationAliasRepository(Protocol):

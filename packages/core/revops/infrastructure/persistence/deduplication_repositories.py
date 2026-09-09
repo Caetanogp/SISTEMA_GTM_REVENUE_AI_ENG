@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.ports import (
@@ -207,6 +207,22 @@ class SqlAlchemyDeduplicationCandidateRepository:
             raise LookupError("deduplication candidate not found")
         row.status = candidate.candidate.status.value
         await self._session.flush()
+
+    async def counts(
+        self, organization_id: UUID, scan_id: UUID
+    ) -> Mapping[DeduplicationCandidateStatus, int]:
+        result: dict[DeduplicationCandidateStatus, int] = {}
+        for record_type in DeduplicationRecordType:
+            model = _candidate_model(record_type)
+            rows = await self._session.execute(
+                select(model.status, func.count())
+                .where(model.organization_id == organization_id, model.scan_id == scan_id)
+                .group_by(model.status)
+            )
+            for value, count in rows:
+                status = DeduplicationCandidateStatus(value)
+                result[status] = result.get(status, 0) + int(count)
+        return result
 
 
 class SqlAlchemyDeduplicationAliasRepository:
