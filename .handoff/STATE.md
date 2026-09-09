@@ -16,8 +16,10 @@ an unattended loop.
 
 ## Now
 
-SPEC-003 Items 1-6 are complete. Item 7 implementation is now authorized by the approved deliberate
-design pass; no Item 7 code has started yet. The real
+SPEC-003 Items 1-6 are complete. Item 7 implementation is in progress after the approved deliberate
+design pass. The API composition, scan dispatch/read contracts, domain policy, alias metadata, and
+event-before-alias transaction ordering are implemented; concurrency revalidation and live
+PostgreSQL evidence remain open.
 pilot confirmed the executor correctly stops before implementation when application/persistence
 contracts are missing.
 
@@ -57,12 +59,12 @@ temporary-directory fallback inside the checkout.
 
 ## Next
 
-1. Conduct a deliberate design pass for the three reviewer findings below and update SPEC-003
-   `plan.md` before any implementation or loop restart.
-2. Re-run the bounded architect/reviewer pilot only after the design decisions are recorded and
-   the reviewer can evaluate a materially revised plan.
-3. Authorize the exact Item 7 scope overlay only after approval, then implement and test the API
-   and supporting contracts before launching a long loop.
+1. Complete merge/revert stale-fingerprint, lock-order, event-reservation, and shared-master
+   concurrency behavior required by the approved Item 7 design.
+2. Add and run real PostgreSQL API, persistence, and concurrency integration coverage with Docker
+   Desktop available; the current machine cannot connect to `dockerDesktopLinuxEngine`.
+3. Add adversarial coverage, tick the two Item 7 task boxes only after evidence exists, then run the
+   full `docs/playbooks/verify-before-done.md` procedure before considering a loop restart.
 
 ## Gotchas
 
@@ -150,3 +152,15 @@ The deliberate design pass resolved:
 The approved plan is recorded in `docs/specs/SPEC-003-deduplication/plan.md` and was tightened after
 an independent review in commits `330cbbf` and `246c8b4`. Item 7's queue scope now includes the
 application, domain policy, persistence, queue, API, worker, and test layers required by that plan.
+
+## Implementation observation (2026-09-09)
+
+Preparation commits `56c5e2c`, `7615ef6`, and `c648f78` aligned the queue, DTO/domain contracts,
+scan dispatch, and deterministic candidate pagination. API commits `b1ca39e`, `4cfcfd3`, and
+`eeb43d6` added admin-only scan, status, candidate, dismissal, merge, history, and revert routes;
+`0cd0039` corrected event-before-alias ordering for foreign-key-safe merge/revert transactions.
+Observed local evidence: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`,
+`python scripts/check_agent_docs.py`, and `pytest tests/unit -q` passed; 289 unit tests passed.
+`python scripts/autonomous_gate.py` reports Item 7 quality green but correctly refuses completion
+until its task checklist is ticked. The live integration command was not executable because Docker
+Desktop was unavailable, so no integration success is claimed.
