@@ -7,6 +7,7 @@ from typing import cast
 
 from fastapi import Request
 from revops.application.ports import (
+    DeduplicationUnitOfWork,
     DeduplicationUnitOfWorkFactory,
     IngestionUnitOfWork,
     IngestionUnitOfWorkFactory,
@@ -54,8 +55,11 @@ def ingestion_uow_factory(request: Request) -> IngestionUnitOfWorkFactory:
 def deduplication_uow_factory(request: Request) -> DeduplicationUnitOfWorkFactory:
     session_factory = request.app.state.session_factory
 
-    def factory() -> SqlAlchemyDeduplicationUnitOfWork:
-        return SqlAlchemyDeduplicationUnitOfWork(session_factory(), close_on_exit=True)
+    def factory() -> DeduplicationUnitOfWork:
+        return cast(
+            DeduplicationUnitOfWork,
+            SqlAlchemyDeduplicationUnitOfWork(session_factory(), close_on_exit=True),
+        )
 
     return factory
 

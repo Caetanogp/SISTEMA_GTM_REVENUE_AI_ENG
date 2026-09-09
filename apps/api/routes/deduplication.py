@@ -34,7 +34,7 @@ from apps.api.schemas import (
 router = APIRouter(prefix="/admin/deduplication", tags=["deduplication"])
 
 
-def _services(request: Request):
+def _services(request: Request) -> tuple[Any, ...]:
     return deduplication_services(
         uow_factory=deduplication_uow_factory(request), settings=request.app.state.settings
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from revops.application.dto import (
@@ -203,9 +204,12 @@ class ListDeduplicationHistory:
                     canonical_id=UUID(str(row["canonical_id"]))
                     if row.get("canonical_id")
                     else None,
-                    reason_codes=tuple(str(value) for value in row.get("reason_codes", ())),
+                    reason_codes=tuple(
+                        str(value)
+                        for value in cast(tuple[object, ...], row.get("reason_codes", ()))
+                    ),
                     actor_id=UUID(str(row["actor_id"])),
-                    occurred_at=row["occurred_at"],
+                    occurred_at=cast(datetime, row["occurred_at"]),
                 )
                 for row in rows
             )

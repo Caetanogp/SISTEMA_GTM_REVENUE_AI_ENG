@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -378,7 +378,9 @@ class SqlAlchemyDeduplicationEventRepository:
                 "related_event_id": row.related_event_id,
                 "alias_id": row.payload.get("alias_id"),
                 "canonical_id": row.payload.get("canonical_id"),
-                "reason_codes": tuple(row.payload.get("reason_codes", ())),
+                "reason_codes": tuple(
+                    cast(tuple[object, ...], row.payload.get("reason_codes", ()))
+                ),
                 "actor_id": row.actor_id,
                 "occurred_at": row.occurred_at,
             }
