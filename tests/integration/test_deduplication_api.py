@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from fastapi.routing import APIRoute
+
 from apps.api.main import app
 
 
@@ -9,7 +11,7 @@ def test_deduplication_routes_are_registered_at_admin_boundary() -> None:
     routes = {
         (method, route.path)
         for route in app.routes
-        if hasattr(route, "methods")
+        if isinstance(route, APIRoute)
         for method in route.methods
         if route.path.startswith("/admin/deduplication")
     }
