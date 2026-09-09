@@ -60,6 +60,39 @@ class MatchEvidence:
             raise ValueError("a match must include at least one reason")
 
 
+@dataclass(frozen=True, slots=True)
+class MergeEligibilityDecision:
+    eligible: bool
+    reason_code: str
+
+
+class MergeEligibilityPolicy:
+    """Pure policy for deciding whether a candidate can create an alias."""
+
+    def evaluate(
+        self,
+        *,
+        requested_master_id: UUID,
+        candidate_member_ids: tuple[UUID, UUID],
+        master_group: tuple[UUID, ...],
+        alias_group: tuple[UUID, ...],
+        active_alias_ids: frozenset[UUID],
+    ) -> MergeEligibilityDecision:
+        if requested_master_id not in candidate_member_ids:
+            return MergeEligibilityDecision(False, "master_not_candidate_member")
+        if requested_master_id not in master_group:
+            return MergeEligibilityDecision(False, "master_is_alias")
+        if active_alias_ids.intersection(candidate_member_ids):
+            return MergeEligibilityDecision(False, "record_already_has_active_alias")
+        if (
+            alias_group
+            and alias_group != (candidate_member_ids[0],)
+            and alias_group != (candidate_member_ids[1],)
+        ):
+            return MergeEligibilityDecision(False, "incompatible_established_group")
+        return MergeEligibilityDecision(True, "eligible")
+
+
 def match_accounts(left: Account, right: Account) -> MatchEvidence | None:
     reasons: list[tuple[str, int]] = []
     if left.domain == right.domain:

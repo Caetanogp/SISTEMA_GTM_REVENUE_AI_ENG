@@ -28,10 +28,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     Numeric,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -184,7 +186,13 @@ class AccountDeduplicationAlias(Base):
         ForeignKeyConstraint(
             ["organization_id", "canonical_id"], ["accounts.organization_id", "accounts.id"]
         ),
-        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_account_alias_source"),
+        Index(
+            "uq_dedupe_account_alias_source",
+            "organization_id",
+            "alias_id",
+            unique=True,
+            postgresql_where=text("reverted_at IS NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -208,7 +216,13 @@ class ContactDeduplicationAlias(Base):
         ForeignKeyConstraint(
             ["organization_id", "canonical_id"], ["contacts.organization_id", "contacts.id"]
         ),
-        UniqueConstraint("organization_id", "alias_id", name="uq_dedupe_contact_alias_source"),
+        Index(
+            "uq_dedupe_contact_alias_source",
+            "organization_id",
+            "alias_id",
+            unique=True,
+            postgresql_where=text("reverted_at IS NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
