@@ -345,9 +345,6 @@ class MergeDeduplicationCandidate:
                 event_id,
                 occurred_at,
             )
-            await uow.aliases.add(alias)
-            candidate.candidate.mark_merged()
-            await uow.candidates.save(candidate)
             await uow.events.add(
                 {
                     "id": str(event_id),
@@ -362,6 +359,9 @@ class MergeDeduplicationCandidate:
                     "occurred_at": occurred_at.isoformat(),
                 }
             )
+            await uow.aliases.add(alias)
+            candidate.candidate.mark_merged()
+            await uow.candidates.save(candidate)
             await uow.commit()
             return DeduplicationMergeResult(event_id, alias_id, master_record_id)
 
@@ -395,7 +395,6 @@ class RevertDeduplicationMerge:
                 alias.revert(occurred_at=occurred_at, reverted_by_event_id=event_id)
             except InvalidTransitionError as exc:
                 raise DeduplicationConflictError(str(exc)) from exc
-            await uow.aliases.save(alias)
             await uow.events.add(
                 {
                     "id": str(event_id),
@@ -407,6 +406,7 @@ class RevertDeduplicationMerge:
                     "occurred_at": occurred_at.isoformat(),
                 }
             )
+            await uow.aliases.save(alias)
             await uow.commit()
             return DeduplicationDecisionResult(merge_event_id, DeduplicationCandidateStatus.MERGED)
 
