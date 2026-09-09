@@ -169,7 +169,8 @@ def test_default_runner_sends_prompts_as_utf8(
         captured.update(kwargs)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr(cast(Any, supervisor.subprocess), "run", fake_run)
+    supervisor_module: Any = cast(Any, supervisor)
+    monkeypatch.setattr(supervisor_module.subprocess, "run", fake_run)
 
     prompt = "decis" + chr(0xE3) + "o arquitetural"
     supervisor.default_runner(["codex-test"], tmp_path, prompt, None, 60)
