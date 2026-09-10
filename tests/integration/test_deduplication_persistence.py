@@ -11,9 +11,10 @@ from uuid import UUID, uuid4
 import pytest
 from revops.domain.entities.deduplication import DeduplicationRecordType, RecordAlias
 from revops.domain.values.company_domain import CompanyDomain
-from revops.infrastructure.persistence.models import Account, Organization, User
+from revops.infrastructure.persistence.models import Account, DeduplicationEvent, Organization, User
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest.fixture(scope="session")
@@ -135,3 +136,50 @@ async def test_deduplication_repositories_round_trip_and_isolate_tenants(
     assert event is not None
     assert event["reason_code"] == "admin_reviewed"
     assert await uow.events.get_by_idempotency_key(other_organization_id, "merge-key") is None
+
+
+async def test_event_reservation_is_atomic_across_concurrent_sessions(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    organization_id, actor_id = uuid4(), uuid4()
+    event_id = uuid4()
+    event = {
+        "id": str(event_id),
+        "organization_id": str(organization_id),
+        "action": "dismiss",
+        "idempotency_key": f"concurrent-{event_id}",
+        "actor_id": str(actor_id),
+        "occurred_at": datetime.now(UTC).isoformat(),
+    }
+    async with sessions() as session:
+        session.add(Organization(id=organization_id, name="Concurrent dedupe", demo_mode=True))
+        session.add(
+            User(
+                id=actor_id,
+                organization_id=organization_id,
+                email=f"{actor_id}@example.test",
+                role="admin",
+            )
+        )
+        await session.commit()
+
+    async def reserve() -> dict[str, object]:
+        async with sessions() as session:
+            result = await SqlAlchemyDeduplicationUnitOfWork(session).events.add_if_absent(event)
+            await session.commit()
+            return dict(result)
+
+    try:
+        first, second = await asyncio.gather(reserve(), reserve())
+        assert first["id"] == second["id"] == str(event_id)
+    finally:
+        async with sessions() as session:
+            await session.execute(
+                delete(DeduplicationEvent).where(
+                    DeduplicationEvent.organization_id == organization_id
+                )
+            )
+            await session.execute(delete(User).where(User.id == actor_id))
+            await session.execute(delete(Organization).where(Organization.id == organization_id))
+            await session.commit()
+        await engine.dispose()

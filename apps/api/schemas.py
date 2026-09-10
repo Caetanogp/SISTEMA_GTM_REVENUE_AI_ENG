@@ -183,6 +183,8 @@ class DeduplicationMergeResponse(BaseModel):
 
 
 class DeduplicationHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: UUID
     record_type: str
     action: str
