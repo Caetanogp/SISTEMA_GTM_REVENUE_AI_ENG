@@ -178,3 +178,11 @@ uniqueness errors from reaching the API. Focused deduplication integration passe
 against `revops_codex_spec003`; four existing deduplication use-case tests also passed. This is
 still an intermediate checkpoint: merge/revert fingerprint revalidation, deterministic group locks,
 and full `MergeEligibilityPolicy` orchestration are not yet complete.
+
+The subsequent transaction pass completed locked canonical resolution, owning-account locks for
+contact decisions, current fingerprint revalidation, and `MergeEligibilityPolicy` orchestration.
+Merge and revert now reserve events before alias mutation. Observed complete local checks after this
+pass: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, `pytest tests/unit -q`
+(`289 passed`), and isolated `pytest tests/integration -q` (`24 passed`, three existing ingestion
+connection-cleanup warnings). The remaining closeout evidence is explicit concurrent/adversarial
+coverage and acceptance-criteria mapping; Item 7 remains unticked and no long loop is authorized.
