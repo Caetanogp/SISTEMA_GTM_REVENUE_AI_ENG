@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from revops.application.dto import (
@@ -43,6 +43,25 @@ class DeduplicationIdempotencyConflictError(Exception):
 
 class DeduplicationConflictError(Exception):
     """The requested decision is stale or violates alias policy."""
+
+
+async def _reserve_event(uow: Any, event: dict[str, object]) -> dict[str, object]:
+    reserve = getattr(uow.events, "add_if_absent", None)
+    if reserve is not None:
+        return dict(await reserve(event))
+    prior = await uow.events.get_by_idempotency_key(
+        UUID(str(event["organization_id"])), str(event["idempotency_key"])
+    )
+    if prior is not None:
+        return dict(prior)
+    await uow.events.add(event)
+    return event
+
+
+def _check_reserved_event(winner: dict[str, object], *, candidate_id: UUID, action: str) -> bool:
+    if winner.get("candidate_id") != str(candidate_id) or winner.get("action") != action:
+        raise DeduplicationIdempotencyConflictError("idempotency key has different content")
+    return winner.get("idempotency_key") is not None
 
 
 def _candidate_result(record: DeduplicationCandidateRecord) -> DeduplicationCandidateResult:
@@ -235,13 +254,7 @@ class DismissDeduplicationCandidate:
         async with self.factory() as uow:
             prior = await uow.events.get_by_idempotency_key(organization_id, idempotency_key)
             if prior is not None:
-                if (
-                    prior.get("candidate_id") != str(candidate_id)
-                    or prior.get("action") != "dismiss"
-                ):
-                    raise DeduplicationIdempotencyConflictError(
-                        "idempotency key has different content"
-                    )
+                _check_reserved_event(prior, candidate_id=candidate_id, action="dismiss")
                 return DeduplicationDecisionResult(
                     candidate_id, DeduplicationCandidateStatus.DISMISSED, True
                 )
@@ -250,26 +263,30 @@ class DismissDeduplicationCandidate:
                 raise DeduplicationNotFoundError("deduplication candidate not found")
             if reason not in {"not_duplicate", "insufficient_evidence"}:
                 raise ValueError("unsupported dismissal reason")
+            event = {
+                "id": str(
+                    uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
+                ),
+                "organization_id": str(organization_id),
+                "candidate_id": str(candidate_id),
+                "record_type": candidate.candidate.record_type.value,
+                "action": "dismiss",
+                "idempotency_key": idempotency_key,
+                "reason": reason,
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, cast(dict[str, object], event))
+            _check_reserved_event(winner, candidate_id=candidate_id, action="dismiss")
+            if winner.get("id") != event["id"]:
+                return DeduplicationDecisionResult(
+                    candidate_id, DeduplicationCandidateStatus.DISMISSED, True
+                )
             try:
                 candidate.candidate.dismiss()
             except InvalidTransitionError as exc:
                 raise DeduplicationConflictError(str(exc)) from exc
             await uow.candidates.save(candidate)
-            await uow.events.add(
-                {
-                    "id": str(
-                        uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
-                    ),
-                    "organization_id": str(organization_id),
-                    "candidate_id": str(candidate_id),
-                    "record_type": candidate.candidate.record_type.value,
-                    "action": "dismiss",
-                    "idempotency_key": idempotency_key,
-                    "reason": reason,
-                    "actor_id": str(actor_id),
-                    "occurred_at": occurred_at.isoformat(),
-                }
-            )
             await uow.commit()
             return DeduplicationDecisionResult(candidate_id, candidate.candidate.status)
 
