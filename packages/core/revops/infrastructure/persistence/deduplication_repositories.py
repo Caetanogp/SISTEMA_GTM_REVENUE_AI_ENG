@@ -8,6 +8,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.ports import (
@@ -349,6 +350,48 @@ class SqlAlchemyDeduplicationEventRepository:
             )
         )
         await self._session.flush()
+
+    async def add_if_absent(self, event: Mapping[str, object]) -> Mapping[str, object]:
+        candidate_id = UUID(str(event["candidate_id"])) if event.get("candidate_id") else None
+        record_type = str(event.get("record_type", ""))
+        values = {
+            "id": UUID(str(event["id"])),
+            "organization_id": UUID(str(event["organization_id"])),
+            "idempotency_key": str(event["idempotency_key"]),
+            "account_candidate_id": candidate_id if record_type == "account" else None,
+            "contact_candidate_id": candidate_id if record_type == "contact" else None,
+            "related_event_id": UUID(str(event["related_event_id"]))
+            if event.get("related_event_id")
+            else None,
+            "action": str(event["action"]),
+            "actor_id": UUID(str(event["actor_id"])),
+            "payload": dict(event),
+            "occurred_at": datetime.fromisoformat(str(event["occurred_at"])),
+        }
+        statement = (
+            insert(DeduplicationEvent)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["organization_id", "idempotency_key"])
+        )
+        await self._session.execute(statement)
+        row = await self._session.scalar(
+            select(DeduplicationEvent).where(
+                DeduplicationEvent.organization_id == values["organization_id"],
+                DeduplicationEvent.idempotency_key == values["idempotency_key"],
+            )
+        )
+        if row is None:
+            raise LookupError("reserved deduplication event disappeared")
+        return {
+            "id": str(row.id),
+            "event_id": str(row.id),
+            "organization_id": str(row.organization_id),
+            "candidate_id": str(row.account_candidate_id or row.contact_candidate_id)
+            if (row.account_candidate_id or row.contact_candidate_id)
+            else None,
+            "action": row.action,
+            **row.payload,
+        }
 
     async def list_history(
         self, organization_id: UUID, *, offset: int, limit: int
