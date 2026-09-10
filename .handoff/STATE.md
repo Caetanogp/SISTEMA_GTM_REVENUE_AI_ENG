@@ -186,3 +186,10 @@ pass: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, `pytest
 (`289 passed`), and isolated `pytest tests/integration -q` (`24 passed`, three existing ingestion
 connection-cleanup warnings). The remaining closeout evidence is explicit concurrent/adversarial
 coverage and acceptance-criteria mapping; Item 7 remains unticked and no long loop is authorized.
+
+Closeout coverage was extended with an isolated two-session event-reservation race and adversarial
+validation for invalid record types, duplicate inputs, and payload/idempotency-key disclosure.
+Observed evidence: `pytest tests/adversarial -q` passed (`8 passed`) and the focused persistence
+integration passed (`2 passed`) against `revops_codex_spec003`. The Item 7 checklist remains unticked
+because end-to-end API authorization, pagination/replay, stale decision, and review-to-revert tests
+still need to be added and observed before the full verify-before-done run.
