@@ -11,7 +11,7 @@ from apps.api.schemas import DeduplicationHistoryResponse
 
 
 def test_scan_input_rejects_unknown_values_and_duplicate_types() -> None:
-    with pytest.raises(ValueError, match="not a valid"):
+    with pytest.raises(ValueError, match="Input should be"):
         DeduplicationScanArgs(record_types=("organization",))
     with pytest.raises(ValidationError):
         DeduplicationScanArgs(
