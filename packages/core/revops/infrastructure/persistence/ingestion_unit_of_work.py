@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from types import TracebackType
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.ports import (
     AccountEnrichmentRepository,
+    CanonicalResolver,
     IngestionAccountRepository,
     IngestionContactRepository,
     IngestionItemRepository,
     IngestionJobRepository,
 )
+from revops.infrastructure.persistence.deduplication_repositories import SqlAlchemyCanonicalResolver
 from revops.infrastructure.persistence.ingestion_repositories import (
     SqlAlchemyAccountEnrichmentRepository,
     SqlAlchemyIngestionAccountRepository,
@@ -37,6 +40,9 @@ class SqlAlchemyIngestionUnitOfWork:
         self.accounts = SqlAlchemyIngestionAccountRepository(session)
         self.contacts = SqlAlchemyIngestionContactRepository(session)
         self.enrichments = SqlAlchemyAccountEnrichmentRepository(session)
+        self.canonical: CanonicalResolver | None = cast(
+            CanonicalResolver, SqlAlchemyCanonicalResolver(session)
+        )
 
     async def __aenter__(self) -> SqlAlchemyIngestionUnitOfWork:
         return self

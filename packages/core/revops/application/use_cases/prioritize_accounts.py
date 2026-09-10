@@ -12,7 +12,13 @@ from uuid import UUID
 
 from revops.application.context.builder import ContextBuilder
 from revops.application.dto import AccountCandidate, ContextSectionSnapshot
-from revops.application.ports import AccountRepository, Clock
+from revops.application.ports import (
+    AccountRepository,
+    CanonicalRecordGroup,
+    CanonicalResolver,
+    Clock,
+)
+from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.policies.prioritization import prioritize_account
@@ -25,6 +31,7 @@ class PrioritizeAccounts:
 
     accounts: AccountRepository
     clock: Clock
+    canonical: CanonicalResolver | None = None
     context_builder: ContextBuilder = field(default_factory=ContextBuilder)
 
     async def execute(
@@ -39,13 +46,34 @@ class PrioritizeAccounts:
         ]
         scored = []
         for account in accounts:
-            interactions = await self.accounts.list_interactions(organization_id, account.id)
-            opportunities = await self.accounts.list_open_opportunities(organization_id, account.id)
+            group = (
+                await self.canonical.resolve(
+                    organization_id, DeduplicationRecordType.ACCOUNT, account.id
+                )
+                if self.canonical is not None
+                else CanonicalRecordGroup(account.id, (account.id,))
+            )
+            if group is None:
+                continue
+            if group.canonical_id != account.id:
+                continue
+            if self.canonical is None:
+                interactions = await self.accounts.list_interactions(organization_id, account.id)
+                opportunities = await self.accounts.list_open_opportunities(
+                    organization_id, account.id
+                )
+            else:
+                interactions = await self.accounts.list_interactions(
+                    organization_id, group.member_ids
+                )
+                opportunities = await self.accounts.list_open_opportunities(
+                    organization_id, group.member_ids
+                )
             score, evidence = prioritize_account(list(interactions), list(opportunities), now)
             scored.append(
                 (
                     score.value,
-                    account.id,
+                    group.canonical_id,
                     account.company_name,
                     list(interactions),
                     list(opportunities),

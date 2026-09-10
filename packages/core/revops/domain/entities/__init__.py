@@ -2,6 +2,14 @@
 
 from revops.domain.entities.account import Account
 from revops.domain.entities.contact import Contact
+from revops.domain.entities.deduplication import (
+    DeduplicationCandidate,
+    DeduplicationCandidateStatus,
+    DeduplicationRecordType,
+    DeduplicationScanState,
+    DeduplicationScanStatus,
+    RecordAlias,
+)
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
@@ -22,6 +30,11 @@ __all__ = [
     "AccountOutcome",
     "Contact",
     "ContactOutcome",
+    "DeduplicationCandidate",
+    "DeduplicationCandidateStatus",
+    "DeduplicationRecordType",
+    "DeduplicationScanState",
+    "DeduplicationScanStatus",
     "EnrichmentOutcome",
     "IngestionItemState",
     "IngestionItemStatus",
@@ -31,6 +44,7 @@ __all__ = [
     "Opportunity",
     "OpportunityStage",
     "Organization",
+    "RecordAlias",
     "Task",
     "TaskStatus",
     "User",

@@ -11,10 +11,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from revops.domain.entities.deduplication import (
+    DeduplicationCandidateStatus,
+    DeduplicationRecordType,
+    DeduplicationScanStatus,
+)
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
@@ -23,6 +29,108 @@ from revops.domain.entities.ingestion import (
     IngestionJobStatus,
 )
 from revops.domain.values.score import ScoreTier
+
+
+class DeduplicationScanArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_types: tuple[DeduplicationRecordType, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _canonicalize_record_types(self) -> Self:
+        values = tuple(self.record_types)
+        if len(set(values)) != len(values):
+            raise ValueError("record_types must not contain duplicates")
+        order = {value: index for index, value in enumerate(DeduplicationRecordType)}
+        object.__setattr__(self, "record_types", tuple(sorted(values, key=order.__getitem__)))
+        return self
+
+
+class DismissCandidateArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(pattern=r"^(not_duplicate|insufficient_evidence)$")
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationScanResult:
+    id: UUID
+    organization_id: UUID
+    record_types: tuple[DeduplicationRecordType, ...]
+    status: DeduplicationScanStatus
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationCandidateResult:
+    id: UUID
+    scan_id: UUID
+    organization_id: UUID
+    record_type: DeduplicationRecordType
+    left_id: UUID
+    right_id: UUID
+    score: int
+    reasons: tuple[str, ...]
+    policy_version: str
+    status: DeduplicationCandidateStatus
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationDecisionResult:
+    candidate_id: UUID
+    status: DeduplicationCandidateStatus
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalRecordResult:
+    record_type: DeduplicationRecordType
+    requested_id: UUID
+    canonical_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationMergeResult:
+    event_id: UUID
+    alias_id: UUID
+    canonical_id: UUID
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationStatusResult:
+    scan: DeduplicationScanResult
+    total: int
+    pending: int
+    dismissed: int
+    merged: int
+    stale: int
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationRecordSummary:
+    record_type: DeduplicationRecordType
+    id: UUID
+    account_id: UUID | None = None
+    company_name: str | None = None
+    domain: str | None = None
+    full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DeduplicationHistoryResult:
+    id: UUID
+    record_type: DeduplicationRecordType
+    action: str
+    candidate_id: UUID | None
+    related_event_id: UUID | None
+    alias_id: UUID | None
+    canonical_id: UUID | None
+    reason_codes: tuple[str, ...]
+    actor_id: UUID
+    occurred_at: datetime
 
 
 class CreateTaskArgs(BaseModel):
@@ -133,6 +241,7 @@ class IngestionRecordInput(BaseModel):
     email: str | None = None
     full_name: str | None = None
     title: str | None = None
+    phone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +253,7 @@ class CanonicalIngestionRecord:
     email: str | None
     full_name: str | None
     title: str | None
+    phone: str | None = None
 
     @property
     def has_contact(self) -> bool:

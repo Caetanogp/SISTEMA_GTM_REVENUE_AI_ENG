@@ -132,6 +132,7 @@ async def load_context(state: AgentGraphState, deps: AgentGraphDependencies) -> 
         candidates = await PrioritizeAccounts(
             accounts=uow.accounts,
             clock=deps.clock,
+            canonical=getattr(uow, "canonical", None),
         ).execute(organization_id, token_budget=state.get("token_budget", deps.token_budget))
     return {
         "candidates": [candidate.model_dump(mode="json") for candidate in candidates],
@@ -199,6 +200,7 @@ async def execute_action(state: AgentGraphState, deps: AgentGraphDependencies) -
             audit=uow.audit,
             approvals=uow.approvals,
             clock=deps.clock,
+            canonical=getattr(uow, "canonical", None),
         )
         if decision.decision == ApprovalDecisionType.APPROVE:
             task = await decide.approve(pending, organization_id=organization_id, actor_id=actor_id)

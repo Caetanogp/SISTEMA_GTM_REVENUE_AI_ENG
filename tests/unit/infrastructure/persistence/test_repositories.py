@@ -18,6 +18,7 @@ from revops.application.ports import (
     AgentRunRepository,
     ApprovalRepository,
     AuditTrail,
+    DeduplicationUnitOfWork,
     TaskRepository,
     UnitOfWork,
 )
@@ -29,7 +30,10 @@ from revops.infrastructure.persistence.repositories import (
     SqlAlchemyAuditTrail,
     SqlAlchemyTaskRepository,
 )
-from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
+from revops.infrastructure.persistence.unit_of_work import (
+    SqlAlchemyDeduplicationUnitOfWork,
+    SqlAlchemyUnitOfWork,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -70,6 +74,20 @@ def test_sql_alchemy_audit_trail_satisfies_the_protocol_structurally() -> None:
 
 def test_sql_alchemy_unit_of_work_satisfies_the_protocol_structurally() -> None:
     assert isinstance(SqlAlchemyUnitOfWork(_mock_session()), UnitOfWork)
+
+
+def test_sql_alchemy_deduplication_unit_of_work_satisfies_the_protocol_structurally() -> None:
+    assert isinstance(SqlAlchemyDeduplicationUnitOfWork(_mock_session()), DeduplicationUnitOfWork)
+
+
+def test_deduplication_unit_of_work_shares_one_session_across_all_ports() -> None:
+    session = _mock_session()
+    uow = SqlAlchemyDeduplicationUnitOfWork(session)
+    assert uow.scans._session is session
+    assert uow.candidates._session is session
+    assert uow.aliases._session is session
+    assert uow.events._session is session
+    assert uow.resolver._session is session
 
 
 def test_unit_of_work_shares_one_session_across_all_three_ports() -> None:

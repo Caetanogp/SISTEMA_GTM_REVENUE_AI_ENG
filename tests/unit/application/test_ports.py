@@ -6,7 +6,7 @@ since that is what lets infrastructure implement these without a dependency poin
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from types import TracebackType
 from uuid import UUID
@@ -51,11 +51,13 @@ class _FakeAccountRepository:
     async def list_for_organization(self, organization_id: UUID) -> list[Account]:
         return []
 
-    async def list_interactions(self, organization_id: UUID, account_id: UUID) -> list[Interaction]:
+    async def list_interactions(
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
+    ) -> list[Interaction]:
         return []
 
     async def list_open_opportunities(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> list[Opportunity]:
         return []
 
@@ -132,6 +134,7 @@ class _FakeUnitOfWork:
     audit: AuditTrail
     approvals: ApprovalRepository
     runs: AgentRunRepository
+    canonical: object | None
 
     def __init__(self) -> None:
         self.accounts = _FakeAccountRepository()
@@ -139,6 +142,7 @@ class _FakeUnitOfWork:
         self.audit = _FakeAuditTrail()
         self.approvals = _FakeApprovalRepository()
         self.runs = _FakeAgentRunRepository()
+        self.canonical = object()
 
     async def __aenter__(self) -> _FakeUnitOfWork:
         return self

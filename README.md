@@ -118,6 +118,31 @@ poll `GET /admin/ingestion/{job_id}` and `GET /admin/ingestion/{job_id}/items?of
 The worker processes confirmed jobs through Celery with tenant-scoped, idempotent writes and
 deterministic synthetic enrichment.
 
+## Reviewing deduplication candidates
+
+SPEC-003 provides admin-only, asynchronous account/contact deduplication. Run migrations and start
+Postgres and Redis, then submit a bounded scan with an idempotency key:
+
+```bash
+curl -s -X POST localhost:8000/admin/deduplication/scans \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Idempotency-Key: <dedupe-example-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"record_types":["account","contact"]}'
+```
+
+Poll `GET /admin/deduplication/scans/{scan_id}` until it is `completed`, then review
+`GET /admin/deduplication/scans/{scan_id}/candidates?offset=0&limit=100`. Approve one candidate
+with `POST /admin/deduplication/candidates/{candidate_id}/merge` and an `Idempotency-Key`, or
+dismiss it with `POST /admin/deduplication/candidates/{candidate_id}/dismiss`. Review
+`GET /admin/deduplication/merges`; revert an active merge with
+`POST /admin/deduplication/merges/{merge_event_id}/revert` and a new idempotency key.
+
+Merges are logical aliases: source rows and historical foreign keys are never deleted or moved.
+Every decision is tenant-scoped, admin-only, fingerprint-revalidated, and recorded without raw PII.
+Stale or conflicting decisions return `409`; a broker failure leaves the scan observable as
+`queue_failed` for an idempotent retry. See [ADR-0008](docs/decisions/ADR-0008-logical-deduplication-merge-and-revert.md).
+
 **One honest gap:** this slice ships `FakeLLMGateway` for tests, not a production LLM provider
 adapter — `apps/api/dependencies.py`'s `default_llm_gateway()` returns an `UnconfiguredLLMGateway`,
 so a freshly-started API's `POST /agent/runs` returns `503` at the reasoning step until a real

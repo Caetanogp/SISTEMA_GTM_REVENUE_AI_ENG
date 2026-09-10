@@ -19,6 +19,7 @@ from revops.application.dto import (
     StageIngestionResult,
 )
 from revops.application.ports import (
+    CanonicalRecordGroup,
     Clock,
     EnrichmentGateway,
     EnrichmentGatewayError,
@@ -27,6 +28,7 @@ from revops.application.ports import (
 )
 from revops.domain.entities.account import Account
 from revops.domain.entities.contact import Contact
+from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.entities.ingestion import (
     AccountOutcome,
     ContactOutcome,
@@ -38,6 +40,7 @@ from revops.domain.entities.ingestion import (
 from revops.domain.errors import PolicyViolationError
 from revops.domain.values.company_domain import CompanyDomain
 from revops.domain.values.email import EmailAddress
+from revops.domain.values.phone import PhoneNumber
 
 _MAX_TEXT_LENGTH: Final = 512
 _MAX_SOURCE_LENGTH: Final = 128
@@ -66,6 +69,7 @@ def _canonicalize(row_number: int, input_row: IngestionRecordInput) -> StagedIng
         "email": _trim(input_row.email),
         "full_name": _trim(input_row.full_name),
         "title": _trim(input_row.title),
+        "phone": _trim(input_row.phone),
     }
     errors: list[str] = []
     for field, value in values.items():
@@ -77,7 +81,7 @@ def _canonicalize(row_number: int, input_row: IngestionRecordInput) -> StagedIng
         errors.append("domain_required")
 
     has_any_contact_field = any(
-        values[field] is not None for field in ("email", "full_name", "title")
+        values[field] is not None for field in ("email", "full_name", "title", "phone")
     )
     if has_any_contact_field and values["email"] is None:
         errors.append("email_required")
@@ -98,6 +102,13 @@ def _canonicalize(row_number: int, input_row: IngestionRecordInput) -> StagedIng
         except PolicyViolationError:
             errors.append("email_invalid")
 
+    normalized_phone: str | None = None
+    if values["phone"] is not None and "phone_too_long" not in errors:
+        try:
+            normalized_phone = PhoneNumber(values["phone"]).value
+        except PolicyViolationError:
+            errors.append("invalid_phone")
+
     record = None
     if not errors:
         company_name = values["company_name"]
@@ -109,6 +120,7 @@ def _canonicalize(row_number: int, input_row: IngestionRecordInput) -> StagedIng
             email=normalized_email,
             full_name=values["full_name"],
             title=values["title"],
+            phone=normalized_phone,
         )
     has_contact = values["email"] is not None
     return StagedIngestionItem(
@@ -176,6 +188,7 @@ def _content_hash(source: str, items: list[StagedIngestionItem]) -> str:
                 "email": item.record.email if item.record else None,
                 "full_name": item.record.full_name if item.record else None,
                 "title": item.record.title if item.record else None,
+                "phone": item.record.phone if item.record else None,
                 "validation_codes": item.validation_codes,
             }
             for item in items
@@ -352,6 +365,21 @@ class ProcessIngestionJob:
                     created_at=now,
                 )
             )
+            canonical = getattr(uow, "canonical", None)
+            account_group = (
+                await canonical.resolve_for_write(
+                    organization_id, DeduplicationRecordType.ACCOUNT, account_result.value.id
+                )
+                if canonical is not None
+                else None
+            )
+            if canonical is None:
+                account_group = CanonicalRecordGroup(
+                    account_result.value.id, (account_result.value.id,)
+                )
+            if account_group is None:
+                raise PolicyViolationError("account is unavailable")
+            canonical_account_id = account_group.canonical_id
 
             contact_results: dict[int, tuple[UUID, bool]] = {}
             for item in items:
@@ -364,13 +392,26 @@ class ProcessIngestionJob:
                     Contact(
                         id=uuid4(),
                         organization_id=organization_id,
-                        account_id=account_result.value.id,
+                        account_id=canonical_account_id,
                         email=EmailAddress(record.email),
                         full_name=record.full_name,
                         title=record.title or "",
+                        phone=PhoneNumber(record.phone) if record.phone else None,
                     )
                 )
-                contact_results[item.row_number] = (result.value.id, result.created)
+                contact_group = (
+                    await canonical.resolve_for_write(
+                        organization_id, DeduplicationRecordType.CONTACT, result.value.id
+                    )
+                    if canonical is not None
+                    else CanonicalRecordGroup(result.value.id, (result.value.id,))
+                )
+                if contact_group is None:
+                    raise PolicyViolationError("contact is unavailable")
+                contact_results[item.row_number] = (
+                    contact_group.canonical_id,
+                    result.created,
+                )
 
             enrichment_id: UUID | None = None
             enrichment_outcome = EnrichmentOutcome.CREATED
@@ -381,7 +422,7 @@ class ProcessIngestionJob:
                         id=uuid4(),
                         ingestion_job_id=job_id,
                         organization_id=organization_id,
-                        account_id=account_result.value.id,
+                        account_id=canonical_account_id,
                         profile=profile,
                         created_at=now,
                     )
@@ -418,7 +459,7 @@ class ProcessIngestionJob:
                         account_outcome=state.account_outcome,
                         contact_outcome=state.contact_outcome,
                         enrichment_outcome=state.enrichment_outcome,
-                        account_id=account_result.value.id,
+                        account_id=canonical_account_id,
                         contact_id=contact_id,
                         enrichment_id=enrichment_id,
                     ),

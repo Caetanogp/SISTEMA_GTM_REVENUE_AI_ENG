@@ -17,8 +17,8 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 | Spec | Phase | One-liner | Status |
 |---|---|---|---|
 | [SPEC-001](SPEC-001-vertical-slice-account-prioritization/) | 1 | Vertical slice: NL request -> CRM context -> read tool -> reasoning -> proposed action -> HITL -> write tool -> audit trail | done, merged into develop |
-| [SPEC-002](SPEC-002-lead-account-ingestion/) | 1 | CSV/JSON import with async synthetic enrichment | in progress |
-| SPEC-003-deduplication | 1 | normalize -> match -> merge -> master record -> preserve history, for contacts and accounts | not started |
+| [SPEC-002](SPEC-002-lead-account-ingestion/) | 1 | CSV/JSON import with async synthetic enrichment | done, merged into develop |
+| [SPEC-003](SPEC-003-deduplication/) | 1 | normalize -> match -> merge -> master record -> preserve history, for contacts and accounts | agreed |
 | SPEC-004-core-tools-reply-intelligence | 1 | Remaining read/write tools from the risk matrix (`search_accounts`, `get_pipeline_metrics`, `prepare_followup`) + structured reply classification | not started |
 | SPEC-005-frontend-crm-assistant | 1 | Next.js CRM, AI Assistant (SSE streaming), Agent Activity and HITL approval screens | not started |
 | SPEC-006-rag-ingestion | 2 | pgvector + versioned ingestion for ICP, product docs, playbooks, brand voice | not started |

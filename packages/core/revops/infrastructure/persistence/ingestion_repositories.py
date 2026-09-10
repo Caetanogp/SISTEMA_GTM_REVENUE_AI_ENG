@@ -30,6 +30,7 @@ from revops.domain.entities.ingestion import (
 )
 from revops.domain.values.company_domain import CompanyDomain
 from revops.domain.values.email import EmailAddress
+from revops.domain.values.phone import PhoneNumber
 from revops.infrastructure.persistence.models import Account as AccountModel
 from revops.infrastructure.persistence.models import AccountEnrichment as AccountEnrichmentModel
 from revops.infrastructure.persistence.models import Contact as ContactModel
@@ -47,6 +48,7 @@ def _item(row: IngestionItemModel) -> StagedIngestionItem:
             email=row.email,
             full_name=row.full_name,
             title=row.title,
+            phone=row.phone,
         )
     )
     return StagedIngestionItem(
@@ -81,6 +83,7 @@ def _contact(row: ContactModel) -> Contact:
         email=EmailAddress(row.email),
         full_name=row.full_name,
         title=row.title,
+        phone=PhoneNumber(row.phone) if row.phone else None,
     )
 
 
@@ -216,6 +219,7 @@ class SqlAlchemyIngestionItemRepository:
                     email=item.record.email if item.record else None,
                     full_name=item.record.full_name if item.record else None,
                     title=item.record.title if item.record else None,
+                    phone=item.record.phone if item.record else None,
                     validation_codes=list(item.validation_codes),
                     status=item.status.value,
                     account_outcome=item.account_outcome.value,
@@ -394,6 +398,7 @@ class SqlAlchemyIngestionContactRepository:
                     email=contact.email.value,
                     full_name=contact.full_name,
                     title=contact.title,
+                    phone=contact.phone.value if contact.phone else None,
                 )
                 .on_conflict_do_nothing(index_elements=["organization_id", "email"])
                 .returning(ContactModel)

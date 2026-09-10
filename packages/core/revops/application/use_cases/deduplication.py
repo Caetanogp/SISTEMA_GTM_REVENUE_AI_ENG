@@ -1,0 +1,496 @@
+"""Tenant-scoped application workflows for reversible deduplication decisions."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, cast
+from uuid import NAMESPACE_URL, UUID, uuid5
+
+from revops.application.dto import (
+    CanonicalRecordResult,
+    DeduplicationCandidateResult,
+    DeduplicationDecisionResult,
+    DeduplicationHistoryResult,
+    DeduplicationMergeResult,
+    DeduplicationScanArgs,
+    DeduplicationScanResult,
+    DeduplicationStatusResult,
+)
+from revops.application.ports import (
+    CanonicalRecordGroup,
+    DeduplicationCandidateRecord,
+    DeduplicationDispatcher,
+    DeduplicationUnitOfWorkFactory,
+)
+from revops.domain.entities.deduplication import (
+    DeduplicationCandidateStatus,
+    DeduplicationRecordType,
+    DeduplicationScanState,
+    DeduplicationScanStatus,
+    RecordAlias,
+)
+from revops.domain.errors import InvalidTransitionError
+from revops.domain.policies.deduplication import MergeEligibilityPolicy
+
+
+class DeduplicationNotFoundError(Exception):
+    """A tenant-scoped deduplication resource does not exist."""
+
+
+class DeduplicationIdempotencyConflictError(Exception):
+    """An idempotency key was reused with a different operation."""
+
+
+class DeduplicationConflictError(Exception):
+    """The requested decision is stale or violates alias policy."""
+
+
+async def _reserve_event(uow: Any, event: Mapping[str, object]) -> dict[str, object]:
+    reserve = getattr(uow.events, "add_if_absent", None)
+    if reserve is not None:
+        return dict(await reserve(event))
+    prior = await uow.events.get_by_idempotency_key(
+        UUID(str(event["organization_id"])), str(event["idempotency_key"])
+    )
+    if prior is not None:
+        return dict(prior)
+    await uow.events.add(event)
+    return dict(event)
+
+
+def _check_reserved_event(winner: Mapping[str, object], *, candidate_id: UUID, action: str) -> bool:
+    if winner.get("candidate_id") != str(candidate_id) or winner.get("action") != action:
+        raise DeduplicationIdempotencyConflictError("idempotency key has different content")
+    return winner.get("idempotency_key") is not None
+
+
+def _candidate_result(record: DeduplicationCandidateRecord) -> DeduplicationCandidateResult:
+    candidate = record.candidate
+    return DeduplicationCandidateResult(
+        id=record.id,
+        scan_id=record.scan_id,
+        organization_id=record.organization_id,
+        record_type=candidate.record_type,
+        left_id=candidate.left_id,
+        right_id=candidate.right_id,
+        score=candidate.score,
+        reasons=candidate.reasons,
+        policy_version=candidate.policy_version,
+        status=candidate.status,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class StartDeduplicationScan:
+    factory: DeduplicationUnitOfWorkFactory
+    dispatcher: DeduplicationDispatcher | None = None
+
+    async def execute(
+        self,
+        *,
+        organization_id: UUID,
+        requested_by: UUID,
+        idempotency_key: str,
+        args: DeduplicationScanArgs,
+    ) -> DeduplicationScanResult:
+        async with self.factory() as uow:
+            existing = await uow.scans.get_by_idempotency_key(organization_id, idempotency_key)
+            if existing is not None:
+                existing_types = existing.record_types
+                if tuple(existing_types) != tuple(args.record_types):
+                    raise DeduplicationIdempotencyConflictError(
+                        "idempotency key has different content"
+                    )
+                result = DeduplicationScanResult(
+                    id=existing.id,
+                    organization_id=organization_id,
+                    record_types=tuple(existing_types),
+                    status=existing.status,
+                    replayed=True,
+                )
+                if self.dispatcher is not None and existing.status.value in {
+                    "queued",
+                    "queue_failed",
+                }:
+                    if existing.status.value == "queue_failed":
+                        await uow.scans.set_status(
+                            organization_id, existing.id, DeduplicationScanState().status
+                        )
+                        await uow.commit()
+                    await self.dispatcher.publish(
+                        organization_id=organization_id, scan_id=existing.id
+                    )
+                return result
+            scan_id = uuid5(NAMESPACE_URL, f"dedupe-scan:{organization_id}:{idempotency_key}")
+            await uow.scans.add(
+                organization_id, requested_by, scan_id, args.record_types, idempotency_key
+            )
+            await uow.commit()
+            result = DeduplicationScanResult(
+                id=scan_id,
+                organization_id=organization_id,
+                record_types=tuple(args.record_types),
+                status=DeduplicationScanState().status,
+            )
+            if self.dispatcher is not None:
+                try:
+                    await self.dispatcher.publish(organization_id=organization_id, scan_id=scan_id)
+                except Exception:
+                    async with self.factory() as failure_uow:
+                        await failure_uow.scans.set_status(
+                            organization_id, scan_id, DeduplicationScanStatus.QUEUE_FAILED
+                        )
+                        await failure_uow.commit()
+                    raise
+            return result
+
+
+@dataclass(frozen=True, slots=True)
+class ListDeduplicationCandidates:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self,
+        *,
+        organization_id: UUID,
+        scan_id: UUID,
+        offset: int = 0,
+        limit: int = 100,
+        status: DeduplicationCandidateStatus | None = None,
+        record_type: DeduplicationRecordType | None = None,
+    ) -> tuple[DeduplicationCandidateResult, ...]:
+        if offset < 0 or not 0 < limit <= 100:
+            raise ValueError("candidate pagination is out of bounds")
+        async with self.factory() as uow:
+            scan = await uow.scans.get(organization_id, scan_id)
+            if scan is None:
+                raise DeduplicationNotFoundError("deduplication scan not found")
+            if scan.status.value != "completed":
+                raise DeduplicationConflictError("deduplication scan is not completed")
+            rows = await uow.candidates.list(
+                organization_id,
+                scan_id,
+                status=status,
+                record_type=record_type,
+                offset=offset,
+                limit=limit,
+            )
+            return tuple(_candidate_result(row) for row in rows)
+
+
+@dataclass(frozen=True, slots=True)
+class GetDeduplicationStatus:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(self, *, organization_id: UUID, scan_id: UUID) -> DeduplicationStatusResult:
+        async with self.factory() as uow:
+            scan = await uow.scans.get(organization_id, scan_id)
+            if scan is None:
+                raise DeduplicationNotFoundError("deduplication scan not found")
+            counts = await uow.candidates.counts(organization_id, scan_id)
+            return DeduplicationStatusResult(
+                DeduplicationScanResult(
+                    scan.id, scan.organization_id, scan.record_types, scan.status
+                ),
+                sum(counts.values()),
+                counts.get(DeduplicationCandidateStatus.PENDING, 0),
+                counts.get(DeduplicationCandidateStatus.DISMISSED, 0),
+                counts.get(DeduplicationCandidateStatus.MERGED, 0),
+                counts.get(DeduplicationCandidateStatus.STALE, 0),
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ListDeduplicationHistory:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self, *, organization_id: UUID, offset: int = 0, limit: int = 100
+    ) -> tuple[DeduplicationHistoryResult, ...]:
+        if offset < 0 or not 0 < limit <= 100:
+            raise ValueError("history pagination is out of bounds")
+        async with self.factory() as uow:
+            rows = await uow.events.list_history(organization_id, offset=offset, limit=limit)
+            return tuple(
+                DeduplicationHistoryResult(
+                    id=UUID(str(row["id"])),
+                    record_type=DeduplicationRecordType(str(row["record_type"])),
+                    action=str(row["action"]),
+                    candidate_id=UUID(str(row["candidate_id"]))
+                    if row.get("candidate_id")
+                    else None,
+                    related_event_id=UUID(str(row["related_event_id"]))
+                    if row.get("related_event_id")
+                    else None,
+                    alias_id=(UUID(str(row["alias_id"])) if row.get("alias_id") else None),
+                    canonical_id=UUID(str(row["canonical_id"]))
+                    if row.get("canonical_id")
+                    else None,
+                    reason_codes=tuple(
+                        str(value)
+                        for value in cast(tuple[object, ...], row.get("reason_codes", ()))
+                    ),
+                    actor_id=UUID(str(row["actor_id"])),
+                    occurred_at=cast(datetime, row["occurred_at"]),
+                )
+                for row in rows
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DismissDeduplicationCandidate:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self,
+        *,
+        organization_id: UUID,
+        candidate_id: UUID,
+        idempotency_key: str,
+        reason: str,
+        actor_id: UUID,
+        occurred_at: datetime,
+    ) -> DeduplicationDecisionResult:
+        async with self.factory() as uow:
+            prior = await uow.events.get_by_idempotency_key(organization_id, idempotency_key)
+            if prior is not None:
+                _check_reserved_event(prior, candidate_id=candidate_id, action="dismiss")
+                return DeduplicationDecisionResult(
+                    candidate_id, DeduplicationCandidateStatus.DISMISSED, True
+                )
+            candidate = await uow.candidates.get_for_update(organization_id, candidate_id)
+            if candidate is None:
+                raise DeduplicationNotFoundError("deduplication candidate not found")
+            if reason not in {"not_duplicate", "insufficient_evidence"}:
+                raise ValueError("unsupported dismissal reason")
+            event = {
+                "id": str(
+                    uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
+                ),
+                "organization_id": str(organization_id),
+                "candidate_id": str(candidate_id),
+                "record_type": candidate.candidate.record_type.value,
+                "action": "dismiss",
+                "idempotency_key": idempotency_key,
+                "reason": reason,
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, cast(dict[str, object], event))
+            _check_reserved_event(winner, candidate_id=candidate_id, action="dismiss")
+            if winner.get("id") != event["id"]:
+                return DeduplicationDecisionResult(
+                    candidate_id, DeduplicationCandidateStatus.DISMISSED, True
+                )
+            try:
+                candidate.candidate.dismiss()
+            except InvalidTransitionError as exc:
+                raise DeduplicationConflictError(str(exc)) from exc
+            await uow.candidates.save(candidate)
+            await uow.commit()
+            return DeduplicationDecisionResult(candidate_id, candidate.candidate.status)
+
+
+@dataclass(frozen=True, slots=True)
+class MergeDeduplicationCandidate:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self,
+        *,
+        organization_id: UUID,
+        candidate_id: UUID,
+        master_record_id: UUID,
+        idempotency_key: str,
+        actor_id: UUID,
+        occurred_at: datetime,
+    ) -> DeduplicationMergeResult:
+        async with self.factory() as uow:
+            prior = await uow.events.get_by_idempotency_key(organization_id, idempotency_key)
+            if prior is not None:
+                if prior.get("candidate_id") != str(candidate_id) or prior.get("action") != "merge":
+                    raise DeduplicationIdempotencyConflictError(
+                        "idempotency key has different content"
+                    )
+                return DeduplicationMergeResult(
+                    UUID(str(prior["event_id"])),
+                    UUID(str(prior["alias_id"])),
+                    UUID(str(prior["canonical_id"])),
+                    True,
+                )
+            candidate = await uow.candidates.get_for_update(organization_id, candidate_id)
+            if candidate is None:
+                raise DeduplicationNotFoundError("deduplication candidate not found")
+            if candidate.candidate.status is not DeduplicationCandidateStatus.PENDING:
+                raise DeduplicationConflictError("candidate is no longer pending")
+            if master_record_id not in {
+                candidate.candidate.left_id,
+                candidate.candidate.right_id,
+            }:
+                raise DeduplicationConflictError("master must be a candidate member")
+            alias_id = (
+                candidate.candidate.right_id
+                if master_record_id == candidate.candidate.left_id
+                else candidate.candidate.left_id
+            )
+            resolver = getattr(uow, "canonical", getattr(uow, "resolver", None))
+            if resolver is None:
+                raise DeduplicationConflictError("canonical resolver is unavailable")
+            resolve_for_write = getattr(resolver, "resolve_for_write", resolver.resolve)
+            resolved_master = await resolve_for_write(
+                organization_id, candidate.candidate.record_type, master_record_id
+            )
+            resolved_alias = await resolve_for_write(
+                organization_id, candidate.candidate.record_type, alias_id
+            )
+            master_group = (
+                resolved_master
+                if isinstance(resolved_master, CanonicalRecordGroup)
+                else CanonicalRecordGroup(resolved_master, (resolved_master,))
+            )
+            alias_group = (
+                resolved_alias
+                if isinstance(resolved_alias, CanonicalRecordGroup)
+                else CanonicalRecordGroup(resolved_alias, (resolved_alias,))
+            )
+            fingerprints = getattr(resolver, "fingerprint_for_write", None)
+            if fingerprints is not None:
+                current_left = await fingerprints(
+                    organization_id, candidate.candidate.record_type, candidate.candidate.left_id
+                )
+                current_right = await fingerprints(
+                    organization_id, candidate.candidate.record_type, candidate.candidate.right_id
+                )
+                expected = (
+                    candidate.candidate.left_fingerprint,
+                    candidate.candidate.right_fingerprint,
+                )
+                if (current_left, current_right) != expected:
+                    candidate.candidate.mark_stale()
+                    await uow.candidates.save(candidate)
+                    await uow.commit()
+                    raise DeduplicationConflictError("candidate fingerprints are stale")
+            decision = MergeEligibilityPolicy().evaluate(
+                requested_master_id=master_record_id,
+                candidate_member_ids=(candidate.candidate.left_id, candidate.candidate.right_id),
+                master_group=master_group.member_ids,
+                alias_group=alias_group.member_ids,
+                active_alias_ids=frozenset(
+                    member
+                    for group in (master_group, alias_group)
+                    for member in group.member_ids
+                    if member != group.canonical_id
+                ),
+            )
+            if not decision.eligible:
+                raise DeduplicationConflictError(decision.reason_code)
+            event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
+            alias = RecordAlias(
+                organization_id,
+                candidate.candidate.record_type,
+                alias_id,
+                master_record_id,
+                event_id,
+                occurred_at,
+            )
+            event = {
+                "id": str(event_id),
+                "event_id": str(event_id),
+                "organization_id": str(organization_id),
+                "candidate_id": str(candidate_id),
+                "record_type": candidate.candidate.record_type.value,
+                "action": "merge",
+                "idempotency_key": idempotency_key,
+                "alias_id": str(alias_id),
+                "canonical_id": str(master_record_id),
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, event)
+            _check_reserved_event(winner, candidate_id=candidate_id, action="merge")
+            if winner.get("id") != str(event_id) and winner.get("alias_id"):
+                return DeduplicationMergeResult(
+                    UUID(str(winner["id"])),
+                    UUID(str(winner["alias_id"])),
+                    UUID(str(winner["canonical_id"])),
+                    True,
+                )
+            await uow.aliases.add(alias)
+            candidate.candidate.mark_merged()
+            await uow.candidates.save(candidate)
+            await uow.commit()
+            return DeduplicationMergeResult(event_id, alias_id, master_record_id)
+
+
+@dataclass(frozen=True, slots=True)
+class RevertDeduplicationMerge:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self,
+        *,
+        organization_id: UUID,
+        merge_event_id: UUID,
+        idempotency_key: str,
+        actor_id: UUID,
+        occurred_at: datetime,
+    ) -> DeduplicationDecisionResult:
+        async with self.factory() as uow:
+            prior = await uow.events.get_by_idempotency_key(organization_id, idempotency_key)
+            if prior is not None:
+                return DeduplicationDecisionResult(
+                    UUID(str(prior.get("related_event_id", merge_event_id))),
+                    DeduplicationCandidateStatus.MERGED,
+                    True,
+                )
+            alias = await uow.aliases.get_for_update(organization_id, merge_event_id)
+            if alias is None:
+                raise DeduplicationNotFoundError("merge not found")
+            event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
+            event = {
+                "id": str(event_id),
+                "organization_id": str(organization_id),
+                "record_type": alias.record_type.value,
+                "related_event_id": str(merge_event_id),
+                "action": "revert",
+                "idempotency_key": idempotency_key,
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, event)
+            if winner.get("action") != "revert" or winner.get("related_event_id") != str(
+                merge_event_id
+            ):
+                raise DeduplicationIdempotencyConflictError("idempotency key has different content")
+            if winner.get("id") != str(event_id):
+                return DeduplicationDecisionResult(
+                    merge_event_id, DeduplicationCandidateStatus.MERGED, True
+                )
+            try:
+                alias.revert(occurred_at=occurred_at, reverted_by_event_id=event_id)
+            except InvalidTransitionError as exc:
+                raise DeduplicationConflictError(str(exc)) from exc
+            await uow.aliases.save(alias)
+            await uow.commit()
+            return DeduplicationDecisionResult(merge_event_id, DeduplicationCandidateStatus.MERGED)
+
+
+@dataclass(frozen=True, slots=True)
+class ResolveCanonicalRecord:
+    factory: DeduplicationUnitOfWorkFactory
+
+    async def execute(
+        self, *, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> CanonicalRecordResult:
+        async with self.factory() as uow:
+            resolver = getattr(uow, "canonical", getattr(uow, "resolver", None))
+            if resolver is None:
+                raise DeduplicationNotFoundError("record not found")
+            group = await resolver.resolve(organization_id, record_type, record_id)
+            if isinstance(group, UUID):
+                group = CanonicalRecordGroup(group, (group,))
+            if group is None:
+                raise DeduplicationNotFoundError("record not found")
+            return CanonicalRecordResult(record_type, record_id, group.canonical_id)

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from revops.domain.values.email import EmailAddress
+from revops.domain.values.phone import PhoneNumber
 
 
 @dataclass(slots=True)
@@ -16,3 +17,4 @@ class Contact:
     email: EmailAddress
     full_name: str
     title: str = ""
+    phone: PhoneNumber | None = None

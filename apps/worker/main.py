@@ -1,4 +1,4 @@
-"""Celery worker composition root for asynchronous ingestion."""
+"""Celery worker composition root for asynchronous ingestion and deduplication."""
 
 from __future__ import annotations
 
@@ -16,7 +16,12 @@ from revops.infrastructure.ingestion import SyntheticEnrichmentGateway
 from revops.infrastructure.persistence.ingestion_unit_of_work import (
     SqlAlchemyIngestionUnitOfWork,
 )
-from revops.infrastructure.queue import create_celery_app
+from revops.infrastructure.queue import (
+    DEDUPLICATION_SCAN_TASK_NAME,
+    DeduplicationScanProcessor,
+    ProcessDeduplicationScanResult,
+    create_celery_app,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from apps.worker.settings import WorkerSettings
@@ -72,6 +77,60 @@ def _run_async_ingestion(*, organization_id: UUID, job_id: UUID) -> ProcessInges
         return runner.run(coroutine)
 
 
+async def run_deduplication_scan(
+    *, organization_id: UUID, scan_id: UUID, worker_settings: WorkerSettings
+) -> ProcessDeduplicationScanResult:
+    engine = create_async_engine(worker_settings.database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        return await DeduplicationScanProcessor(session_factory).process(
+            organization_id=organization_id,
+            scan_id=scan_id,
+        )
+    finally:
+        await engine.dispose()
+
+
+def _run_async_deduplication_scan(
+    *, organization_id: UUID, scan_id: UUID
+) -> ProcessDeduplicationScanResult:
+    coroutine = run_deduplication_scan(
+        organization_id=organization_id,
+        scan_id=scan_id,
+        worker_settings=settings,
+    )
+    if sys.platform != "win32":
+        return asyncio.run(coroutine)
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        return runner.run(coroutine)
+
+
+async def mark_deduplication_scan_failed(
+    *, organization_id: UUID, scan_id: UUID, worker_settings: WorkerSettings
+) -> bool:
+    engine = create_async_engine(worker_settings.database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        return await DeduplicationScanProcessor(session_factory).mark_failed(
+            organization_id=organization_id,
+            scan_id=scan_id,
+        )
+    finally:
+        await engine.dispose()
+
+
+def _run_async_mark_deduplication_scan_failed(*, organization_id: UUID, scan_id: UUID) -> bool:
+    coroutine = mark_deduplication_scan_failed(
+        organization_id=organization_id,
+        scan_id=scan_id,
+        worker_settings=settings,
+    )
+    if sys.platform != "win32":
+        return asyncio.run(coroutine)
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        return runner.run(coroutine)
+
+
 def _process_ingestion_task(self: Task, *, organization_id: str, job_id: str) -> dict[str, object]:
     try:
         parsed_organization_id = UUID(organization_id)
@@ -102,3 +161,45 @@ process_ingestion: Task = celery_app.task(
     acks_late=True,
     reject_on_worker_lost=True,
 )(_process_ingestion_task)
+
+
+def _process_deduplication_scan_task(
+    self: Task, *, organization_id: str, scan_id: str
+) -> dict[str, object]:
+    try:
+        parsed_organization_id = UUID(organization_id)
+        parsed_scan_id = UUID(scan_id)
+    except ValueError as exc:
+        raise Reject("invalid deduplication task identifiers", requeue=False) from exc
+
+    try:
+        result = _run_async_deduplication_scan(
+            organization_id=parsed_organization_id,
+            scan_id=parsed_scan_id,
+        )
+    except Exception as exc:
+        retry_number = int(self.request.retries)
+        if retry_number >= 5:
+            _run_async_mark_deduplication_scan_failed(
+                organization_id=parsed_organization_id,
+                scan_id=parsed_scan_id,
+            )
+            raise
+        countdown = min(2**retry_number, 60)
+        raise self.retry(exc=exc, countdown=countdown, max_retries=5) from exc
+    return {
+        "scan_id": str(result.scan_id),
+        "status": result.status.value,
+        "record_count": result.record_count,
+        "candidate_count": result.candidate_count,
+        "failure_code": result.failure_code,
+    }
+
+
+process_deduplication_scan: Task = celery_app.task(
+    bind=True,
+    name=DEDUPLICATION_SCAN_TASK_NAME,
+    max_retries=5,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)(_process_deduplication_scan_task)
