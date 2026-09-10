@@ -164,3 +164,10 @@ Observed local evidence: `ruff check .`, `ruff format --check .`, `mypy .`, `lin
 `python scripts/autonomous_gate.py` reports Item 7 quality green but correctly refuses completion
 until its task checklist is ticked. The live integration command was not executable because Docker
 Desktop was unavailable, so no integration success is claimed.
+
+Docker Desktop was subsequently started. Against the isolated `DATABASE_URL` for
+`revops_codex_spec003`, `python -m alembic upgrade head` passed, the Item 7 API/persistence checks
+passed (`2 passed`), the real Celery/Redis worker check passed (`1 passed`), and the complete
+integration suite passed (`24 passed`, with three existing SQLAlchemy connection-cleanup warnings).
+The shared `revops` database remains untouched because its legacy deduplication schema is not the
+current migration shape.
