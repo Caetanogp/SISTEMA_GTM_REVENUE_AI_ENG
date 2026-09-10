@@ -32,6 +32,24 @@
 
 - [x] Add adversarial coverage for authorization, tenant enumeration, malicious fields, bounds, and PII-safe events.
 - [x] Add integration coverage for matching, suppression, logical merge, canonical writes, and reversible aliases.
-- [ ] Record the logical-merge and reversibility decision in an ADR and update README operations.
-- [ ] Map every acceptance criterion to observed test/command evidence and update `.handoff/STATE.md`.
-- [ ] Run `docs/playbooks/verify-before-done.md` in full and prepare the branch for review.
+- [x] Record the logical-merge and reversibility decision in an ADR and update README operations.
+- [x] Map every acceptance criterion to observed test/command evidence and update `.handoff/STATE.md`.
+- [x] Run `docs/playbooks/verify-before-done.md` in full and prepare the branch for review.
+
+## Acceptance evidence
+
+| Criterion | Observed evidence |
+|---|---|
+| 1 | `tests/unit/application/use_cases/test_deduplication.py:198`; `tests/integration/test_deduplication_worker.py:44` |
+| 2 | `tests/unit/domain/policies/test_deduplication.py:57`; `tests/integration/test_deduplication_worker.py:44` |
+| 3 | `tests/unit/domain/policies/test_deduplication.py:57`; `tests/unit/domain/policies/test_deduplication.py:68` |
+| 4 | `tests/unit/application/use_cases/test_deduplication.py:225` |
+| 5 | `tests/unit/application/use_cases/test_deduplication.py:262`; `tests/integration/test_deduplication_api_flow.py:32` |
+| 6 | `tests/integration/test_deduplication_persistence.py:57` |
+| 7 | `tests/integration/test_ingestion_api.py:19`; `tests/integration/test_deduplication_persistence.py:57` |
+| 8 | `tests/unit/application/use_cases/test_deduplication.py:262`; `tests/integration/test_deduplication_api_flow.py:257` |
+| 9 | `tests/integration/test_deduplication_api_flow.py:230`; `tests/integration/test_deduplication_persistence.py:141` |
+| 10 | `tests/unit/infrastructure/test_ingestion.py:21`; `tests/integration/test_deduplication_worker.py:94` |
+| 11 | `tests/integration/test_deduplication_api_flow.py:194`; `tests/integration/test_deduplication_persistence.py:57` |
+| 12 | `tests/unit/infrastructure/queue/test_deduplication.py:13`; `tests/integration/test_deduplication_worker.py:44` |
+| Verification | `pytest tests/unit -q` (`289 passed`); `pytest tests/integration -q` (`26 passed`); `pytest tests/adversarial -q` (`9 passed`); lint/import/docs/security commands passed. |

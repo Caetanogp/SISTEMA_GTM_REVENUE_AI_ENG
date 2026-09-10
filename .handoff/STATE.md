@@ -227,3 +227,22 @@ event reservation, real worker delivery, bounded scans, stale decisions, merge r
 Observed evidence: `pytest tests/adversarial -q` passed (`9 passed`); focused deduplication API,
 persistence, and worker integration passed (`4 passed`) against `revops_codex_spec003`. Item 8
 security and integration task boxes are now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:33-34`.
+
+The full verify-before-done sequence then passed: `ruff check .`, `ruff format --check .`, `mypy .`,
+`lint-imports`, `pytest tests/unit tests/architecture -q` (`291 passed`), `pytest tests/integration -q`
+(`26 passed`, three existing SQLAlchemy connection-cleanup warnings), `pytest tests/adversarial -q`
+(`9 passed`), `python -m evals.run --suite all` (`accuracy=1.00`, `exact_match=1.00`),
+`python scripts/check_agent_docs.py`, and `gitleaks detect --no-git` returned success. The only
+initial scanner finding was the documentation placeholder `nightly-dedupe-2026-09-09`; it was
+replaced with `<dedupe-example-key>`, after which no leaks were found. The final verify checkbox is
+now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:37`.
+
+The gate's earlier queue-range halt was caused by the final verify checkbox being present in the
+tasks file but not yet ticked; it is resolved by the completed checklist and is retained in this
+history for auditability.
+
+## Autonomous loop HALT (2026-09-10T02:28:57+00:00)
+
+Queue and tasks.md are out of sync - done_count is not covered by any item's closes range. Check every item's `- **Closes:** N tasks.md checkboxes` line adds up to tasks.md's total checkbox count for this section.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
