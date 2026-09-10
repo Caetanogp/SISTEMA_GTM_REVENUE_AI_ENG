@@ -7,7 +7,11 @@ from pydantic import ValidationError
 from revops.application.dto import DeduplicationScanArgs
 from revops.domain.entities.deduplication import DeduplicationRecordType
 
-from apps.api.schemas import DeduplicationHistoryResponse
+from apps.api.schemas import (
+    DeduplicationDismissRequest,
+    DeduplicationHistoryResponse,
+    DeduplicationMergeRequest,
+)
 
 
 def test_scan_input_rejects_unknown_values_and_duplicate_types() -> None:
@@ -35,5 +39,19 @@ def test_history_response_rejects_payload_and_idempotency_fields() -> None:
                 "occurred_at": "2026-01-01T00:00:00Z",
                 "payload": {"email": "secret@example.test"},
                 "idempotency_key": "secret-key",
+            }
+        )
+
+
+def test_decision_requests_reject_untrusted_pii_fields() -> None:
+    with pytest.raises(ValidationError):
+        DeduplicationDismissRequest.model_validate(
+            {"reason": "not_duplicate", "email": "secret@example.test"}
+        )
+    with pytest.raises(ValidationError):
+        DeduplicationMergeRequest.model_validate(
+            {
+                "master_record_id": "00000000-0000-0000-0000-000000000001",
+                "phone": "+5511999999999",
             }
         )

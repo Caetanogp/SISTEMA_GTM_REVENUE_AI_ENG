@@ -216,3 +216,14 @@ required ADR/README operations update if still absent, map every acceptance crit
 file-and-line evidence, run the full `docs/playbooks/verify-before-done.md`, and only then decide
 whether the branch is ready for the supervised merge/loop transition. No long loop is authorized
 by this checkpoint.
+
+## Security and failure coverage evidence (2026-09-09)
+
+Extended `tests/adversarial/test_deduplication_security.py:43` to reject untrusted PII fields in
+administrative decision requests. Existing adversarial cases cover invalid/duplicate scan inputs
+and history payload/idempotency disclosure; integration coverage covers tenant isolation, concurrent
+event reservation, real worker delivery, bounded scans, stale decisions, merge replay, and revert.
+
+Observed evidence: `pytest tests/adversarial -q` passed (`9 passed`); focused deduplication API,
+persistence, and worker integration passed (`4 passed`) against `revops_codex_spec003`. Item 8
+security and integration task boxes are now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:33-34`.

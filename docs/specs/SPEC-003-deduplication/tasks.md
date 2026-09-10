@@ -30,8 +30,8 @@
 
 ## Security and closeout
 
-- [ ] Add adversarial coverage for authorization, tenant enumeration, malicious fields, bounds, and PII-safe events.
-- [ ] Add integration coverage for matching, suppression, logical merge, canonical writes, and reversible aliases.
+- [x] Add adversarial coverage for authorization, tenant enumeration, malicious fields, bounds, and PII-safe events.
+- [x] Add integration coverage for matching, suppression, logical merge, canonical writes, and reversible aliases.
 - [ ] Record the logical-merge and reversibility decision in an ADR and update README operations.
 - [ ] Map every acceptance criterion to observed test/command evidence and update `.handoff/STATE.md`.
 - [ ] Run `docs/playbooks/verify-before-done.md` in full and prepare the branch for review.
