@@ -57,7 +57,7 @@ async def _reserve_event(uow: Any, event: Mapping[str, object]) -> dict[str, obj
     if prior is not None:
         return dict(prior)
     await uow.events.add(event)
-    return event
+    return dict(event)
 
 
 def _check_reserved_event(winner: Mapping[str, object], *, candidate_id: UUID, action: str) -> bool:
