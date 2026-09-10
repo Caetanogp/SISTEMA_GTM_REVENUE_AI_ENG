@@ -169,5 +169,12 @@ Docker Desktop was subsequently started. Against the isolated `DATABASE_URL` for
 `revops_codex_spec003`, `python -m alembic upgrade head` passed, the Item 7 API/persistence checks
 passed (`2 passed`), the real Celery/Redis worker check passed (`1 passed`), and the complete
 integration suite passed (`24 passed`, with three existing SQLAlchemy connection-cleanup warnings).
-The shared `revops` database remains untouched because its legacy deduplication schema is not the
+ The shared `revops` database remains untouched because its legacy deduplication schema is not the
 current migration shape.
+
+The next transaction pass added PostgreSQL `add_if_absent` event reservation with
+`ON CONFLICT DO NOTHING`, preserving the pre-lock replay check and preventing duplicate event
+uniqueness errors from reaching the API. Focused deduplication integration passed again (`3 passed`)
+against `revops_codex_spec003`; four existing deduplication use-case tests also passed. This is
+still an intermediate checkpoint: merge/revert fingerprint revalidation, deterministic group locks,
+and full `MergeEligibilityPolicy` orchestration are not yet complete.
