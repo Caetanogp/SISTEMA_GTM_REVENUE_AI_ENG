@@ -47,7 +47,7 @@ class DeduplicationConflictError(Exception):
     """The requested decision is stale or violates alias policy."""
 
 
-async def _reserve_event(uow: Any, event: dict[str, object]) -> dict[str, object]:
+async def _reserve_event(uow: Any, event: Mapping[str, object]) -> dict[str, object]:
     reserve = getattr(uow.events, "add_if_absent", None)
     if reserve is not None:
         return dict(await reserve(event))
@@ -395,20 +395,28 @@ class MergeDeduplicationCandidate:
                 event_id,
                 occurred_at,
             )
-            await uow.events.add(
-                {
-                    "id": str(event_id),
-                    "event_id": str(event_id),
-                    "organization_id": str(organization_id),
-                    "candidate_id": str(candidate_id),
-                    "action": "merge",
-                    "idempotency_key": idempotency_key,
-                    "alias_id": str(alias_id),
-                    "canonical_id": str(master_record_id),
-                    "actor_id": str(actor_id),
-                    "occurred_at": occurred_at.isoformat(),
-                }
-            )
+            event = {
+                "id": str(event_id),
+                "event_id": str(event_id),
+                "organization_id": str(organization_id),
+                "candidate_id": str(candidate_id),
+                "record_type": candidate.candidate.record_type.value,
+                "action": "merge",
+                "idempotency_key": idempotency_key,
+                "alias_id": str(alias_id),
+                "canonical_id": str(master_record_id),
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, event)
+            _check_reserved_event(winner, candidate_id=candidate_id, action="merge")
+            if winner.get("id") != str(event_id) and winner.get("alias_id"):
+                return DeduplicationMergeResult(
+                    UUID(str(winner["id"])),
+                    UUID(str(winner["alias_id"])),
+                    UUID(str(winner["canonical_id"])),
+                    True,
+                )
             await uow.aliases.add(alias)
             candidate.candidate.mark_merged()
             await uow.candidates.save(candidate)
@@ -441,21 +449,29 @@ class RevertDeduplicationMerge:
             if alias is None:
                 raise DeduplicationNotFoundError("merge not found")
             event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
+            event = {
+                "id": str(event_id),
+                "organization_id": str(organization_id),
+                "record_type": alias.record_type.value,
+                "related_event_id": str(merge_event_id),
+                "action": "revert",
+                "idempotency_key": idempotency_key,
+                "actor_id": str(actor_id),
+                "occurred_at": occurred_at.isoformat(),
+            }
+            winner = await _reserve_event(uow, event)
+            if winner.get("action") != "revert" or winner.get("related_event_id") != str(
+                merge_event_id
+            ):
+                raise DeduplicationIdempotencyConflictError("idempotency key has different content")
+            if winner.get("id") != str(event_id):
+                return DeduplicationDecisionResult(
+                    merge_event_id, DeduplicationCandidateStatus.MERGED, True
+                )
             try:
                 alias.revert(occurred_at=occurred_at, reverted_by_event_id=event_id)
             except InvalidTransitionError as exc:
                 raise DeduplicationConflictError(str(exc)) from exc
-            await uow.events.add(
-                {
-                    "id": str(event_id),
-                    "organization_id": str(organization_id),
-                    "related_event_id": str(merge_event_id),
-                    "action": "revert",
-                    "idempotency_key": idempotency_key,
-                    "actor_id": str(actor_id),
-                    "occurred_at": occurred_at.isoformat(),
-                }
-            )
             await uow.aliases.save(alias)
             await uow.commit()
             return DeduplicationDecisionResult(merge_event_id, DeduplicationCandidateStatus.MERGED)
