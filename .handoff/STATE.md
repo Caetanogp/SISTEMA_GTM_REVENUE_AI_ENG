@@ -193,3 +193,26 @@ Observed evidence: `pytest tests/adversarial -q` passed (`8 passed`) and the foc
 integration passed (`2 passed`) against `revops_codex_spec003`. The Item 7 checklist remains unticked
 because end-to-end API authorization, pagination/replay, stale decision, and review-to-revert tests
 still need to be added and observed before the full verify-before-done run.
+
+## API closeout evidence (2026-09-09)
+
+Added real PostgreSQL/ASGI coverage in `tests/integration/test_deduplication_api_flow.py:32` for
+admin authorization and tenant-safe reads, pagination bounds, queued-scan visibility protection,
+stale fingerprint rejection, merge, idempotent replay, merge history, and revert. The test exposed
+and fixed a production composition bug in `apps/api/routes/deduplication.py:181`: merge now selects
+the fifth service from the seven-service composition tuple.
+
+Observed evidence on isolated `revops_codex_spec003`: `pytest tests/integration/test_deduplication_api_flow.py -q`
+passed (`1 passed`); `pytest tests/unit -q` passed (`289 passed`); `pytest tests/integration -q` passed
+(`26 passed`, three existing SQLAlchemy connection-cleanup warnings); `pytest tests/adversarial -q`
+passed (`8 passed`); `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`,
+`python scripts/check_agent_docs.py`, and `gitleaks detect --no-git` returned success. The two Item 7
+API task boxes are now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:28-29`.
+
+## Next
+
+Complete the remaining SPEC-003 closeout tasks: review the unmatched acceptance criteria, add the
+required ADR/README operations update if still absent, map every acceptance criterion to observed
+file-and-line evidence, run the full `docs/playbooks/verify-before-done.md`, and only then decide
+whether the branch is ready for the supervised merge/loop transition. No long loop is authorized
+by this checkpoint.

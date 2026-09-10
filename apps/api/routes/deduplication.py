@@ -178,7 +178,7 @@ async def merge_candidate(
     request: Request,
     idempotency_key: Annotated[str, Header(min_length=1, max_length=128, alias="Idempotency-Key")],
 ) -> DeduplicationMergeResponse:
-    _, _, _, _, merge, _ = _services(request)
+    _, _, _, _, merge, _, _ = _services(request)
     try:
         result = await merge.execute(
             organization_id=principal.organization_id,
