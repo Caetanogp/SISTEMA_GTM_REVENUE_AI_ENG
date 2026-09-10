@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
@@ -58,7 +59,7 @@ async def _reserve_event(uow: Any, event: dict[str, object]) -> dict[str, object
     return event
 
 
-def _check_reserved_event(winner: dict[str, object], *, candidate_id: UUID, action: str) -> bool:
+def _check_reserved_event(winner: Mapping[str, object], *, candidate_id: UUID, action: str) -> bool:
     if winner.get("candidate_id") != str(candidate_id) or winner.get("action") != action:
         raise DeduplicationIdempotencyConflictError("idempotency key has different content")
     return winner.get("idempotency_key") is not None
