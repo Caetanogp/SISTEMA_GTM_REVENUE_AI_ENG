@@ -1,10 +1,10 @@
 ---
 agent: codex
 updated_at: 2026-09-09
-branch: feature/SPEC-003-deduplication
+branch: develop
 spec: SPEC-003-deduplication
-phase: "Item 7 implementation after approved deliberate design pass."
-status: in-progress
+phase: "SPEC-003 merged into develop; awaiting remote publication and SPEC-004 scope decisions."
+status: complete
 ---
 
 # Current state
@@ -216,6 +216,16 @@ required ADR/README operations update if still absent, map every acceptance crit
 file-and-line evidence, run the full `docs/playbooks/verify-before-done.md`, and only then decide
 whether the branch is ready for the supervised merge/loop transition. No long loop is authorized
 by this checkpoint.
+
+## Post-merge state (2026-09-10)
+
+The verified `feature/SPEC-003-deduplication` branch was merged locally into `develop` after
+`python scripts/autonomous_gate.py` reported `GOAL ACHIEVED: all queue items done, full gate green`.
+The merge commit is recorded in local Git history. No remote push was performed.
+
+There is no implementation-ready next spec. Before any new loop, the owner must decide the scope of
+SPEC-004 and agree its real `spec.md`; only then should `plan.md`, `tasks.md`, and a new queue be
+created. The roadmap's placeholder numbers are not fixed scope.
 
 ## Security and failure coverage evidence (2026-09-09)
 
