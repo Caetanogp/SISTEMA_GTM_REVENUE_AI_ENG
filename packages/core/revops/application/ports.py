@@ -407,6 +407,10 @@ class CanonicalResolver(Protocol):
         self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
     ) -> CanonicalRecordGroup | None: ...
 
+    async def fingerprint_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> str | None: ...
+
 
 @runtime_checkable
 class DeduplicationUnitOfWork(Protocol):

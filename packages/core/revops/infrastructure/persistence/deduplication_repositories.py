@@ -16,6 +16,8 @@ from revops.application.ports import (
     DeduplicationCandidateRecord,
     DeduplicationScanRecord,
 )
+from revops.domain.entities.account import Account as DomainAccount
+from revops.domain.entities.contact import Contact as DomainContact
 from revops.domain.entities.deduplication import (
     DeduplicationCandidate,
     DeduplicationCandidateStatus,
@@ -23,6 +25,10 @@ from revops.domain.entities.deduplication import (
     DeduplicationScanStatus,
     RecordAlias,
 )
+from revops.domain.policies.deduplication import account_fingerprint, contact_fingerprint
+from revops.domain.values.company_domain import CompanyDomain
+from revops.domain.values.email import EmailAddress
+from revops.domain.values.phone import PhoneNumber
 from revops.infrastructure.persistence.models import (
     Account,
     AccountDeduplicationAlias,
@@ -476,7 +482,29 @@ class SqlAlchemyCanonicalResolver:
             await self._session.execute(
                 select(record_model.id)
                 .where(
-                    record_model.organization_id == organization_id, record_model.id == canonical_id
+                    record_model.organization_id == organization_id,
+                    record_model.id == record_id,
+                )
+                .with_for_update()
+            )
+            if record_type is DeduplicationRecordType.CONTACT:
+                account_id = await self._session.scalar(
+                    select(Contact.account_id).where(
+                        Contact.organization_id == organization_id,
+                        Contact.id == record_id,
+                    )
+                )
+                if account_id is not None:
+                    await self._session.execute(
+                        select(Account.id)
+                        .where(Account.organization_id == organization_id, Account.id == account_id)
+                        .with_for_update()
+                    )
+            await self._session.execute(
+                select(record_model.id)
+                .where(
+                    record_model.organization_id == organization_id,
+                    record_model.id == canonical_id,
                 )
                 .with_for_update()
             )
@@ -493,3 +521,49 @@ class SqlAlchemyCanonicalResolver:
             stmt = stmt.with_for_update()
         aliases = list((await self._session.execute(stmt)).scalars().all())
         return CanonicalRecordGroup(canonical_id, (canonical_id, *aliases))
+
+    async def fingerprint_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> str | None:
+        group = await self._resolve(organization_id, record_type, record_id, lock=True)
+        if group is None:
+            return None
+        record_id = group.canonical_id if record_id not in group.member_ids else record_id
+        if record_type is DeduplicationRecordType.ACCOUNT:
+            row = await self._session.scalar(
+                select(Account).where(
+                    Account.organization_id == organization_id, Account.id == record_id
+                )
+            )
+            return (
+                account_fingerprint(
+                    DomainAccount(
+                        row.id,
+                        row.organization_id,
+                        row.company_name,
+                        CompanyDomain(row.domain),
+                        row.created_at,
+                    )
+                )
+                if row
+                else None
+            )
+        row = await self._session.scalar(
+            select(Contact).where(
+                Contact.organization_id == organization_id, Contact.id == record_id
+            )
+        )
+        if row is None:
+            return None
+        return contact_fingerprint(
+            DomainContact(
+                row.id,
+                row.organization_id,
+                row.account_id,
+                EmailAddress(row.email),
+                row.full_name,
+                row.title,
+                PhoneNumber(row.phone) if row.phone else None,
+            ),
+            canonical_account_id=row.account_id,
+        )

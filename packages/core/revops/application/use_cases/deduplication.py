@@ -32,6 +32,7 @@ from revops.domain.entities.deduplication import (
     RecordAlias,
 )
 from revops.domain.errors import InvalidTransitionError
+from revops.domain.policies.deduplication import MergeEligibilityPolicy
 
 
 class DeduplicationNotFoundError(Exception):
@@ -337,23 +338,54 @@ class MergeDeduplicationCandidate:
             resolver = getattr(uow, "canonical", getattr(uow, "resolver", None))
             if resolver is None:
                 raise DeduplicationConflictError("canonical resolver is unavailable")
-            resolved_master = await resolver.resolve(
+            resolve_for_write = getattr(resolver, "resolve_for_write", resolver.resolve)
+            resolved_master = await resolve_for_write(
                 organization_id, candidate.candidate.record_type, master_record_id
             )
-            resolved_master_id = (
-                resolved_master.canonical_id
-                if hasattr(resolved_master, "canonical_id")
-                else resolved_master
+            resolved_alias = await resolve_for_write(
+                organization_id, candidate.candidate.record_type, alias_id
             )
-            if resolved_master_id != master_record_id:
-                raise DeduplicationConflictError("an alias cannot become master")
-            if (
-                await uow.aliases.get_active(
-                    organization_id, candidate.candidate.record_type, alias_id
+            master_group = (
+                resolved_master
+                if isinstance(resolved_master, CanonicalRecordGroup)
+                else CanonicalRecordGroup(resolved_master, (resolved_master,))
+            )
+            alias_group = (
+                resolved_alias
+                if isinstance(resolved_alias, CanonicalRecordGroup)
+                else CanonicalRecordGroup(resolved_alias, (resolved_alias,))
+            )
+            fingerprints = getattr(resolver, "fingerprint_for_write", None)
+            if fingerprints is not None:
+                current_left = await fingerprints(
+                    organization_id, candidate.candidate.record_type, candidate.candidate.left_id
                 )
-                is not None
-            ):
-                raise DeduplicationConflictError("record already has an active alias")
+                current_right = await fingerprints(
+                    organization_id, candidate.candidate.record_type, candidate.candidate.right_id
+                )
+                expected = (
+                    candidate.candidate.left_fingerprint,
+                    candidate.candidate.right_fingerprint,
+                )
+                if (current_left, current_right) != expected:
+                    candidate.candidate.mark_stale()
+                    await uow.candidates.save(candidate)
+                    await uow.commit()
+                    raise DeduplicationConflictError("candidate fingerprints are stale")
+            decision = MergeEligibilityPolicy().evaluate(
+                requested_master_id=master_record_id,
+                candidate_member_ids=(candidate.candidate.left_id, candidate.candidate.right_id),
+                master_group=master_group.member_ids,
+                alias_group=alias_group.member_ids,
+                active_alias_ids=frozenset(
+                    member
+                    for group in (master_group, alias_group)
+                    for member in group.member_ids
+                    if member != group.canonical_id
+                ),
+            )
+            if not decision.eligible:
+                raise DeduplicationConflictError(decision.reason_code)
             event_id = uuid5(NAMESPACE_URL, f"dedupe-event:{organization_id}:{idempotency_key}")
             alias = RecordAlias(
                 organization_id,
