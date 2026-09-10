@@ -193,15 +193,3 @@ Observed evidence: `pytest tests/adversarial -q` passed (`8 passed`) and the foc
 integration passed (`2 passed`) against `revops_codex_spec003`. The Item 7 checklist remains unticked
 because end-to-end API authorization, pagination/replay, stale decision, and review-to-revert tests
 still need to be added and observed before the full verify-before-done run.
-
-## Autonomous loop HALT (2026-09-10T02:05:47+00:00)
-
-Invalid baseline rollover authorization: baseline rollover requires a clean worktree
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-09-10T02:05:47+00:00)
-
-Item 7 declares scope ('packages/core/revops/domain/policies/', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/persistence/', 'packages/core/revops/infrastructure/queue/', 'apps/api/', 'apps/worker/', 'tests/unit/', 'tests/integration/', 'tests/adversarial/'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
