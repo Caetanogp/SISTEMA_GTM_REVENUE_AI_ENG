@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-09
 branch: develop
 spec: SPEC-003-deduplication
-phase: "SPEC-003 merged into develop; awaiting remote publication and SPEC-004 scope decisions."
+phase: "SPEC-003 merged and published; awaiting SPEC-004 scope decisions."
 status: complete
 ---
 
@@ -16,12 +16,9 @@ an unattended loop.
 
 ## Now
 
-SPEC-003 Items 1-6 are complete. Item 7 implementation is in progress after the approved deliberate
-design pass. The API composition, scan dispatch/read contracts, domain policy, alias metadata, and
-event-before-alias transaction ordering are implemented; concurrency revalidation and live
-PostgreSQL evidence remain open.
-pilot confirmed the executor correctly stops before implementation when application/persistence
-contracts are missing.
+SPEC-003 is complete, merged into `develop`, and published to `origin/develop`. No SPEC-004 scope
+has been approved yet. The next implementation must begin with a real `spec.md` after the owner
+decides its scope, acceptance criteria, risks, and out-of-scope boundaries.
 
 Commits `8ec1e0c` through `e1b4609` contain the bounded supervisor, gate, Windows launcher fixes,
 policy, ADR, tests, and pilot handoff evidence. The branch is not fully published after these
