@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-12
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 4 complete; Item 5 ready"
+phase: "Item 4 complete; gate halted before Item 5"
 status: in progress
 ---
 
@@ -19,8 +19,9 @@ LLM, UI, analytics or agent-tool work.
 
 SPEC-005 `spec.md`, `plan.md` and `tasks.md` are materialized and agreed. Its 11-item queue is
 active in `.handoff/AUTONOMOUS_QUEUE.md`. Items 1-4 are complete and ticked in
-`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 5 is next. No autonomous supervisor is
-currently running.
+`docs/specs/SPEC-005-crm-attribution-model/tasks.md`. The final Item 4 gate created an untracked
+pytest temporary directory inside the checkout and halted before Item 5; no cleanup was performed
+because deletion requires explicit authorization. No autonomous supervisor is currently running.
 
 ## Done
 
@@ -58,9 +59,11 @@ currently running.
 
 ## Next
 
-1. Begin Item 5 only in a separate authorized queue turn; it must create the additive Alembic
-   migration and inspect it offline before ticking its checkbox.
-2. Run the complete `verify-before-done` procedure after all 11 items are complete.
+1. Obtain explicit authorization to remove the exact untracked pytest temporary directory reported
+   by the final Item 4 gate, then rerun `python scripts/autonomous_gate.py`.
+2. Begin Item 5 only after the gate is clear, in a separate authorized queue turn; it must create
+   the additive Alembic migration and inspect it offline before ticking its checkbox.
+3. Run the complete `verify-before-done` procedure after all 11 items are complete.
 
 ## Gotchas
 
@@ -84,7 +87,9 @@ powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 
 
 ## Open questions
 
-- None. Item 5 is covered by the approved SPEC-005 plan and queue.
+- The final Item 4 gate generated an untracked pytest temporary directory within the checkout.
+  Its exact path appears in the latest autonomous-loop HALT entry below; it must be explicitly
+  authorized for removal before the gate can proceed to Item 5.
 
 ## Historical halts
 
@@ -105,5 +110,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-12T21:38:12+00:00)
 
 Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/', '.gitignore'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-12T22:17:25+00:00)
+
+Item 5 declares scope ('packages/core/revops/infrastructure/persistence/migrations/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_active_tasks_file_rejects0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_active_tasks_file_rejects1/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_active_tasks_file_rejects2/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_active_tasks_file_uses_qu0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/.codex/config.toml', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/.gitignore', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/.handoff/AUTONOMOUS_QUEUE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/AGENTS.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/CLAUDE.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/docs/playbooks/autonomous-loop.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/pyproject.toml', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/scripts/autonomous_gate.py', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/scripts/codex_loop_supervisor.py', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_control_snapshot_detects_0/scripts/start_codex_loop.ps1', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_duplicate_id_and_invalid_0/matrix.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_hash_drift_and_missing_im0/matrix.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_invoke_codex_does_not_ret0/executor.schema.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_invoke_codex_retries_tran0/executor.output.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_invoke_codex_retries_tran0/executor.schema.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_rejects0/repo/gate-state.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_rejects0/repo/tasks.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_rejects0/rollover.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_require0/repo/.handoff/.autonomous_gate_state.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_require0/repo/tasks.md', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_rollover_baseline_require0/rollover.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_loads0/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_must_0/repo/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec0/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec1/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec2/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec3/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec4/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec5/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_scope_authorization_rejec6/authorization.json', 'UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-30128codex-revops-supervisor-rc2z97d0turn-003-item-4pytest/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
