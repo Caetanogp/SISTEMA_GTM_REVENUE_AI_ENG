@@ -339,29 +339,105 @@ class AccountEnrichment(Base):
     created_at: Mapped[datetime]
 
 
+class Campaign(Base):
+    """A tenant-scoped marketing campaign with explicit acquisition provenance."""
+
+    __tablename__ = "campaigns"
+    __table_args__ = (UniqueConstraint("organization_id", "id", name="uq_campaigns_org_id"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    source: Mapped[str] = mapped_column(String(128))
+    channel: Mapped[str] = mapped_column(String(128))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class Touchpoint(Base):
+    """An append-only tenant-scoped engagement event with optional attribution."""
+
+    __tablename__ = "touchpoints"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "account_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "contact_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "campaign_id"], ["campaigns.organization_id", "campaigns.id"]
+        ),
+        Index(
+            "ix_touchpoints_org_account_occurred_at", "organization_id", "account_id", "occurred_at"
+        ),
+        Index(
+            "ix_touchpoints_org_campaign_occurred_at",
+            "organization_id",
+            "campaign_id",
+            "occurred_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    account_id: Mapped[UUID]
+    contact_id: Mapped[UUID | None] = mapped_column(default=None)
+    campaign_id: Mapped[UUID | None] = mapped_column(default=None)
+    type: Mapped[str] = mapped_column(String(128))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    occurred_at: Mapped[datetime]
+    created_at: Mapped[datetime]
+
+
 class Opportunity(Base):
     """A pipeline deal tied to an account."""
 
     __tablename__ = "opportunities"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "account_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        CheckConstraint("status IN ('open', 'won', 'lost')", name="ck_opportunities_status"),
+        Index("ix_opportunities_org_status", "organization_id", "status"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
-    account_id: Mapped[UUID] = mapped_column(ForeignKey("accounts.id"))
+    account_id: Mapped[UUID]
     stage: Mapped[str] = mapped_column(String(32))
     value: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    status: Mapped[str] = mapped_column(String(16), default="open")
 
 
 class Interaction(Base):
     """A record of engagement with an account — the recency/engagement signal source."""
 
     __tablename__ = "interactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "account_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "contact_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        Index(
+            "ix_interactions_org_contact_occurred_at",
+            "organization_id",
+            "contact_id",
+            "occurred_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
-    account_id: Mapped[UUID] = mapped_column(ForeignKey("accounts.id"))
+    account_id: Mapped[UUID]
+    contact_id: Mapped[UUID | None] = mapped_column(default=None)
     channel: Mapped[str] = mapped_column(String(64))
     occurred_at: Mapped[datetime]
     summary: Mapped[str] = mapped_column(String(2000), default="")
+    content: Mapped[str] = mapped_column(String(2000), default="")
 
 
 class Task(Base):
