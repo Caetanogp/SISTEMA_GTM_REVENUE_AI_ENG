@@ -17,6 +17,7 @@ scripts/.pytest_loop_temp_*/
 codex-revops-supervisor-*/
 pytest-of-Caetanogp123/
 UsersCAETAN~1AppDataLocalTempcodex-revops-pytest-*/
+UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-*/
 .mypy_cache/
 .ruff_cache/
 .coverage

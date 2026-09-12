@@ -7,7 +7,7 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 ## Item 1 - Domain attribution contracts
 
-- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
+- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`, `.gitignore`
 - **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Closes:** 1 tasks.md checkbox
 - **What:** define pure Campaign, Touchpoint and opportunity-status contracts.
