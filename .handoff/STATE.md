@@ -49,6 +49,8 @@ work without a new approved spec and queue.
 - `python -m evals.run --suite all` passed: tool selection 13/13 and lead scoring 15/15.
 - `python -m evals.gate` passed both thresholds.
 - Pre-commit hooks passed on all three commits.
+- A post-implementation evidence audit corrected five stale paths in the traceability matrix in
+  `1b1fa8f fix(docs): correct traceability evidence paths`; the matrix and checker pass again.
 
 ## Not verified
 
