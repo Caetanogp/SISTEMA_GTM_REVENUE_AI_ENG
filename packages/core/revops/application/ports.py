@@ -125,6 +125,13 @@ class CampaignRepository(Protocol):
 
 
 @runtime_checkable
+class ContactRepository(Protocol):
+    """Tenant-scoped contact reads needed to validate CRM relationships."""
+
+    async def get(self, organization_id: UUID, contact_id: UUID) -> Contact | None: ...
+
+
+@runtime_checkable
 class TouchpointRepository(Protocol):
     """Append-only tenant-scoped engagement events; no update or delete exists by design."""
 
@@ -133,7 +140,7 @@ class TouchpointRepository(Protocol):
     async def get(self, organization_id: UUID, touchpoint_id: UUID) -> Touchpoint | None: ...
 
     async def list_for_account(
-        self, organization_id: UUID, account_id: UUID
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
     ) -> Sequence[Touchpoint]: ...
 
 
