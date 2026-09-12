@@ -10,6 +10,8 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
+from revops.domain.errors import PolicyViolationError
+
 
 class OpportunityStage(StrEnum):
     PROSPECTING = "prospecting"
@@ -24,6 +26,14 @@ class OpportunityStage(StrEnum):
         return self not in (OpportunityStage.CLOSED_WON, OpportunityStage.CLOSED_LOST)
 
 
+class OpportunityStatus(StrEnum):
+    """The small, explicit revenue lifecycle independent of CRM stage names."""
+
+    OPEN = "open"
+    WON = "won"
+    LOST = "lost"
+
+
 @dataclass(slots=True)
 class Opportunity:
     id: UUID
@@ -31,3 +41,8 @@ class Opportunity:
     account_id: UUID
     stage: OpportunityStage
     value: Decimal
+    status: OpportunityStatus = OpportunityStatus.OPEN
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, OpportunityStatus):
+            raise PolicyViolationError("status must be an OpportunityStatus")
