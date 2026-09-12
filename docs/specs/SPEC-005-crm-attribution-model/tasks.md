@@ -6,7 +6,7 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
 
 - [x] Define pure `Campaign`, `Touchpoint` and opportunity-status contracts - verified 2026-09-12 by `pytest tests/unit/domain/entities/test_attribution.py -q` and `python scripts/autonomous_gate.py` (`ruff`, `mypy`, `lint-imports`, `pytest`, `check_agent_docs`: `OK`)
 - [x] Define tenant-scoped attribution DTOs and repository ports - verified 2026-09-12 by `pytest tests/unit/application/test_attribution.py -q` (5 passed), `ruff check packages/core/revops/application tests/unit/application`, `mypy packages/core/revops/application tests/unit/application` and `lint-imports`
-- [ ] Add organization and canonical-resolution validation - verified by cross-tenant and alias unit tests
+- [x] Add organization and canonical-resolution validation - verified 2026-09-12 by `pytest tests/unit/application/test_attribution.py -q` (10 passed), `ruff check packages/core/revops/application tests/unit/application/test_attribution.py`, `mypy packages/core/revops/application tests/unit/application/test_attribution.py` and `lint-imports`
 
 ## Persistence
 

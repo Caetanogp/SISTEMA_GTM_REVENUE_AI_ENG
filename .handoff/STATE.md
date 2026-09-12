@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-12
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 2 complete; Item 3 ready"
+phase: "Item 3 complete; Item 4 ready"
 status: in progress
 ---
 
@@ -18,12 +18,16 @@ LLM, UI, analytics or agent-tool work.
 ## Now
 
 SPEC-005 `spec.md`, `plan.md` and `tasks.md` are materialized and agreed. Its 11-item queue is
-active in `.handoff/AUTONOMOUS_QUEUE.md`. Item 1 is complete and ticked in
-`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 3 is next. No autonomous supervisor is
+active in `.handoff/AUTONOMOUS_QUEUE.md`. Items 1-3 are complete and ticked in
+`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 4 is next. No autonomous supervisor is
 currently running.
 
 ## Done
 
+- `7a241df feat(application): validate attribution relationships` added tenant-safe relationship
+  validation, canonical alias resolution for attribution writes/reads, and `ContactRepository`.
+  `pytest tests/unit/application/test_attribution.py -q` passed (10 passed); application-scoped
+  `ruff`, `mypy` and `lint-imports` passed.
 - `6c396e3 feat(application): add attribution ports and DTOs` added strict campaign/touchpoint input
   DTOs and tenant-scoped repository ports, covered by `tests/unit/application/test_attribution.py`.
 - Item 2 verification: `pytest tests/unit/application/test_attribution.py -q` passed (5 passed);
@@ -48,8 +52,8 @@ currently running.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` to confirm Item 2 completion.
-2. Begin Item 3 only in a separate authorized queue turn.
+1. Run `python scripts/autonomous_gate.py` to confirm Item 3 completion.
+2. Begin Item 4 only in a separate authorized queue turn.
 3. Run the complete `verify-before-done` procedure after all 11 items are complete.
 
 ## Gotchas
@@ -74,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 
 
 ## Open questions
 
-- None. Item 3 is covered by the approved SPEC-005 plan and queue.
+- None. Item 4 is covered by the approved SPEC-005 plan and queue.
 
 ## Historical halts
 
