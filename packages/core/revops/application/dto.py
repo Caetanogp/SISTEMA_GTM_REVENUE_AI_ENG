@@ -14,7 +14,7 @@ from enum import StrEnum
 from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from revops.domain.entities.deduplication import (
     DeduplicationCandidateStatus,
@@ -146,6 +146,37 @@ class CreateTaskArgs(BaseModel):
     owner_id: UUID
     title: str = Field(min_length=1)
     due_at: datetime
+
+
+class CreateCampaignArgs(BaseModel):
+    """Validated untrusted campaign fields before the authenticated tenant is injected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    channel: str = Field(min_length=1)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class CreateTouchpointArgs(BaseModel):
+    """Validated untrusted touchpoint fields before the authenticated tenant is injected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    contact_id: UUID | None = None
+    campaign_id: UUID | None = None
+    type: str = Field(min_length=1)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    occurred_at: datetime
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _require_aware_occurred_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("occurred_at must be timezone-aware")
+        return value
 
 
 class AccountScore(BaseModel):
