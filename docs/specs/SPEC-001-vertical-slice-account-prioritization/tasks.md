@@ -146,7 +146,7 @@ Additional failure-path coverage beyond the 10 numbered criteria: `tests/integra
 
 ### Independent verify-before-done evidence (2026-08-30)
 
-Executed on branch `feature/SPEC-001-agent-graph` at commit `dfa039a` with a clean working tree:
+Executed on the SPEC-001 feature branch at commit `dfa039a` with a clean working tree:
 
 - `ruff check .` and `ruff format --check .` passed (127 files already formatted)
 - `mypy .` passed (103 source files)
