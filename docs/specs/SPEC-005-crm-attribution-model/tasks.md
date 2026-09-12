@@ -4,7 +4,7 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
 
 ## Domain and application
 
-- [ ] Define pure `Campaign`, `Touchpoint` and opportunity-status contracts - verified by domain unit tests
+- [x] Define pure `Campaign`, `Touchpoint` and opportunity-status contracts - verified 2026-09-12 by `pytest tests/unit/domain/entities/test_attribution.py -q` and `python scripts/autonomous_gate.py` (`ruff`, `mypy`, `lint-imports`, `pytest`, `check_agent_docs`: `OK`)
 - [ ] Define tenant-scoped attribution DTOs and repository ports - verified by application unit tests
 - [ ] Add organization and canonical-resolution validation - verified by cross-tenant and alias unit tests
 
