@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-12
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 3 complete; Item 4 ready"
+phase: "Item 4 complete; Item 5 ready"
 status: in progress
 ---
 
@@ -18,12 +18,18 @@ LLM, UI, analytics or agent-tool work.
 ## Now
 
 SPEC-005 `spec.md`, `plan.md` and `tasks.md` are materialized and agreed. Its 11-item queue is
-active in `.handoff/AUTONOMOUS_QUEUE.md`. Items 1-3 are complete and ticked in
-`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 4 is next. No autonomous supervisor is
+active in `.handoff/AUTONOMOUS_QUEUE.md`. Items 1-4 are complete and ticked in
+`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 5 is next. No autonomous supervisor is
 currently running.
 
 ## Done
 
+- `fc929bc feat(persistence): add attribution models` added SQLAlchemy `Campaign` and append-only
+  `Touchpoint` models, tenant-scoped composite foreign keys, declared attribution indexes,
+  `Interaction.contact_id`/`content`, and `Opportunity.status` constrained to `open`, `won` or
+  `lost`. `pytest tests/unit/infrastructure/persistence/test_models.py -q` passed (10 passed);
+  scoped `ruff`, `mypy`, `lint-imports`, `git diff --check`, and the Item 4 autonomous gate all
+  passed. The pre-commit hooks also passed on commit.
 - `7a241df feat(application): validate attribution relationships` added tenant-safe relationship
   validation, canonical alias resolution for attribution writes/reads, and `ContactRepository`.
   `pytest tests/unit/application/test_attribution.py -q` passed (10 passed); application-scoped
@@ -52,9 +58,9 @@ currently running.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` to confirm Item 3 completion.
-2. Begin Item 4 only in a separate authorized queue turn.
-3. Run the complete `verify-before-done` procedure after all 11 items are complete.
+1. Begin Item 5 only in a separate authorized queue turn; it must create the additive Alembic
+   migration and inspect it offline before ticking its checkbox.
+2. Run the complete `verify-before-done` procedure after all 11 items are complete.
 
 ## Gotchas
 
@@ -78,7 +84,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 
 
 ## Open questions
 
-- None. Item 4 is covered by the approved SPEC-005 plan and queue.
+- None. Item 5 is covered by the approved SPEC-005 plan and queue.
 
 ## Historical halts
 

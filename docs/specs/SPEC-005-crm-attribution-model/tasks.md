@@ -10,7 +10,7 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
 
 ## Persistence
 
-- [ ] Add SQLAlchemy `Campaign` and `Touchpoint` models and fields on `Interaction`/`Opportunity` - verified by model tests
+- [x] Add SQLAlchemy `Campaign` and `Touchpoint` models and fields on `Interaction`/`Opportunity` - verified 2026-09-12 by `pytest tests/unit/infrastructure/persistence/test_models.py -q` (10 passed), `ruff check packages/core/revops/infrastructure/persistence/models.py tests/unit/infrastructure/persistence/test_models.py`, `mypy packages/core/revops/infrastructure/persistence/models.py tests/unit/infrastructure/persistence/test_models.py` and `lint-imports`
 - [ ] Add additive Alembic migration with indexes, tenant foreign keys and `open` backfill - verified by migration inspection
 - [ ] Implement repository CRUD/query contracts without mixing existing unit-of-work boundaries - verified by persistence unit tests
 - [ ] Run migration round-trip against Docker PostgreSQL - verified by `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head`
