@@ -20,7 +20,7 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 | [SPEC-002](SPEC-002-lead-account-ingestion/) | 1 | CSV/JSON import with async synthetic enrichment | done, merged into develop |
 | [SPEC-003](SPEC-003-deduplication/) | 1 | normalize -> match -> merge -> master record -> preserve history, for contacts and accounts | done, merged into develop |
 | [SPEC-004](SPEC-004-requirements-alignment/) | 0 | PDF traceability matrix, source-hash checker and mandatory offline eval gate | in progress |
-| SPEC-005-crm-attribution-model | 1 | Campaigns, touchpoints, source attribution, opportunity status and complete interaction relationships | not started |
+| [SPEC-005](SPEC-005-crm-attribution-model/) | 1 | Campaigns, touchpoints, source attribution, opportunity status and complete interaction relationships | agreed, design materialized |
 | SPEC-006-llm-gateway | 1/3 | Own multi-provider gateway for OpenAI and Anthropic with routing, fallback, health, versions and cost metadata | not started |
 | SPEC-007-rag-ingestion | 2 | Versioned ICP, product, pricing, playbook, brand voice and policy corpus with pgvector ingestion | not started |
 | SPEC-008-context-retrieval-memory | 2 | Task-scoped retrieval, hybrid/reranking evolution, memory and retrieval/generation evals | not started |
