@@ -1,74 +1,94 @@
 ---
 agent: codex
 updated_at: 2026-09-12
-branch: feature/SPEC-004-core-tools-reply-intelligence
-spec: SPEC-004-core-tools-reply-intelligence
-phase: "Design materialized; awaiting owner review before implementation."
-status: agreed; implementation not started
+branch: feature/SPEC-004-requirements-alignment
+spec: SPEC-004-requirements-alignment
+phase: "PDF requirements alignment and offline quality gate complete"
+status: done; awaiting owner review and next spec decisions
 ---
 
 # Current state
 
 ## Goal
 
-Materialize and implement the bounded core agent tool runtime defined by SPEC-004 without expanding
-into reply intelligence, multi-tool orchestration, or unattended architectural decisions.
+Keep the repository faithful to `docs/Agentic_GTM_Revenue_Operations_Platform_Guia_Projeto.pdf` by
+making requirement coverage, implementation evidence and remaining gaps explicit before new product
+development starts.
 
 ## Now
 
-SPEC-003 is complete and merged into local `develop`. SPEC-004 scope decisions are recorded:
-English and Portuguese support; mandatory offline evals with optional live evals. The real
-`spec.md`, `plan.md`, and `tasks.md` now exist in
-`docs/specs/SPEC-004-core-tools-reply-intelligence/`. No production code has been changed.
+SPEC-004 has been reformulated from the superseded core-tools design into requirements alignment.
+The branch contains a page-spanning PDF traceability matrix, a read-only source-hash/evidence
+checker, CI enforcement for the supported offline eval suites, and corrected roadmap/documentation
+references. No product runtime, database schema, API, UI, RAG or LLM provider code was changed.
 
-The current branch is `feature/SPEC-004-core-tools-reply-intelligence`. Local `develop` remains one
-commit ahead of `origin/develop` at `725a890` versus `6998b06`; no push was performed.
-
-No autonomous development loop is running. The `.handoff/.autonomous_gate_state.json` file is
-historical state from the previous pilot and is not evidence of an active loop.
+The current branch is `feature/SPEC-004-requirements-alignment`. No push was performed. No
+autonomous development loop is running. The old SPEC-003 autonomous queue and
+`.handoff/.autonomous_gate_state.json` are historical controls and must not be used to start new
+work without a new approved spec and queue.
 
 ## Done
 
-- SPEC-003 closeout was verified before its local merge: `python scripts/autonomous_gate.py` reported
-  `GOAL ACHIEVED: all queue items done, full gate green`; full unit, integration, adversarial, eval,
-  architecture, documentation, and secret checks passed. The final integration result was 26 passed
-  with three existing SQLAlchemy connection-cleanup warnings.
-- SPEC-004 scope decisions were confirmed by the owner on 2026-09-12: five core tools, one tool per
-  run, existing agent-run/SSE surface, bounded filters, canonical tenant-scoped context, email-only
-  drafts, HITL for `create_task`, OpenAI `store=false`, English and Portuguese, offline eval required,
-  live eval optional.
-- SPEC-004 design documents were created in commit `dedb29c` and `ROADMAP.md` now links the agreed
-  design. `python scripts/check_agent_docs.py` and `git diff --check` passed after the edits.
+- `0cc9106 docs(spec-004): align roadmap with project guide`: replaced the obsolete SPEC-004
+  runtime design, added `docs/requirements/PDF_TRACEABILITY.md` with 86 rows covering PDF pages 1-20,
+  corrected the roadmap/README and fixed stale SPEC-001 references.
+- `a952025 fix(ci): enforce offline eval gate`: removed the provider-key skip and unsupported suite
+  arguments from `.github/workflows/evals.yml`; CI now runs the traceability checker, supported
+  offline suites and `python -m evals.gate`.
+- `493aaad test(tooling): add PDF traceability checker`: added the standard-library checker and
+  negative/positive tests in `tests/unit/scripts/test_pdf_traceability.py`.
+- Source PDF hash verified as
+  `8C294C58019722357B98BEF75B2E3CA7B52D3BE21891FF9D9F7C7D0B4D86E42A`.
+- `python scripts/check_pdf_traceability.py` passed: `86 rows, pages 1-20 covered`.
+- `pytest tests/unit/scripts/test_pdf_traceability.py -q` passed: `3 passed`.
+- `pytest tests/unit -q` passed: `292 passed`.
+- `ruff check .` passed; `ruff format --check .` passed: 172 files already formatted.
+- `mypy .` passed: no issues in 135 source files.
+- `lint-imports` passed: 4 contracts kept, 0 broken.
+- `python scripts/check_agent_docs.py` and `git diff --check` passed.
+- `python -m evals.run --suite all` passed: tool selection 13/13 and lead scoring 15/15.
+- `python -m evals.gate` passed both thresholds.
+- Pre-commit hooks passed on all three commits.
+
+## Not verified
+
+- `docker compose ps` could not connect because Docker Desktop's Linux engine was unavailable.
+  Therefore the existing SPEC-001 Docker/pgvector checklist item remains unchecked and no
+  integration test result is claimed from this session.
+- GitHub Actions has not run locally; the workflow was reviewed and its YAML pre-commit hook passed.
 
 ## Next
 
-1. Owner reviews and approves `docs/specs/SPEC-004-core-tools-reply-intelligence/spec.md` and
-   `plan.md`, especially the typed result/event contract.
-2. Record the final result contract in an ADR or existing decision record, then begin the first
-   unchecked task on this feature branch.
-3. Implement domain and application contracts before infrastructure and API adapters, ticking
-   `tasks.md` only with observed evidence.
-4. Run the complete `docs/playbooks/verify-before-done.md` procedure before any merge or autonomous
-   loop consideration.
+1. Owner reviews `docs/requirements/PDF_TRACEABILITY.md`, especially states marked `partial` or
+   `planned`, and confirms that the PDF remains the source document at the recorded hash.
+2. Owner decides the scope of the next real spec. The roadmap's natural candidate is
+   `SPEC-005-crm-attribution-model`; numbers and scope remain deliberately changeable.
+3. Materialize and approve that spec's `spec.md`, then its `plan.md` and `tasks.md`, before writing
+   product code or creating a new autonomous queue.
+4. The likely complex design decisions for later RAG, gateway and tool-runtime work require a
+   deliberate design pass before implementation; do not infer those decisions from the roadmap.
 
 ## Gotchas
 
-- Do not implement code until the owner approves the documents; this is required by the spec playbook.
-- Reply intelligence is explicitly separate and out of scope for SPEC-004.
-- Preserve the existing unit-of-work boundaries and agent-run approval/checkpoint path.
-- Never push from an agent. `develop` integrates verified feature branches; `main` is hands-off.
-- Do not use a worktree: the editable install resolves to absolute paths in the main checkout.
+- RAG is intentionally planned for SPEC-007 and was not implemented or moved into this change.
+- The superseded `SPEC-004-core-tools-reply-intelligence` documents were removed from the roadmap
+  and replaced by `SPEC-004-requirements-alignment`; do not resume that old runtime scope.
+- The matrix's `implemented` state is evidence-backed, while `partial` and `planned` are explicit
+  gaps, not claims of completion.
+- Never push from an agent. `develop` integrates verified feature branches; `main` remains hands-off.
+- Do not launch an autonomous loop until a new approved spec, plan, tasks and queue exist.
 
 ## Resume
 
 ```powershell
 git status --short
 git rev-parse --abbrev-ref HEAD
-Get-Content docs/specs/SPEC-004-core-tools-reply-intelligence/spec.md
-Get-Content docs/specs/SPEC-004-core-tools-reply-intelligence/plan.md
+python scripts/check_pdf_traceability.py
+Get-Content docs/requirements/PDF_TRACEABILITY.md
+Get-Content docs/specs/ROADMAP.md
 ```
 
 ## Open questions
 
-- Owner approval of the materialized SPEC-004 documents and the final typed result/event contract is
-  still required before implementation.
+- Owner review is required for the matrix's requirement interpretation and the next spec scope.
+- Docker Desktop must be available before claiming the SPEC-001 pgvector/integration item.

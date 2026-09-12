@@ -22,4 +22,4 @@ Each item is independently verifiable. Do not mark an item complete without obse
 ## Closeout
 
 - [x] Run targeted tests, documentation checks, diff checks and supported offline evals - verified 2026-09-12 by checker, Ruff, mypy, import-linter, `pytest tests/unit -q` (`292 passed`), evals and `python scripts/check_agent_docs.py`
-- [ ] Update `.handoff/STATE.md` with branch, commits, evidence and next owner decision - verified by file review
+- [x] Update `.handoff/STATE.md` with branch, commits, evidence and next owner decision - verified 2026-09-12 by file review after the implementation commits
