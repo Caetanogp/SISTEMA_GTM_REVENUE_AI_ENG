@@ -1,255 +1,74 @@
 ---
 agent: codex
-updated_at: 2026-09-09
-branch: develop
-spec: SPEC-003-deduplication
-phase: "SPEC-003 merged and published; awaiting SPEC-004 scope decisions."
-status: complete
+updated_at: 2026-09-12
+branch: feature/SPEC-004-core-tools-reply-intelligence
+spec: SPEC-004-core-tools-reply-intelligence
+phase: "Design materialized; awaiting owner review before implementation."
+status: agreed; implementation not started
 ---
 
 # Current state
 
 ## Goal
 
-Complete SPEC-003 deduplication without moving product, security, or public-contract decisions into
-an unattended loop.
+Materialize and implement the bounded core agent tool runtime defined by SPEC-004 without expanding
+into reply intelligence, multi-tool orchestration, or unattended architectural decisions.
 
 ## Now
 
-SPEC-003 is complete, merged into `develop`, and published to `origin/develop`. No SPEC-004 scope
-has been approved yet. The next implementation must begin with a real `spec.md` after the owner
-decides its scope, acceptance criteria, risks, and out-of-scope boundaries.
+SPEC-003 is complete and merged into local `develop`. SPEC-004 scope decisions are recorded:
+English and Portuguese support; mandatory offline evals with optional live evals. The real
+`spec.md`, `plan.md`, and `tasks.md` now exist in
+`docs/specs/SPEC-004-core-tools-reply-intelligence/`. No production code has been changed.
 
-Commits `8ec1e0c` through `e1b4609` contain the bounded supervisor, gate, Windows launcher fixes,
-policy, ADR, tests, and pilot handoff evidence. The branch is not fully published after these
-local commits; no push was performed.
+The current branch is `feature/SPEC-004-core-tools-reply-intelligence`. Local `develop` remains one
+commit ahead of `origin/develop` at `725a890` versus `6998b06`; no push was performed.
 
-The approved process change is implemented and committed: the economical Codex executor now
-returns structured outcomes; a clean `architecture_required` invokes separate read-only
-`gpt-5.6-sol/xhigh` architect and reviewer processes for at most two attempts. Approved plans get
-an external item/baseline-bound scope overlay. Product, public-contract, dependency, destructive
-migration, security, verification, external-action, dirty-worktree, and non-dominant choices remain
-`HUMAN_REQUIRED`.
-
-The independent first review found five launch/control issues. They are fixed: global CLI flags
-precede `exec`, protected controls are hashed and checked before outcomes/gates, the launcher runs
-from the selected checkout, baseline rollover requires an external exact-SHA authorization, and
-authorization tests no longer depend on the OS temp location. The supervisor now also refuses a
-temporary-directory fallback inside the checkout.
+No autonomous development loop is running. The `.handoff/.autonomous_gate_state.json` file is
+historical state from the previous pilot and is not evidence of an active loop.
 
 ## Done
 
-- Item 6 implementation commit `77c1815`: bounded idempotent Celery scans, retry behavior, queue
-  failure visibility, and replay-safe candidate upserts. Observed isolated integration suite:
-  23 passed.
-- Supervisor focused checks observed on 2026-09-01: `ruff` and focused `mypy` passed; 46 focused
-  tests passed both normally and with a repository-local pytest basetemp.
-- Broad checks observed after the review fixes: `pytest tests/unit tests/architecture -q` passed
-  with 287 tests; `lint-imports` kept all 4 contracts; `python scripts/check_agent_docs.py` passed;
-  `ruff check .`, `ruff format --check .`, and `mypy .` passed (128 source files).
-- Real CLI probes `codex --ask-for-approval never exec --help` and
-  `codex --search exec --help` both exited 0. PowerShell launcher parsing passed.
-- ADR-0007 records the bounded escalation decision and hard-stop policy.
-- Checkpoint commit `8ec1e0c` passed pre-commit checks, including ruff, format, secret detection,
-  agent-doc validation, and branch protection. Handoff commit `7f97b47` also passed its pre-commit
-  checks.
+- SPEC-003 closeout was verified before its local merge: `python scripts/autonomous_gate.py` reported
+  `GOAL ACHIEVED: all queue items done, full gate green`; full unit, integration, adversarial, eval,
+  architecture, documentation, and secret checks passed. The final integration result was 26 passed
+  with three existing SQLAlchemy connection-cleanup warnings.
+- SPEC-004 scope decisions were confirmed by the owner on 2026-09-12: five core tools, one tool per
+  run, existing agent-run/SSE surface, bounded filters, canonical tenant-scoped context, email-only
+  drafts, HITL for `create_task`, OpenAI `store=false`, English and Portuguese, offline eval required,
+  live eval optional.
+- SPEC-004 design documents were created in commit `dedb29c` and `ROADMAP.md` now links the agreed
+  design. `python scripts/check_agent_docs.py` and `git diff --check` passed after the edits.
 
 ## Next
 
-1. Complete merge/revert stale-fingerprint, lock-order, event-reservation, and shared-master
-   concurrency behavior required by the approved Item 7 design.
-2. Add and run real PostgreSQL API, persistence, and concurrency integration coverage with Docker
-   Desktop available; the current machine cannot connect to `dockerDesktopLinuxEngine`.
-3. Add adversarial coverage, tick the two Item 7 task boxes only after evidence exists, then run the
-   full `docs/playbooks/verify-before-done.md` procedure before considering a loop restart.
+1. Owner reviews and approves `docs/specs/SPEC-004-core-tools-reply-intelligence/spec.md` and
+   `plan.md`, especially the typed result/event contract.
+2. Record the final result contract in an ADR or existing decision record, then begin the first
+   unchecked task on this feature branch.
+3. Implement domain and application contracts before infrastructure and API adapters, ticking
+   `tasks.md` only with observed evidence.
+4. Run the complete `docs/playbooks/verify-before-done.md` procedure before any merge or autonomous
+   loop consideration.
 
 ## Gotchas
 
-- Never use a worktree: the editable install resolves to absolute paths in the main checkout.
-- Commit an item's implementation before ticking its `tasks.md` boxes; ticking first desynchronizes
-  the gate baseline.
-- The shared `revops` database has an obsolete pre-correction deduplication schema. Item 6 used the
-  isolated migrated `revops_codex_spec003` database; no destructive downgrade was authorized.
-- OneDrive/Defender can deny access to stale ignored temp directories. Current ignore/mypy rules
-  exclude them, and the supervisor fails closed if `tempfile` resolves inside the repository.
+- Do not implement code until the owner approves the documents; this is required by the spec playbook.
+- Reply intelligence is explicitly separate and out of scope for SPEC-004.
+- Preserve the existing unit-of-work boundaries and agent-run approval/checkpoint path.
+- Never push from an agent. `develop` integrates verified feature branches; `main` is hands-off.
+- Do not use a worktree: the editable install resolves to absolute paths in the main checkout.
 
 ## Resume
 
 ```powershell
 git status --short
 git rev-parse --abbrev-ref HEAD
-pytest tests/unit/scripts/test_autonomous_gate.py tests/unit/scripts/test_codex_loop_supervisor.py -q
-python scripts/autonomous_gate.py
+Get-Content docs/specs/SPEC-004-core-tools-reply-intelligence/spec.md
+Get-Content docs/specs/SPEC-004-core-tools-reply-intelligence/plan.md
 ```
 
 ## Open questions
 
-- Item 7 needs an architecture plan for a locked current-record fingerprint validation seam,
-  established-master alias-group protection, and paginated deduplication-event history. These
-  contracts are absent from the approved Item 7 API-only scope and must not be recreated in a
-  FastAPI router.
-
-## Gate observation (2026-09-02)
-
-The first external authorization artifact was rejected for a UTF-8 BOM; after handoff cleanup, the
-exact external rollover was approved from baseline `3214ed2` to `3ff6c2c`, covering 14 exact
-supervisor-change paths. The ordinary gate then reported Item 7 pending because it has not yet
-touched `apps/api/` and `tests/integration/`; no scope HALT remains.
-
-## Pilot observation (2026-09-02)
-
-The first pilot attempt stopped before the executor because `uv.lock` is not tracked by this
-repository but was incorrectly required by the supervisor control snapshot. The supervisor was
-corrected to snapshot only controls that exist in this checkout; no Item 7 implementation ran.
-
-## Pilot observation (2026-09-02, executable resolution)
-
-The second pilot stopped before the executor because Python could not resolve the Windows `codex`
-alias (`WinError 2`), although `codex.cmd` is installed. The launcher now passes `codex.cmd`
-explicitly; no Item 7 implementation ran.
-
-## Gate observation (2026-09-02, authorization retry)
-
-The rollover retry was rejected because its previous baseline SHA was mistyped. The exact gate
-baseline is `92cfd4f5658d9c0e8cdb01b392105ec3acb25002`; no Item 7 implementation ran.
-
-## Item 7 architecture observation (2026-09-02)
-
-Direct inspection confirms the previously recorded gap remains: `MergeDeduplicationCandidate`
-locks the candidate but has no port to lock/recompute the current member fingerprints or reject a
-demoted established master with active aliases. `DeduplicationEventRepository` exposes only
-idempotency lookup and append, so it cannot serve the specified paginated merge/revert history.
-Correct implementation requires application and persistence changes outside Item 7's declared
-`apps/api/`, `tests/unit/apps/`, and `tests/integration/` scope. No Item 7 implementation or task
-checkbox change was made. Observed `python scripts/autonomous_gate.py`: exit 1, pending required
-evidence paths `apps/api/` and `tests/integration/`.
-
-## Pilot observation (2026-09-02, architect prompt encoding)
-
-The executor correctly returned `architecture_required` and committed handoff-only evidence as
-`0696c8b`. The architect process then rejected the Windows-locale prompt encoding before any
-architecture decision. The runner now explicitly uses UTF-8 for subprocess input and output; the
-pilot must resume from this clean checkpoint.
-
-## Pilot result (2026-09-09)
-
-The real pilot reached the executor, which returned `architecture_required` without Item 7 changes.
-The first architect plan was revised by the reviewer; the second plan was also rejected after the
-two-attempt limit. The supervisor then issued `HUMAN_REQUIRED` and stopped as designed.
-
-The deliberate design pass resolved:
-
-- Shared-master concurrency: repeated absorption into the same established master may serialize and
-  succeed; competing demotion or alias reuse must produce one write and one `409`.
-- Lock/replay ordering: persisted-event replay reads are non-locking; only the revert target event
-  receives the ordered lock, avoiding event/alias deadlocks.
-- Scan request identity: canonicalize `record_types` to a deterministic enum order before strict
-  idempotency comparison, persistence, and publication.
-
-The approved plan is recorded in `docs/specs/SPEC-003-deduplication/plan.md` and was tightened after
-an independent review in commits `330cbbf` and `246c8b4`. Item 7's queue scope now includes the
-application, domain policy, persistence, queue, API, worker, and test layers required by that plan.
-
-## Implementation observation (2026-09-09)
-
-Preparation commits `56c5e2c`, `7615ef6`, and `c648f78` aligned the queue, DTO/domain contracts,
-scan dispatch, and deterministic candidate pagination. API commits `b1ca39e`, `4cfcfd3`, and
-`eeb43d6` added admin-only scan, status, candidate, dismissal, merge, history, and revert routes;
-`0cd0039` corrected event-before-alias ordering for foreign-key-safe merge/revert transactions.
-Observed local evidence: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`,
-`python scripts/check_agent_docs.py`, and `pytest tests/unit -q` passed; 289 unit tests passed.
-`python scripts/autonomous_gate.py` reports Item 7 quality green but correctly refuses completion
-until its task checklist is ticked. The live integration command was not executable because Docker
-Desktop was unavailable, so no integration success is claimed.
-
-Docker Desktop was subsequently started. Against the isolated `DATABASE_URL` for
-`revops_codex_spec003`, `python -m alembic upgrade head` passed, the Item 7 API/persistence checks
-passed (`2 passed`), the real Celery/Redis worker check passed (`1 passed`), and the complete
-integration suite passed (`24 passed`, with three existing SQLAlchemy connection-cleanup warnings).
- The shared `revops` database remains untouched because its legacy deduplication schema is not the
-current migration shape.
-
-The next transaction pass added PostgreSQL `add_if_absent` event reservation with
-`ON CONFLICT DO NOTHING`, preserving the pre-lock replay check and preventing duplicate event
-uniqueness errors from reaching the API. Focused deduplication integration passed again (`3 passed`)
-against `revops_codex_spec003`; four existing deduplication use-case tests also passed. This is
-still an intermediate checkpoint: merge/revert fingerprint revalidation, deterministic group locks,
-and full `MergeEligibilityPolicy` orchestration are not yet complete.
-
-The subsequent transaction pass completed locked canonical resolution, owning-account locks for
-contact decisions, current fingerprint revalidation, and `MergeEligibilityPolicy` orchestration.
-Merge and revert now reserve events before alias mutation. Observed complete local checks after this
-pass: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, `pytest tests/unit -q`
-(`289 passed`), and isolated `pytest tests/integration -q` (`24 passed`, three existing ingestion
-connection-cleanup warnings). The remaining closeout evidence is explicit concurrent/adversarial
-coverage and acceptance-criteria mapping; Item 7 remains unticked and no long loop is authorized.
-
-Closeout coverage was extended with an isolated two-session event-reservation race and adversarial
-validation for invalid record types, duplicate inputs, and payload/idempotency-key disclosure.
-Observed evidence: `pytest tests/adversarial -q` passed (`8 passed`) and the focused persistence
-integration passed (`2 passed`) against `revops_codex_spec003`. The Item 7 checklist remains unticked
-because end-to-end API authorization, pagination/replay, stale decision, and review-to-revert tests
-still need to be added and observed before the full verify-before-done run.
-
-## API closeout evidence (2026-09-09)
-
-Added real PostgreSQL/ASGI coverage in `tests/integration/test_deduplication_api_flow.py:32` for
-admin authorization and tenant-safe reads, pagination bounds, queued-scan visibility protection,
-stale fingerprint rejection, merge, idempotent replay, merge history, and revert. The test exposed
-and fixed a production composition bug in `apps/api/routes/deduplication.py:181`: merge now selects
-the fifth service from the seven-service composition tuple.
-
-Observed evidence on isolated `revops_codex_spec003`: `pytest tests/integration/test_deduplication_api_flow.py -q`
-passed (`1 passed`); `pytest tests/unit -q` passed (`289 passed`); `pytest tests/integration -q` passed
-(`26 passed`, three existing SQLAlchemy connection-cleanup warnings); `pytest tests/adversarial -q`
-passed (`8 passed`); `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`,
-`python scripts/check_agent_docs.py`, and `gitleaks detect --no-git` returned success. The two Item 7
-API task boxes are now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:28-29`.
-
-## Next
-
-Complete the remaining SPEC-003 closeout tasks: review the unmatched acceptance criteria, add the
-required ADR/README operations update if still absent, map every acceptance criterion to observed
-file-and-line evidence, run the full `docs/playbooks/verify-before-done.md`, and only then decide
-whether the branch is ready for the supervised merge/loop transition. No long loop is authorized
-by this checkpoint.
-
-## Post-merge state (2026-09-10)
-
-The verified `feature/SPEC-003-deduplication` branch was merged locally into `develop` after
-`python scripts/autonomous_gate.py` reported `GOAL ACHIEVED: all queue items done, full gate green`.
-The merge commit is recorded in local Git history. No remote push was performed.
-
-There is no implementation-ready next spec. Before any new loop, the owner must decide the scope of
-SPEC-004 and agree its real `spec.md`; only then should `plan.md`, `tasks.md`, and a new queue be
-created. The roadmap's placeholder numbers are not fixed scope.
-
-## Security and failure coverage evidence (2026-09-09)
-
-Extended `tests/adversarial/test_deduplication_security.py:43` to reject untrusted PII fields in
-administrative decision requests. Existing adversarial cases cover invalid/duplicate scan inputs
-and history payload/idempotency disclosure; integration coverage covers tenant isolation, concurrent
-event reservation, real worker delivery, bounded scans, stale decisions, merge replay, and revert.
-
-Observed evidence: `pytest tests/adversarial -q` passed (`9 passed`); focused deduplication API,
-persistence, and worker integration passed (`4 passed`) against `revops_codex_spec003`. Item 8
-security and integration task boxes are now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:33-34`.
-
-The full verify-before-done sequence then passed: `ruff check .`, `ruff format --check .`, `mypy .`,
-`lint-imports`, `pytest tests/unit tests/architecture -q` (`291 passed`), `pytest tests/integration -q`
-(`26 passed`, three existing SQLAlchemy connection-cleanup warnings), `pytest tests/adversarial -q`
-(`9 passed`), `python -m evals.run --suite all` (`accuracy=1.00`, `exact_match=1.00`),
-`python scripts/check_agent_docs.py`, and `gitleaks detect --no-git` returned success. The only
-initial scanner finding was the documentation placeholder `nightly-dedupe-2026-09-09`; it was
-replaced with `<dedupe-example-key>`, after which no leaks were found. The final verify checkbox is
-now ticked in `docs/specs/SPEC-003-deduplication/tasks.md:37`.
-
-The gate's earlier queue-range halt was caused by the final verify checkbox being present in the
-tasks file but not yet ticked; it is resolved by the completed checklist and is retained in this
-history for auditability.
-
-## Autonomous loop HALT (2026-09-10T02:28:57+00:00)
-
-Queue and tasks.md are out of sync - done_count is not covered by any item's closes range. Check every item's `- **Closes:** N tasks.md checkboxes` line adds up to tasks.md's total checkbox count for this section.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+- Owner approval of the materialized SPEC-004 documents and the final typed result/event contract is
+  still required before implementation.
