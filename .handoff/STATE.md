@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-12
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 1 complete; Item 2 ready"
+phase: "Item 2 complete; Item 3 ready"
 status: in progress
 ---
 
@@ -19,10 +19,15 @@ LLM, UI, analytics or agent-tool work.
 
 SPEC-005 `spec.md`, `plan.md` and `tasks.md` are materialized and agreed. Its 11-item queue is
 active in `.handoff/AUTONOMOUS_QUEUE.md`. Item 1 is complete and ticked in
-`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 2 is now the active item. No autonomous
-supervisor is currently running.
+`docs/specs/SPEC-005-crm-attribution-model/tasks.md`; Item 3 is next. No autonomous supervisor is
+currently running.
 
 ## Done
+
+- `6c396e3 feat(application): add attribution ports and DTOs` added strict campaign/touchpoint input
+  DTOs and tenant-scoped repository ports, covered by `tests/unit/application/test_attribution.py`.
+- Item 2 verification: `pytest tests/unit/application/test_attribution.py -q` passed (5 passed);
+  application-scoped `ruff`, `mypy` and `lint-imports` passed.
 
 - `f0a3c19 fix(loop): restore item scope` — removed the ineffective temporary-directory ignore and
   restored Item 1's declared scope after the gate identified the queue edit as out of scope.
@@ -43,11 +48,9 @@ supervisor is currently running.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` once to establish the new Item 2 baseline.
-2. Launch a short pilot for Item 2 and inspect its real commit, scope and application tests.
-3. Continue item by item only after each gate result is observed; launch the long run only after the
-   pilot is clean.
-4. Run the complete `verify-before-done` procedure after all 11 items are complete.
+1. Run `python scripts/autonomous_gate.py` to confirm Item 2 completion.
+2. Begin Item 3 only in a separate authorized queue turn.
+3. Run the complete `verify-before-done` procedure after all 11 items are complete.
 
 ## Gotchas
 
@@ -71,7 +74,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 
 
 ## Open questions
 
-- None. Item 2 is covered by the approved SPEC-005 plan and queue.
+- None. Item 3 is covered by the approved SPEC-005 plan and queue.
 
 ## Historical halts
 
