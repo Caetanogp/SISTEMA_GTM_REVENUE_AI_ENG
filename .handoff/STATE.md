@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 10 complete; Item 11 ready"
+phase: "Item 11 closeout awaiting full autonomous gate"
 status: in progress
 ---
 
@@ -11,54 +11,41 @@ status: in progress
 
 ## Goal
 
-Implement the PDF-aligned CRM attribution foundation: campaigns, touchpoints, source metadata,
-opportunity status and complete account/contact interaction relationships, without starting RAG,
-LLM, UI, analytics or agent-tool work.
+Complete the PDF-aligned CRM attribution foundation: campaigns, touchpoints, source metadata,
+opportunity status, and complete account/contact interaction relationships.
 
 ## Now
 
-SPEC-005 Item 10 is committed and evidenced. `pytest tests/adversarial -q` passed with 11 tests,
-the PDF traceability checker passed all 86 rows across pages 1-20, and `python -m evals.gate`
-passed tool selection (14/14) and lead scoring (15/15). No autonomous supervisor is currently
-running.
+Item 11 traceability evidence is committed and its mapped checklist box is recorded. Run the full
+autonomous gate against this closeout commit before declaring the spec complete.
 
 ## Done
 
-- `324e62d test(security): cover untrusted attribution metadata` added adversarial coverage that
-  CRM attribution metadata cannot inject organization ownership or relationship identifiers, and
-  added an offline tool-selection case that refuses metadata-based bulk task instructions. The Item
-  10 gate (Ruff, mypy, lint-imports, unit/architecture tests and agent docs) was green; adversarial
-  tests (11), PDF traceability checker (86 rows) and eval gate (14/14, 15/15) also passed.
-- `32e7b78 test(persistence): cover attribution integration behavior` added real PostgreSQL
-  coverage for campaign/touchpoint relationship round-trips, tenant-scoped reads, cross-tenant
-  relationship rejection, interaction contact/content persistence, explicit opportunity lifecycle
-  filtering and documented append-only duplicate touchpoints. The complete integration suite passed
-  (36), along with scoped Ruff, mypy and lint-imports. `aa96fae docs(spec): record item 9
-  integration evidence` checked Item 9 only after that evidence existed.
-- `2f8b190 fix(persistence): reconcile published migration history` added forward revision
-  `f6a8c0d2b5e7`, preserved generic deduplication history, copied legacy typed data, aligned ORM and
-  Alembic metadata, and fixed revert event type resolution. Isolated legacy/current migration tests
-  passed (4), migration round-trip tests passed (5 total), and existing ingestion, deduplication and
-  prioritization integration tests passed (19). `alembic check` reported no new operations.
-- `1734abc docs(spec): record item 8 compatibility evidence` checked Item 8 only after its code
-  commit and green gate. The following gate advanced to Item 9 with baseline `1734abc` and no halt.
-- `2fa27cc docs(persistence): approve migration history reconciliation` recorded the user-approved
-  design in the active plan and ADR-0009. Its exact three-path baseline rollover exited 0.
-- Items 1-7 remain committed and evidenced in the active `tasks.md`; detailed history stays in git.
+- `998a5ba docs(requirements): close CRM attribution traceability` updated PDF-02-001 and
+  PDF-05-004 through PDF-05-006 with model, migration, and integration-test evidence;
+  `python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20 covered).
+- `324e62d test(security): cover untrusted attribution metadata` passed adversarial tests (11),
+  traceability (86 rows), and eval gate (tool selection 14/14; lead scoring 15/15).
+- `32e7b78 test(persistence): cover attribution integration behavior` passed
+  `pytest tests/integration -q` (36 passed) with relationship, lifecycle, tenant-isolation, and
+  append-only touchpoint behavior.
+- `2f8b190 fix(persistence): reconcile published migration history` passed migration round-trip
+  tests (5) and existing ingestion/deduplication/prioritization integration tests (19).
 
 ## Next
 
-1. Complete Item 11 evidence, full gate and handoff closeout.
+1. Run `python scripts/autonomous_gate.py` and record its full-quality result.
+2. If it exits 0, commit the final handoff state and re-run the gate.
+3. If it does not exit 0, keep the spec open and address only the reported in-scope failure.
 
 ## Gotchas
 
-- The executor may not edit the queue, gate, supervisor, AGENTS.md, authorization artifacts or main.
-- Docker PostgreSQL and Redis are required only for Item 7 and later integration items.
-- Existing unit-of-work boundaries remain unchanged: the adapters flush but never commit.
-- Applied revision `b7c9d1e2f304` is immutable; repair only through later forward revisions.
-- Preserved generic deduplication objects are audit compatibility data, not current write targets.
-- Product scope is fixed by SPEC-005; new statuses, attribution algorithms, external connectors or
-  agent exposure require a deliberate scope change.
+- The temporary supervisor/pytest artifact from Item 10 was moved recoverably outside the checkout;
+  it was not repository work and otherwise appeared as an out-of-scope untracked change to the gate.
+- The executor may not edit the queue, gate, supervisor, AGENTS.md, authorization artifacts, or main.
+- Applied revision `b7c9d1e2f304` is immutable; reconciliation uses forward revision `f6a8c0d2b5e7`.
+- New attribution fields are internal persistence contracts only; no agent tool, UI, analytics, or
+  external connector is in scope.
 
 ## Resume
 
@@ -69,4 +56,4 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-- None. The user approved the forward-only reconciliation in Plan Mode on 2026-09-13.
+- None.
