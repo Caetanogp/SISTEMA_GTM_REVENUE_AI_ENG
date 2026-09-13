@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 7 complete; Item 8 authorized for long run"
+phase: "Item 8 migration-history reconciliation approved"
 status: in progress
 ---
 
@@ -17,8 +17,11 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 7 is committed, evidenced and accepted by the autonomous gate. The user authorized
-the long supervisor run, starting with Item 8. No supervisor is currently running.
+SPEC-005 Item 8 is ready for implementation after a user-approved deliberate design pass. The
+approved remedy is a new forward, additive migration after `e4f6a8c0d2b5` that converges both the
+original generic deduplication schema and the current typed schema. It preserves legacy objects and
+data, validates conflicts and tenant integrity, and never edits `b7c9d1e2f304` again. The decision
+is recorded in the active plan and ADR-0009. No implementation has started.
 
 ## Done
 
@@ -55,9 +58,9 @@ the long supervisor run, starting with Item 8. No supervisor is currently runnin
 
 ## Next
 
-1. Launch the long supervisor run with `-MaxTurns 100`, starting at Item 8.
-2. Inspect commits, gate results and scope after the run completes or halts.
-3. Keep the full verification and traceability closeout for Item 11.
+1. Apply the one-time exact-SHA baseline rollover for the approved architecture documentation.
+2. Implement and test the additive reconciliation under Item 8's existing code scope.
+3. Run the Item 8 gate, then continue integration, security and closeout Items 9-11.
 
 ## Gotchas
 
@@ -76,7 +79,7 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-- None. Item 8 is authorized by the user for this run.
+- None. The user approved the forward-only reconciliation in Plan Mode on 2026-09-13.
 
 ## Historical pilot halt
 
@@ -86,5 +89,11 @@ not a code or sandbox failure; the long run is a separate authorized execution.
 ## Autonomous loop HALT (2026-09-13T04:46:00+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Supervisor reached its maximum of 3 Codex turns
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-13T05:04:24+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture escalation was requested after uncommitted changes; refusing to design over a partial implementation
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

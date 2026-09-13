@@ -40,6 +40,21 @@ legacy events are valid. All foreign keys are tenant-checked in the application/
 4. Verify `alembic upgrade head`, `alembic downgrade -1`, and `alembic upgrade head` against Docker
    PostgreSQL. Do not run destructive SQL or rewrite historical foreign keys.
 
+### Migration-history reconciliation
+
+Revision `b7c9d1e2f304` was changed after it had been applied to a development database. The recorded
+revision can therefore be at `e4f6a8c0d2b5` while the physical schema still contains the original
+generic deduplication tables and lacks `ingestion_items.phone`. Repair this only through a new
+forward revision after `e4f6a8c0d2b5`; do not edit the historical revision again or reset a database.
+
+The repair must converge both the original generic shape and the current typed shape. It creates
+missing typed objects conditionally, validates tenant and reference integrity, and copies legacy
+candidates, events and aliases without changing IDs or payloads. Unknown record types, orphans,
+cross-tenant references and conflicting typed rows abort the transaction. Generic tables, their
+event linkage and historical simple foreign keys remain in place as preserved audit evidence. The
+repair downgrade is intentionally monotonic: it moves the Alembic pointer back but never deletes
+reconciled schema or data. Applications and workers must be stopped while the migration runs.
+
 ## Trade-offs
 
 - **Campaign fields instead of a separate attribution table:** matches the PDF's campaign
