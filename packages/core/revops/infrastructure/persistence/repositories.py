@@ -32,7 +32,7 @@ from revops.domain.entities.campaign import Campaign
 from revops.domain.entities.contact import Contact
 from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.entities.interaction import Interaction
-from revops.domain.entities.opportunity import Opportunity, OpportunityStage
+from revops.domain.entities.opportunity import Opportunity, OpportunityStage, OpportunityStatus
 from revops.domain.entities.task import Task, TaskStatus
 from revops.domain.entities.touchpoint import Touchpoint
 from revops.domain.values.company_domain import CompanyDomain
@@ -121,6 +121,7 @@ def _to_opportunity(row: OpportunityModel) -> Opportunity:
         account_id=row.account_id,
         stage=OpportunityStage(row.stage),
         value=row.value,
+        status=OpportunityStatus(row.status),
     )
 
 
@@ -194,6 +195,7 @@ class SqlAlchemyAccountRepository:
             OpportunityModel.organization_id == organization_id,
             OpportunityModel.account_id.in_(ids),
             OpportunityModel.stage.in_(_OPEN_STAGE_VALUES),
+            OpportunityModel.status == OpportunityStatus.OPEN.value,
         )
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_to_opportunity(row) for row in rows]
