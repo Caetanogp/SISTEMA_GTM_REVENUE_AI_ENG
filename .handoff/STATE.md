@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 5 implementation complete; autonomous gate pending"
+phase: "Item 5 complete; gate advanced to Item 6"
 status: in progress
 ---
 
@@ -19,7 +19,7 @@ LLM, UI, analytics or agent-tool work.
 
 SPEC-005 `spec.md`, `plan.md` and `tasks.md` are agreed. Its 11-item queue is active in
 `.handoff/AUTONOMOUS_QUEUE.md`; Items 1-5 are complete and ticked. Item 5 is committed locally and
-the autonomous gate has not yet been run after the checklist/state evidence commit. No autonomous
+the autonomous gate advanced to Item 6 after the checklist/state evidence commit. No autonomous
 supervisor is currently running.
 
 ## Done
@@ -30,6 +30,8 @@ supervisor is currently running.
   tenant FKs and declared indexes. Offline SQL for only the new revision passed with
   `alembic upgrade b7c9d1e2f304:head --sql`; migration/model tests passed (13 passed); scoped
   Ruff, mypy, lint-imports, `git diff --check`, and pre-commit hooks passed.
+- Item 5 gate: `python scripts/autonomous_gate.py` exited 1 at the expected Item 6 evidence-path
+  checkpoint; the worktree was clean and no halt was reported.
 - `fc929bc feat(persistence): add attribution models` added SQLAlchemy `Campaign` and append-only
   `Touchpoint` models, tenant-scoped composite foreign keys, declared attribution indexes,
   `Interaction.contact_id`/`content`, and `Opportunity.status` constrained to `open`, `won` or
@@ -64,9 +66,9 @@ supervisor is currently running.
 
 ## Next
 
-1. Commit the Item 5 checklist and handoff evidence.
-2. Run `python scripts/autonomous_gate.py` and record its observed result.
-3. Start Item 6 only in a separate authorized queue turn.
+1. Start Item 6 only in a separate authorized queue turn.
+2. Run the Docker migration round-trip only when Item 7 becomes active.
+3. Run the complete `verify-before-done` procedure after all 11 items are complete.
 
 ## Gotchas
 
