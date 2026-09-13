@@ -22,6 +22,6 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
   existing ingestion/deduplication/prioritization integration set (19 passed), and
   `python scripts/autonomous_gate.py` (Ruff, mypy, lint-imports, unit/architecture tests and agent
   docs green); implementation commit `2f8b190`
-- [ ] Add relationship, lifecycle, idempotency and tenant-isolation integration tests - verified by `pytest tests/integration -q`
+- [x] Add relationship, lifecycle, idempotency and tenant-isolation integration tests - verified 2026-09-13 by `pytest tests/integration -q` (36 passed), `ruff check packages/core/revops/infrastructure/persistence/repositories.py tests/integration/test_attribution_behavior.py`, `ruff format --check packages/core/revops/infrastructure/persistence/repositories.py tests/integration/test_attribution_behavior.py`, `mypy packages/core/revops/infrastructure/persistence/repositories.py tests/integration/test_attribution_behavior.py` and `lint-imports`; implementation commit `32e7b78`
 - [ ] Confirm adversarial/security behavior and no offline eval regression - verified by `pytest tests/adversarial -q` and `python -m evals.gate`
 - [ ] Update traceability evidence and complete closeout - verified by checker, full gate and `.handoff/STATE.md`
