@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 7 implementation committed; autonomous gate pending"
+phase: "Item 7 complete; gate advanced to Item 8"
 status: in progress
 ---
 
@@ -17,8 +17,8 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 7 is committed and evidenced. Run the autonomous gate before starting no further
-queue item.
+SPEC-005 Item 7 is committed, evidenced and accepted by the autonomous gate. Do not begin Item 8
+without a separately authorized queue turn.
 
 ## Done
 
@@ -30,7 +30,8 @@ queue item.
   `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head` and
   `pytest tests/unit/infrastructure/persistence/test_attribution_migration.py tests/unit/infrastructure/persistence/test_models.py tests/integration/test_attribution_migration_round_trip.py -q`
   passed (14 passed). Scoped Ruff, format, mypy, `lint-imports`, `git diff --check` and the commit
-  hooks passed.
+  hooks passed. `python scripts/autonomous_gate.py` exited 1 at the expected Item 8 evidence-path
+  checkpoint, without a halt.
 - `60ac93f feat(persistence): add attribution repositories` added tenant-scoped Campaign, Contact
   and append-only Touchpoint adapters at
   `packages/core/revops/infrastructure/persistence/repositories.py:202`, `:236` and `:250`.
@@ -54,8 +55,8 @@ queue item.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` to accept Item 7.
-2. Do not begin Item 8 without a separately authorized queue turn.
+1. Do not begin Item 8 without a separately authorized queue turn.
+2. Adapt affected paths only if Item 8 evidence shows a compatibility need.
 3. Keep the full verification and traceability closeout for Item 11.
 
 ## Gotchas
