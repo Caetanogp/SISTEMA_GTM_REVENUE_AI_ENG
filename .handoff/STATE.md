@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 6 complete; gate advanced to Item 7"
+phase: "Item 7 implementation committed; autonomous gate pending"
 status: in progress
 ---
 
@@ -17,11 +17,20 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 6 is committed, evidenced and accepted by the autonomous gate. Do not begin Item 7
-in this session; it requires its own authorized queue turn.
+SPEC-005 Item 7 is committed and evidenced. Run the autonomous gate before starting no further
+queue item.
 
 ## Done
 
+- `4c91660 test(persistence): verify attribution migration round trip` added the real PostgreSQL
+  round-trip proof at `tests/integration/test_attribution_migration_round_trip.py:39` and made the
+  attribution migration tolerate historical databases whose recorded `b7c9d1e2f304` revision
+  predates its tenant identity constraints at
+  `packages/core/revops/infrastructure/persistence/migrations/versions/e4f6a8c0d2b5_add_crm_attribution_schema.py:20`.
+  `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head` and
+  `pytest tests/unit/infrastructure/persistence/test_attribution_migration.py tests/unit/infrastructure/persistence/test_models.py tests/integration/test_attribution_migration_round_trip.py -q`
+  passed (14 passed). Scoped Ruff, format, mypy, `lint-imports`, `git diff --check` and the commit
+  hooks passed.
 - `60ac93f feat(persistence): add attribution repositories` added tenant-scoped Campaign, Contact
   and append-only Touchpoint adapters at
   `packages/core/revops/infrastructure/persistence/repositories.py:202`, `:236` and `:250`.
@@ -45,8 +54,8 @@ in this session; it requires its own authorized queue turn.
 
 ## Next
 
-1. Start Item 7 only in its separately authorized queue turn; run the Docker migration round-trip.
-2. Adapt affected paths only if Item 8 evidence shows a compatibility need.
+1. Run `python scripts/autonomous_gate.py` to accept Item 7.
+2. Do not begin Item 8 without a separately authorized queue turn.
 3. Keep the full verification and traceability closeout for Item 11.
 
 ## Gotchas

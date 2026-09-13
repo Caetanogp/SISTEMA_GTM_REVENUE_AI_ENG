@@ -13,7 +13,7 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
 - [x] Add SQLAlchemy `Campaign` and `Touchpoint` models and fields on `Interaction`/`Opportunity` - verified 2026-09-12 by `pytest tests/unit/infrastructure/persistence/test_models.py -q` (10 passed), `ruff check packages/core/revops/infrastructure/persistence/models.py tests/unit/infrastructure/persistence/test_models.py`, `mypy packages/core/revops/infrastructure/persistence/models.py tests/unit/infrastructure/persistence/test_models.py` and `lint-imports`
 - [x] Add additive Alembic migration with indexes, tenant foreign keys and `open` backfill - verified 2026-09-13 by `alembic upgrade b7c9d1e2f304:head --sql`, `pytest tests/unit/infrastructure/persistence/test_attribution_migration.py tests/unit/infrastructure/persistence/test_models.py -q` (13 passed), Ruff, mypy and lint-imports
 - [x] Implement repository CRUD/query contracts without mixing existing unit-of-work boundaries - verified 2026-09-13 by `pytest tests/unit/infrastructure/persistence/test_repositories.py tests/unit/infrastructure/persistence/test_models.py -q` (31 passed), scoped Ruff, mypy and `lint-imports`
-- [ ] Run migration round-trip against Docker PostgreSQL - verified by `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head`
+- [x] Run migration round-trip against Docker PostgreSQL - verified 2026-09-13 against local Docker PostgreSQL by `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head` and `pytest tests/integration/test_attribution_migration_round_trip.py -q` (1 passed)
 
 ## Compatibility and verification
 
