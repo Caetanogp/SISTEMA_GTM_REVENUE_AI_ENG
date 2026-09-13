@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 7 complete; gate advanced to Item 8"
+phase: "Item 7 complete; Item 8 authorized for long run"
 status: in progress
 ---
 
@@ -17,8 +17,8 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 7 is committed, evidenced and accepted by the autonomous gate. Do not begin Item 8
-without a separately authorized queue turn.
+SPEC-005 Item 7 is committed, evidenced and accepted by the autonomous gate. The user authorized
+the long supervisor run, starting with Item 8. No supervisor is currently running.
 
 ## Done
 
@@ -55,8 +55,8 @@ without a separately authorized queue turn.
 
 ## Next
 
-1. Do not begin Item 8 without a separately authorized queue turn.
-2. Adapt affected paths only if Item 8 evidence shows a compatibility need.
+1. Launch the long supervisor run with `-MaxTurns 100`, starting at Item 8.
+2. Inspect commits, gate results and scope after the run completes or halts.
 3. Keep the full verification and traceability closeout for Item 11.
 
 ## Gotchas
@@ -76,4 +76,15 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-- None for Item 6.
+- None. Item 8 is authorized by the user for this run.
+
+## Historical pilot halt
+
+The 2026-09-13 three-turn pilot stopped at its configured turn limit after reaching Item 8. It was
+not a code or sandbox failure; the long run is a separate authorized execution.
+
+## Autonomous loop HALT (2026-09-13T04:46:00+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Supervisor reached its maximum of 3 Codex turns
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
