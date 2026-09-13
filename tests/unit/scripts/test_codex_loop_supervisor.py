@@ -126,6 +126,7 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     assert 'model_reasoning_effort="xhigh"' in command
     assert command[command.index("--sandbox") + 1] == "read-only"
     assert command[command.index("--ask-for-approval") + 1] == "never"
+    assert supervisor.EXTERNAL_TEMP_CONFIG in command
     assert "--approve-for-me" not in command
 
 
@@ -141,6 +142,7 @@ def test_codex_command_uses_auto_review_for_normal_executor(tmp_path: Path) -> N
     )
 
     assert 'model_reasoning_effort="medium"' in command
+    assert supervisor.EXTERNAL_TEMP_CONFIG in command
     assert "--approve-for-me" in command
     assert "--sandbox" not in command
 
