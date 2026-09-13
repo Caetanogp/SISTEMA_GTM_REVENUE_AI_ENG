@@ -17,7 +17,11 @@ Each checkbox is finishable in one sitting and must be ticked only after its evi
 
 ## Compatibility and verification
 
-- [ ] Adapt affected ingestion, deduplication or scoring reads/writes only where required - verified by existing integration tests
+- [x] Adapt affected ingestion, deduplication or scoring reads/writes only where required - verified
+  2026-09-13 by `alembic check` (no new operations), migration integration tests (5 passed), the
+  existing ingestion/deduplication/prioritization integration set (19 passed), and
+  `python scripts/autonomous_gate.py` (Ruff, mypy, lint-imports, unit/architecture tests and agent
+  docs green); implementation commit `2f8b190`
 - [ ] Add relationship, lifecycle, idempotency and tenant-isolation integration tests - verified by `pytest tests/integration -q`
 - [ ] Confirm adversarial/security behavior and no offline eval regression - verified by `pytest tests/adversarial -q` and `python -m evals.gate`
 - [ ] Update traceability evidence and complete closeout - verified by checker, full gate and `.handoff/STATE.md`
