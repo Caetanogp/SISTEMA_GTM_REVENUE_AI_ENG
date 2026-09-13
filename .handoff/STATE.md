@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-09-12
+updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 4 complete; gate halted before Item 5"
+phase: "Item 5 implementation complete; autonomous gate pending"
 status: in progress
 ---
 
@@ -17,14 +17,19 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 `spec.md`, `plan.md` and `tasks.md` are materialized and agreed. Its 11-item queue is
-active in `.handoff/AUTONOMOUS_QUEUE.md`. Items 1-4 are complete and ticked in
-`docs/specs/SPEC-005-crm-attribution-model/tasks.md`. The final Item 4 gate created an untracked
-pytest temporary directory inside the checkout and halted before Item 5; no cleanup was performed
-because deletion requires explicit authorization. No autonomous supervisor is currently running.
+SPEC-005 `spec.md`, `plan.md` and `tasks.md` are agreed. Its 11-item queue is active in
+`.handoff/AUTONOMOUS_QUEUE.md`; Items 1-5 are complete and ticked. Item 5 is committed locally and
+the autonomous gate has not yet been run after the checklist/state evidence commit. No autonomous
+supervisor is currently running.
 
 ## Done
 
+- `b2bffd3 feat(persistence): add attribution migration` added revision
+  `e4f6a8c0d2b5`, chained from `b7c9d1e2f304`. It creates tenant-scoped campaigns/touchpoints,
+  adds interaction contact/content and opportunity status, applies the `open` backfill, composite
+  tenant FKs and declared indexes. Offline SQL for only the new revision passed with
+  `alembic upgrade b7c9d1e2f304:head --sql`; migration/model tests passed (13 passed); scoped
+  Ruff, mypy, lint-imports, `git diff --check`, and pre-commit hooks passed.
 - `fc929bc feat(persistence): add attribution models` added SQLAlchemy `Campaign` and append-only
   `Touchpoint` models, tenant-scoped composite foreign keys, declared attribution indexes,
   `Interaction.contact_id`/`content`, and `Opportunity.status` constrained to `open`, `won` or
@@ -59,11 +64,9 @@ because deletion requires explicit authorization. No autonomous supervisor is cu
 
 ## Next
 
-1. Obtain explicit authorization to remove the exact untracked pytest temporary directory reported
-   by the final Item 4 gate, then rerun `python scripts/autonomous_gate.py`.
-2. Begin Item 5 only after the gate is clear, in a separate authorized queue turn; it must create
-   the additive Alembic migration and inspect it offline before ticking its checkbox.
-3. Run the complete `verify-before-done` procedure after all 11 items are complete.
+1. Commit the Item 5 checklist and handoff evidence.
+2. Run `python scripts/autonomous_gate.py` and record its observed result.
+3. Start Item 6 only in a separate authorized queue turn.
 
 ## Gotchas
 
@@ -87,9 +90,7 @@ powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 
 
 ## Open questions
 
-- The final Item 4 gate generated an untracked pytest temporary directory within the checkout.
-  Its exact path appears in the latest autonomous-loop HALT entry below; it must be explicitly
-  authorized for removal before the gate can proceed to Item 5.
+- None for Item 5. The Docker-backed migration round-trip remains scoped to Item 7.
 
 ## Historical halts
 
