@@ -17,7 +17,33 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _ensure_tenant_identity_constraints() -> None:
+    """Preserve tenant-scoped foreign keys on databases upgraded before SPEC-003."""
+    for statement in (
+        "DO $$ BEGIN "
+        "IF NOT EXISTS ("
+        "SELECT 1 FROM pg_constraint "
+        "WHERE conname = 'uq_accounts_org_id' "
+        "AND conrelid = 'accounts'::regclass"
+        ") THEN "
+        "ALTER TABLE accounts ADD CONSTRAINT uq_accounts_org_id "
+        "UNIQUE (organization_id, id); "
+        "END IF; END $$;",
+        "DO $$ BEGIN "
+        "IF NOT EXISTS ("
+        "SELECT 1 FROM pg_constraint "
+        "WHERE conname = 'uq_contacts_org_id' "
+        "AND conrelid = 'contacts'::regclass"
+        ") THEN "
+        "ALTER TABLE contacts ADD CONSTRAINT uq_contacts_org_id "
+        "UNIQUE (organization_id, id); "
+        "END IF; END $$;",
+    ):
+        op.execute(sa.text(statement))
+
+
 def upgrade() -> None:
+    _ensure_tenant_identity_constraints()
     op.create_table(
         "campaigns",
         sa.Column("id", sa.Uuid(), nullable=False),
