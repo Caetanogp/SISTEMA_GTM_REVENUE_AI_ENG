@@ -114,10 +114,11 @@ class DeduplicationScan(Base):
     __tablename__ = "deduplication_scans"
     __table_args__ = (
         UniqueConstraint("organization_id", "idempotency_key", name="uq_dedupe_scans_org_key"),
+        Index("ix_dedupe_scans_org", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     record_types: Mapped[list[str]] = mapped_column(JSONB)
     policy_version: Mapped[str] = mapped_column(String(64))
@@ -137,11 +138,13 @@ class AccountDeduplicationCandidate(Base):
         ForeignKeyConstraint(
             ["organization_id", "right_id"], ["accounts.organization_id", "accounts.id"]
         ),
+        Index("ix_dedupe_account_candidates_scan", "scan_id"),
+        Index("ix_dedupe_account_candidates_org", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"), index=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"))
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     left_id: Mapped[UUID]
     right_id: Mapped[UUID]
     score: Mapped[int] = mapped_column(Integer)
@@ -162,11 +165,13 @@ class ContactDeduplicationCandidate(Base):
         ForeignKeyConstraint(
             ["organization_id", "right_id"], ["contacts.organization_id", "contacts.id"]
         ),
+        Index("ix_dedupe_contact_candidates_scan", "scan_id"),
+        Index("ix_dedupe_contact_candidates_org", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"), index=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    scan_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_scans.id"))
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     left_id: Mapped[UUID]
     right_id: Mapped[UUID]
     score: Mapped[int] = mapped_column(Integer)
@@ -193,10 +198,11 @@ class AccountDeduplicationAlias(Base):
             unique=True,
             postgresql_where=text("reverted_at IS NULL"),
         ),
+        Index("ix_dedupe_account_aliases_org", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     alias_id: Mapped[UUID]
     canonical_id: Mapped[UUID]
     merge_event_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_events.id"))
@@ -223,10 +229,11 @@ class ContactDeduplicationAlias(Base):
             unique=True,
             postgresql_where=text("reverted_at IS NULL"),
         ),
+        Index("ix_dedupe_contact_aliases_org", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     alias_id: Mapped[UUID]
     canonical_id: Mapped[UUID]
     merge_event_id: Mapped[UUID] = mapped_column(ForeignKey("deduplication_events.id"))
@@ -240,7 +247,7 @@ class ContactDeduplicationAlias(Base):
 class DeduplicationEvent(Base):
     __tablename__ = "deduplication_events"
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     idempotency_key: Mapped[str] = mapped_column(String(128))
     account_candidate_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("deduplication_account_candidates.id"), default=None
@@ -261,6 +268,7 @@ class DeduplicationEvent(Base):
             "(account_candidate_id IS NULL) OR (contact_candidate_id IS NULL)",
             name="ck_dedupe_event_one_candidate",
         ),
+        Index("ix_dedupe_events_org", "organization_id"),
     )
 
 
@@ -437,7 +445,7 @@ class Interaction(Base):
     channel: Mapped[str] = mapped_column(String(64))
     occurred_at: Mapped[datetime]
     summary: Mapped[str] = mapped_column(String(2000), default="")
-    content: Mapped[str] = mapped_column(String(2000), default="")
+    content: Mapped[str | None] = mapped_column(String(2000), default=None)
 
 
 class Task(Base):

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from revops.application.ports import (
@@ -29,6 +29,8 @@ from revops.application.ports import (
 from revops.domain.entities.campaign import Campaign
 from revops.domain.entities.task import Task, TaskStatus
 from revops.domain.entities.touchpoint import Touchpoint
+from revops.infrastructure.persistence.deduplication_repositories import _event_record_type
+from revops.infrastructure.persistence.models import DeduplicationEvent
 from revops.infrastructure.persistence.repositories import (
     SqlAlchemyAccountRepository,
     SqlAlchemyAgentRunRepository,
@@ -54,6 +56,55 @@ def _mock_session() -> MagicMock:
     the real-database integration tests (item 4).
     """
     return MagicMock(spec=AsyncSession)
+
+
+def _deduplication_event(
+    *,
+    account_candidate: bool = False,
+    contact_candidate: bool = False,
+    payload_type: str | None = None,
+    related_event_id: UUID | None = None,
+) -> DeduplicationEvent:
+    candidate_id = uuid4()
+    payload = {"record_type": payload_type} if payload_type is not None else {}
+    return DeduplicationEvent(
+        id=uuid4(),
+        organization_id=uuid4(),
+        idempotency_key="event",
+        account_candidate_id=candidate_id if account_candidate else None,
+        contact_candidate_id=candidate_id if contact_candidate else None,
+        related_event_id=related_event_id,
+        action="revert",
+        actor_id=uuid4(),
+        payload=payload,
+        occurred_at=datetime.now(UTC),
+    )
+
+
+@pytest.mark.parametrize(
+    ("event", "related_types", "expected"),
+    [
+        (_deduplication_event(account_candidate=True), {}, "account"),
+        (_deduplication_event(contact_candidate=True), {}, "contact"),
+        (_deduplication_event(payload_type="account"), {}, "account"),
+    ],
+)
+def test_deduplication_event_type_uses_typed_link_or_payload(
+    event: DeduplicationEvent, related_types: dict[UUID, str], expected: str
+) -> None:
+    assert _event_record_type(event, related_types) == expected
+
+
+def test_deduplication_revert_type_falls_back_to_related_merge() -> None:
+    merge_event_id = uuid4()
+    event = _deduplication_event(related_event_id=merge_event_id)
+
+    assert _event_record_type(event, {merge_event_id: "account"}) == "account"
+
+
+def test_deduplication_event_type_fails_closed_when_unavailable() -> None:
+    with pytest.raises(ValueError, match="record type is unavailable"):
+        _event_record_type(_deduplication_event(), {})
 
 
 def test_sql_alchemy_account_repository_satisfies_the_protocol_structurally() -> None:

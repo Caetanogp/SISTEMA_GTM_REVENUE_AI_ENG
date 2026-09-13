@@ -11,6 +11,7 @@ import psycopg
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ATTRIBUTION_TABLES = ("campaigns", "touchpoints")
+_PRE_ATTRIBUTION_REVISION = "b7c9d1e2f304"
 
 
 def _run_alembic(database_url: str, *arguments: str) -> None:
@@ -34,11 +35,11 @@ def _table_names(postgres_dsn: str) -> set[str]:
 
 
 def test_crm_attribution_migration_round_trip(database_url: str, postgres_dsn: str) -> None:
-    """Upgrade, revert one revision, then restore the CRM attribution schema."""
+    """Upgrade, revert attribution explicitly, then restore the current schema."""
     _run_alembic(database_url, "upgrade", "head")
     assert _table_names(postgres_dsn) == set(_ATTRIBUTION_TABLES)
 
-    _run_alembic(database_url, "downgrade", "-1")
+    _run_alembic(database_url, "downgrade", _PRE_ATTRIBUTION_REVISION)
     assert _table_names(postgres_dsn).isdisjoint(_ATTRIBUTION_TABLES)
 
     _run_alembic(database_url, "upgrade", "head")
