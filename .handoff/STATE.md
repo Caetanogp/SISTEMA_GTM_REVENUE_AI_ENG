@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 9 complete; Item 10 ready"
+phase: "Item 10 complete; Item 11 ready"
 status: in progress
 ---
 
@@ -17,13 +17,18 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 9 is committed and evidenced. The local PostgreSQL database is at repaired head
-`f6a8c0d2b5e7`; `pytest tests/integration -q` passed with 36 tests, including the new attribution
-relationship, lifecycle, idempotency and tenant-isolation coverage. No autonomous supervisor is
-currently running.
+SPEC-005 Item 10 is committed and evidenced. `pytest tests/adversarial -q` passed with 11 tests,
+the PDF traceability checker passed all 86 rows across pages 1-20, and `python -m evals.gate`
+passed tool selection (14/14) and lead scoring (15/15). No autonomous supervisor is currently
+running.
 
 ## Done
 
+- `324e62d test(security): cover untrusted attribution metadata` added adversarial coverage that
+  CRM attribution metadata cannot inject organization ownership or relationship identifiers, and
+  added an offline tool-selection case that refuses metadata-based bulk task instructions. The Item
+  10 gate (Ruff, mypy, lint-imports, unit/architecture tests and agent docs) was green; adversarial
+  tests (11), PDF traceability checker (86 rows) and eval gate (14/14, 15/15) also passed.
 - `32e7b78 test(persistence): cover attribution integration behavior` added real PostgreSQL
   coverage for campaign/touchpoint relationship round-trips, tenant-scoped reads, cross-tenant
   relationship rejection, interaction contact/content persistence, explicit opportunity lifecycle
@@ -43,8 +48,7 @@ currently running.
 
 ## Next
 
-1. Run Item 10 adversarial, traceability and offline-eval verification.
-2. Complete Item 11 evidence, full gate and handoff closeout.
+1. Complete Item 11 evidence, full gate and handoff closeout.
 
 ## Gotchas
 
