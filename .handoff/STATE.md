@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 8 complete; Item 9 ready"
+phase: "Item 9 complete; Item 10 ready"
 status: in progress
 ---
 
@@ -17,12 +17,19 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 8 is committed, evidenced and accepted by the autonomous gate. The local PostgreSQL
-database is at repaired head `f6a8c0d2b5e7`, `alembic check` is clean, and the gate baseline advanced
-to `1734abc` for Item 9. No autonomous supervisor is currently running.
+SPEC-005 Item 9 is committed and evidenced. The local PostgreSQL database is at repaired head
+`f6a8c0d2b5e7`; `pytest tests/integration -q` passed with 36 tests, including the new attribution
+relationship, lifecycle, idempotency and tenant-isolation coverage. No autonomous supervisor is
+currently running.
 
 ## Done
 
+- `32e7b78 test(persistence): cover attribution integration behavior` added real PostgreSQL
+  coverage for campaign/touchpoint relationship round-trips, tenant-scoped reads, cross-tenant
+  relationship rejection, interaction contact/content persistence, explicit opportunity lifecycle
+  filtering and documented append-only duplicate touchpoints. The complete integration suite passed
+  (36), along with scoped Ruff, mypy and lint-imports. `aa96fae docs(spec): record item 9
+  integration evidence` checked Item 9 only after that evidence existed.
 - `2f8b190 fix(persistence): reconcile published migration history` added forward revision
   `f6a8c0d2b5e7`, preserved generic deduplication history, copied legacy typed data, aligned ORM and
   Alembic metadata, and fixed revert event type resolution. Isolated legacy/current migration tests
@@ -36,9 +43,8 @@ to `1734abc` for Item 9. No autonomous supervisor is currently running.
 
 ## Next
 
-1. Implement Item 9 relationship, lifecycle, idempotency and tenant-isolation integration coverage.
-2. Run Item 10 adversarial, traceability and offline-eval verification.
-3. Complete Item 11 evidence, full gate and handoff closeout.
+1. Run Item 10 adversarial, traceability and offline-eval verification.
+2. Complete Item 11 evidence, full gate and handoff closeout.
 
 ## Gotchas
 
