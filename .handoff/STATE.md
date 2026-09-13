@@ -16,7 +16,8 @@ opportunity status, and complete account/contact interaction relationships.
 
 ## Now
 
-SPEC-005 is closed. Do not begin another autonomous queue item in this session.
+Item 11 has a committed checkbox and evidence, but the final gate exits 1 because an out-of-scope,
+untracked temporary test artifact contains deliberately invalid Python and TOML fixtures.
 
 ## Done
 
