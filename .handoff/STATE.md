@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 6 complete; awaiting autonomous gate"
+phase: "Item 6 complete; gate advanced to Item 7"
 status: in progress
 ---
 
@@ -17,8 +17,8 @@ LLM, UI, analytics or agent-tool work.
 
 ## Now
 
-SPEC-005 Item 6 implementation and its mapped checklist are committed. Run the autonomous gate to
-confirm the item transition; do not begin Item 7 in this session.
+SPEC-005 Item 6 is committed, evidenced and accepted by the autonomous gate. Do not begin Item 7
+in this session; it requires its own authorized queue turn.
 
 ## Done
 
@@ -30,6 +30,8 @@ confirm the item transition; do not begin Item 7 in this session.
   `pytest tests/unit/infrastructure/persistence/test_repositories.py tests/unit/infrastructure/persistence/test_models.py -q`
   passed (31 passed); scoped Ruff, `ruff format --check`, mypy, `lint-imports` and `git diff --check`
   passed. The commit's pre-commit hooks passed.
+- Item 6 gate: `python scripts/autonomous_gate.py` exited 1 at the expected Item 7 evidence-path
+  checkpoint; the worktree was clean and no halt was reported.
 - `b2bffd3 feat(persistence): add attribution migration` created revision `e4f6a8c0d2b5`, tenant
   foreign keys, indexes and the `open` backfill. Offline SQL and 13 migration/model tests passed.
 - `fc929bc feat(persistence): add attribution models` added Campaign and append-only Touchpoint
@@ -43,8 +45,8 @@ confirm the item transition; do not begin Item 7 in this session.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` and record its observed result.
-2. Start Item 7 only in its separately authorized queue turn; run the Docker migration round-trip.
+1. Start Item 7 only in its separately authorized queue turn; run the Docker migration round-trip.
+2. Adapt affected paths only if Item 8 evidence shows a compatibility need.
 3. Keep the full verification and traceability closeout for Item 11.
 
 ## Gotchas
