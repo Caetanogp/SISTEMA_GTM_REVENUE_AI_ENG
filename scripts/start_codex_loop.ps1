@@ -77,9 +77,12 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
-# Keep each loop's pytest files outside the checkout. The shared .pytest_cache path may be a
-# OneDrive reparse point, and pytest's fallback directory can pollute the checkout during mypy.
-$pytestBaseTemp = Join-Path $env:TEMP ("codex-revops-pytest-{0}" -f $PID)
+# Keep each loop's pytest files outside the checkout, even when the inherited TEMP points into
+# the repository. The shared .pytest_cache path may be a OneDrive reparse point, and pytest's
+# fallback directory can pollute the checkout during mypy.
+$codexTempRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Codex\Temp"
+$pytestBaseTemp = Join-Path $codexTempRoot ("codex-revops-pytest-{0}" -f $PID)
+New-Item -ItemType Directory -Force -Path $codexTempRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
 $env:TEMP = $pytestBaseTemp
 $env:TMP = $pytestBaseTemp
