@@ -42,10 +42,10 @@ before anything leaves the building.
 
 Deliberately not in this slice — each has its own later spec:
 
-- RAG, pgvector, any knowledge corpus (SPEC-002, phase 2)
+- RAG, pgvector, any knowledge corpus (SPEC-007, phase 2)
 - External research, email sending, calendar scheduling (high-risk tools, phase 3)
 - Redis/Celery, background jobs, batch scoring (phase 4)
-- Next.js UI — this slice is verified through the API and tests (a minimal UI follows in SPEC-003)
+- Next.js UI — this slice is verified through the API and tests (the UI follows in SPEC-012)
 - Multi-agent anything
 - Deduplication and ingestion pipelines
 - Multi-tenant beyond a single demo organization with the isolation filter in place

@@ -8,10 +8,10 @@ Built code-first in Python — no low-code orchestrator — to demonstrate appli
 end: stateful agents, structured tool execution, RAG, evals, observability, security guardrails,
 async workers, CI/CD and versioned deploys with rollback.
 
-> **Status:** [SPEC-001](docs/specs/SPEC-001-vertical-slice-account-prioritization/spec.md) (the
-> vertical slice) is code-complete and gated by its own test/eval suite on
-> `feature/SPEC-001-agent-graph`, pending merge into `develop`. See "Trying the vertical slice"
-> below to run it end to end.
+> **Status:** SPEC-001 (vertical slice), SPEC-002 (ingestion) and SPEC-003 (deduplication) are
+> implemented and merged into local `develop`. SPEC-004 is aligning the repository with the source
+> guide PDF; remaining capabilities are tracked in the [roadmap](docs/specs/ROADMAP.md). See
+> "Trying the vertical slice" below to run the current API path end to end.
 
 ## Why it exists
 
@@ -21,11 +21,14 @@ engineering practices the original could not express: measurable quality, contro
 reproducible deploys. No customer data from that system is used here — the demo runs on a synthetic
 tenant.
 
-## Stack
+## Target stack
 
 Python 3.12 · FastAPI · Pydantic v2 · SQLAlchemy · Alembic · LangGraph · PostgreSQL + pgvector ·
 Redis · Celery · MCP · Next.js + TypeScript + Tailwind + shadcn/ui · LangSmith · OpenTelemetry ·
 Sentry · Docker · GitHub Actions · Terraform · AWS · Vercel
+
+The target stack follows the project guide. The [traceability matrix](docs/requirements/PDF_TRACEABILITY.md)
+distinguishes provisioned dependencies and foundations from capabilities that are still planned.
 
 ## Architecture
 

@@ -27,6 +27,7 @@ DEFAULT_ARCHITECTURE_EFFORT = "xhigh"
 MAX_ARCHITECTURE_ATTEMPTS = 2
 MAX_TEXT_LENGTH = 8_000
 MAX_LIST_ITEMS = 100
+EXTERNAL_TEMP_CONFIG = "sandbox_workspace_write.exclude_tmpdir_env_var=false"
 
 CONTROL_PLANE_PATHS = (
     ".codex/config.toml",
@@ -404,6 +405,8 @@ def _codex_command(
             model,
             "--config",
             f'model_reasoning_effort="{effort}"',
+            "--config",
+            EXTERNAL_TEMP_CONFIG,
             "--output-schema",
             str(schema_path),
             "--output-last-message",

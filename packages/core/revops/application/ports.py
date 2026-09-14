@@ -28,6 +28,7 @@ from revops.application.dto import (
     StagedIngestionJob,
 )
 from revops.domain.entities.account import Account
+from revops.domain.entities.campaign import Campaign
 from revops.domain.entities.contact import Contact
 from revops.domain.entities.deduplication import (
     DeduplicationCandidate,
@@ -40,6 +41,7 @@ from revops.domain.entities.ingestion import IngestionJobStatus
 from revops.domain.entities.interaction import Interaction
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
+from revops.domain.entities.touchpoint import Touchpoint
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +111,37 @@ class TaskRepository(Protocol):
     async def get(self, organization_id: UUID, task_id: UUID) -> Task: ...
 
     async def update(self, task: Task) -> None: ...
+
+
+@runtime_checkable
+class CampaignRepository(Protocol):
+    """Tenant-scoped campaign persistence for the attribution foundation."""
+
+    async def add(self, campaign: Campaign) -> None: ...
+
+    async def get(self, organization_id: UUID, campaign_id: UUID) -> Campaign | None: ...
+
+    async def list_for_organization(self, organization_id: UUID) -> Sequence[Campaign]: ...
+
+
+@runtime_checkable
+class ContactRepository(Protocol):
+    """Tenant-scoped contact reads needed to validate CRM relationships."""
+
+    async def get(self, organization_id: UUID, contact_id: UUID) -> Contact | None: ...
+
+
+@runtime_checkable
+class TouchpointRepository(Protocol):
+    """Append-only tenant-scoped engagement events; no update or delete exists by design."""
+
+    async def add(self, touchpoint: Touchpoint) -> None: ...
+
+    async def get(self, organization_id: UUID, touchpoint_id: UUID) -> Touchpoint | None: ...
+
+    async def list_for_account(
+        self, organization_id: UUID, account_ids: Sequence[UUID] | UUID
+    ) -> Sequence[Touchpoint]: ...
 
 
 @runtime_checkable

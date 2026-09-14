@@ -34,13 +34,37 @@ target_metadata = Base.metadata
 # a third-party library's internal schema on every upgrade is the wrong ownership model).
 # Without this filter, autogenerate sees them as "removed" relative to our metadata and
 # `alembic upgrade head` would DROP them - confirmed live during bootstrap, not theoretical.
-_LANGGRAPH_CHECKPOINT_TABLES = frozenset(
+_EXCLUDED_TABLES = frozenset(
     {"checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations"}
+    | {"alembic_version", "deduplication_candidates", "deduplication_aliases"}
+)
+_PRESERVED_LEGACY_FOREIGN_KEYS = frozenset(
+    {
+        "deduplication_events_candidate_id_fkey",
+        "interactions_account_id_fkey",
+        "opportunities_account_id_fkey",
+    }
 )
 
 
 def include_name(name: str | None, type_: str, parent_names: dict[str, str | None]) -> bool:
-    return not (type_ == "table" and name in _LANGGRAPH_CHECKPOINT_TABLES)
+    return not (type_ == "table" and name in _EXCLUDED_TABLES)
+
+
+def include_object(
+    object_: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object | None,
+) -> bool:
+    """Keep additive compatibility objects out of destructive autogeneration."""
+    if not reflected:
+        return True
+    if type_ == "column" and name == "candidate_id":
+        table = getattr(object_, "table", None)
+        return getattr(table, "name", None) != "deduplication_events"
+    return not (type_ == "foreign_key_constraint" and name in _PRESERVED_LEGACY_FOREIGN_KEYS)
 
 
 # other values from the config, defined by the needs of env.py,
@@ -68,6 +92,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_name=include_name,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -75,8 +100,13 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    version_table_schema = config.attributes.get("version_table_schema")
     context.configure(
-        connection=connection, target_metadata=target_metadata, include_name=include_name
+        connection=connection,
+        target_metadata=target_metadata,
+        include_name=include_name,
+        include_object=include_object,
+        version_table_schema=version_table_schema,
     )
 
     with context.begin_transaction():
@@ -104,6 +134,10 @@ async def run_async_migrations() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 
+    supplied_connection = config.attributes.get("connection")
+    if supplied_connection is not None:
+        do_run_migrations(supplied_connection)
+        return
     if sys.platform == "win32":
         # psycopg's async driver cannot run on Windows' default ProactorEventLoop - see the
         # same issue proven and documented in the checkpoint-restart spike

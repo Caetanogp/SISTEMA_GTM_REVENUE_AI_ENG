@@ -1,104 +1,105 @@
 # Autonomous work queue
 
-The only source of work for an unattended loop session. Work items run in order, stay inside their
-declared scope, and tick the mapped SPEC-003 checklist item only after their own files are committed.
-`scripts/autonomous_gate.py` is the sole judge of completion.
+The only source of work for the SPEC-005 unattended loop. Items run in order and remain inside
+their declared file scope. `scripts/autonomous_gate.py` is the sole judge of completion.
 
-- **Tasks file:** `docs/specs/SPEC-003-deduplication/tasks.md`
+- **Tasks file:** `docs/specs/SPEC-005-crm-attribution-model/tasks.md`
 
-## Item 1 - Specification and queue activation
-
-- **Scope:** `.handoff/`, `docs/specs/`, `scripts/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** commit the approved SPEC-003 documents, update the roadmap and handoff, activate this
-  scoped queue, and prove the pilot gate behavior.
-- **Done when:** the three documents are present, queue metadata selects SPEC-003, and the gate
-  accepts the queue without a scope violation.
-
-## Item 2 - Domain normalization and matching policy
+## Item 1 - Domain attribution contracts
 
 - **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** add E.164 phone validation, deterministic text keys, matching reasons/scores,
-  fingerprints, and scan/candidate/alias state invariants.
-- **Done when:** pure domain tests cover every policy boundary and the pilot passes.
+- **Closes:** 1 tasks.md checkbox
+- **What:** define pure Campaign, Touchpoint and opportunity-status contracts.
+- **Done when:** domain unit tests cover valid values, invalid status, timestamps and invariants.
 
-## Item 3 - Deduplication application contracts
+## Item 2 - Application ports and DTOs
 
 - **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
 - **Requires:** `packages/core/revops/application/`, `tests/unit/application/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** define DTOs and ports, canonical resolution, and scan/list/dismiss/merge/revert use
-  cases behind a dedicated unit of work.
-- **Done when:** unit tests prove tenant isolation, idempotency, suppression, stale candidates,
-  master selection, alias invariants, and reversible decisions.
-
-## Item 4 - Persistence and migration
-
-- **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`, `tests/integration/`
-- **Requires:** `packages/core/revops/infrastructure/persistence/`, `tests/integration/`
-- **Closes:** 3 tasks.md checkboxes
-- **What:** add phone, scan, candidate, typed alias, event models and repositories with additive
-  migration and concrete tenant-scoped foreign keys.
-- **Done when:** repository tests and the authorized migration round-trip pass.
-
-## Item 5 - Ingestion and canonical write compatibility
-
-- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/persistence/`, `packages/core/revops/infrastructure/ingestion.py`, `packages/core/revops/infrastructure/agent/`, `apps/api/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
-- **Requires:** `tests/integration/`
-- **Closes:** 3 tasks.md checkboxes
-- **What:** accept optional E.164 phone in JSON/CSV, resolve existing aliases for ingestion, and
-  aggregate canonical account reads and account-bound writes.
-- **Done when:** backward-compatible ingestion and canonicalization integration tests pass.
-
-## Item 6 - Asynchronous scan worker
-
-- **Scope:** `packages/core/revops/infrastructure/queue/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
-- **Requires:** `apps/worker/`, `tests/integration/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** publish and process bounded tenant scans through Celery with retries, idempotent
-  candidate upserts, queue-failure visibility, and duplicate-delivery safety.
-- **Done when:** a real Redis/Celery integration test proves scan completion and replay behavior.
+- **What:** define tenant-scoped attribution DTOs and repository ports with strict validation.
+- **Done when:** application unit tests prove DTO boundaries and port contracts.
 
-## Item 7 - Administrative deduplication API
+## Item 3 - Tenant and canonical validation
 
-- **Scope:** `packages/core/revops/domain/policies/`, `packages/core/revops/application/`,
-  `packages/core/revops/infrastructure/persistence/`, `packages/core/revops/infrastructure/queue/`,
-  `apps/api/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
-- **Requires:** `packages/core/revops/application/`, `packages/core/revops/infrastructure/persistence/`,
-  `apps/api/`, `tests/unit/`, `tests/integration/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** add admin-only scan, status, candidate pagination, dismissal, merge, history, and
-  revert routes with idempotency and HTTP error contracts.
-- **Done when:** integration tests cover authorization, pagination, replay, stale decisions, and
-  the full review-to-revert flow.
+- **Scope:** `packages/core/revops/application/`, `packages/core/revops/domain/`, `tests/unit/`
+- **Requires:** `packages/core/revops/application/`, `tests/unit/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** validate relationship ownership and reuse SPEC-003 canonical account/contact resolution.
+- **Done when:** unit tests prove cross-tenant rejection and alias-safe reads/writes.
 
-## Item 8 - Security, concurrency, and failure coverage
+## Item 4 - Persistence models
 
-- **Scope:** `tests/adversarial/`, `tests/integration/`, `tests/unit/`
-- **Requires:** `tests/adversarial/`, `tests/integration/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** prove tenant isolation, PII-safe events, input bounds, concurrent decisions, broker
-  failure, worker retry, and candidate explosion protection.
-- **Done when:** adversarial and integration failure-path suites pass without weakening checks.
+- **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** add Campaign and Touchpoint models plus Interaction and Opportunity fields, indexes and
+  tenant foreign keys.
+- **Done when:** model and metadata tests prove the declared schema and constraints.
 
-## Item 9 - Documentation and closeout
+## Item 5 - Additive migration
 
-- **Scope:** `README.md`, `docs/decisions/`, `docs/specs/SPEC-003-deduplication/`, `.handoff/`
-- **Requires:** `README.md`, `docs/decisions/`, `docs/specs/SPEC-003-deduplication/`
-- **Closes:** 2 tasks.md checkboxes
-- **What:** record the logical-alias ADR, setup and operation docs, acceptance evidence, and final
-  handoff.
-- **Done when:** every acceptance criterion maps to observed evidence and the full gate is green.
+- **Scope:** `packages/core/revops/infrastructure/persistence/migrations/`, `tests/unit/infrastructure/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/migrations/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** add the backward-compatible migration and backfill existing opportunity status to open.
+- **Done when:** migration source inspection and offline migration assertions pass without destructive SQL.
+
+## Item 6 - Repository adapters
+
+- **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/unit/infrastructure/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** implement repository CRUD/query contracts while preserving existing unit-of-work boundaries.
+- **Done when:** repository unit tests prove tenant filtering, relationship validation and append-only events.
+
+## Item 7 - Docker migration round-trip
+
+- **Scope:** `packages/core/revops/infrastructure/persistence/`, `tests/integration/`, `docs/specs/SPEC-005-crm-attribution-model/`
+- **Requires:** `tests/integration/`, `packages/core/revops/infrastructure/persistence/migrations/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** execute and test the real PostgreSQL migration round-trip.
+- **Done when:** `alembic upgrade head`, `alembic downgrade -1`, `alembic upgrade head` and the targeted integration test pass.
+
+## Item 8 - Existing-path compatibility
+
+- **Scope:** `packages/core/revops/`, `apps/api/`, `apps/worker/`, `tests/unit/`, `tests/integration/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/`, `tests/integration/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** adapt ingestion, deduplication and scoring only where new CRM relationships require it.
+- **Done when:** existing ingestion, deduplication and prioritization integration tests pass with canonical resolution.
+
+## Item 9 - Integration behavior
+
+- **Scope:** `tests/integration/`, `packages/core/revops/infrastructure/persistence/`, `apps/api/`
+- **Requires:** `tests/integration/`, `apps/api/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** add relationship, lifecycle, idempotency and tenant-isolation integration coverage.
+- **Done when:** `pytest tests/integration -q` passes with the new scenarios.
+
+## Item 10 - Security and regression verification
+
+- **Scope:** `tests/adversarial/`, `tests/unit/`, `evals/`, `docs/requirements/`
+- **Requires:** `tests/adversarial/`, `evals/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** prove untrusted metadata boundaries, tenant safety and no offline eval regression.
+- **Done when:** adversarial tests, traceability checker and offline eval gate pass.
+
+## Item 11 - Documentation and closeout
+
+- **Scope:** `docs/specs/SPEC-005-crm-attribution-model/`, `docs/requirements/`, `.handoff/`
+- **Requires:** `docs/specs/SPEC-005-crm-attribution-model/`, `docs/requirements/`
+- **Closes:** 1 tasks.md checkbox
+- **What:** record acceptance evidence, update the matrix and handoff, and close the spec.
+- **Done when:** every task is evidenced and the full quality gate is green.
 
 ## Rules for the loop
 
 - Never use a worktree, push, merge, or touch `main`.
-- Return `architecture_required` before implementation at a genuine technical architecture
-  decision not covered by SPEC-003 `plan.md`; only the external supervisor may authorize a resume.
-- Return `HUMAN_REQUIRED` for product, public-contract, dependency, destructive migration,
-  security, verification, external-action, or non-dominant decisions.
-- Never edit this queue, the gate, the supervisor, AGENTS.md, or an authorization artifact.
-- The queue is limited to SPEC-003 and must not begin SPEC-004.
-- Every item's own implementation files must be committed before its checklist boxes are ticked.
+- Return `architecture_required` before implementation at a genuine technical decision not covered
+  by SPEC-005 `plan.md`; only the external supervisor may authorize a resume.
+- Return `HUMAN_REQUIRED` for product, public-contract, dependency, destructive migration, security,
+  verification, external-action or non-dominant decisions.
+- Never edit this queue, the gate, the supervisor, AGENTS.md or an authorization artifact.
+- Every item's implementation files must be committed before its checklist box is ticked.

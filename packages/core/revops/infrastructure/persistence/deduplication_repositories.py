@@ -418,10 +418,22 @@ class SqlAlchemyDeduplicationEventRepository:
             .scalars()
             .all()
         )
+        related_ids = {row.related_event_id for row in rows if row.related_event_id is not None}
+        related_types: dict[UUID, str] = {}
+        if related_ids:
+            related_rows = (
+                await self._session.execute(
+                    select(DeduplicationEvent).where(
+                        DeduplicationEvent.organization_id == organization_id,
+                        DeduplicationEvent.id.in_(related_ids),
+                    )
+                )
+            ).scalars()
+            related_types = {row.id: _event_record_type(row, {}) for row in related_rows}
         return [
             {
                 "id": row.id,
-                "record_type": "account" if row.account_candidate_id else "contact",
+                "record_type": _event_record_type(row, related_types),
                 "action": row.action,
                 "candidate_id": row.account_candidate_id or row.contact_candidate_id,
                 "related_event_id": row.related_event_id,
@@ -435,6 +447,19 @@ class SqlAlchemyDeduplicationEventRepository:
             }
             for row in rows
         ]
+
+
+def _event_record_type(row: DeduplicationEvent, related_types: Mapping[UUID, str]) -> str:
+    if row.account_candidate_id is not None:
+        return DeduplicationRecordType.ACCOUNT.value
+    if row.contact_candidate_id is not None:
+        return DeduplicationRecordType.CONTACT.value
+    payload_type = row.payload.get("record_type")
+    if payload_type in {item.value for item in DeduplicationRecordType}:
+        return str(payload_type)
+    if row.related_event_id is not None and row.related_event_id in related_types:
+        return related_types[row.related_event_id]
+    raise ValueError("deduplication event record type is unavailable")
 
 
 class SqlAlchemyCanonicalResolver:

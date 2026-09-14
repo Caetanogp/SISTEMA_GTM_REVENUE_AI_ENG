@@ -1,0 +1,115 @@
+# PDF requirements traceability
+
+Source of truth: `docs/Agentic_GTM_Revenue_Operations_Platform_Guia_Projeto.pdf`
+PDF SHA-256: `8C294C58019722357B98BEF75B2E3CA7B52D3BE21891FF9D9F7C7D0B4D86E42A`
+Reviewed: 2026-09-12
+
+This matrix records the current repository state against the project guide. `implemented` means
+there is concrete evidence in this repository, not merely a dependency, placeholder or roadmap
+entry. `partial` means a meaningful subset exists but the PDF obligation is incomplete. `planned`
+means a future spec owns the gap. `conditional` is used for the PDF's evidence-gated multi-agent
+option. The matrix is intentionally conservative and is checked by
+`python scripts/check_pdf_traceability.py`.
+
+| ID | PDF location | Requirement | Obligation | State | Owner spec | Evidence or gap |
+|---|---|---|---|---|---|---|
+| PDF-01-001 | PDF p. 1 | Build a production-style agentic GTM and RevOps platform | required | partial | SPEC-005 | evidence: `README.md:3`; gap: capabilities beyond the vertical slice remain planned |
+| PDF-01-002 | PDF p. 1 | Use a code-first implementation rather than a low-code orchestrator | required | implemented | SPEC-001 | evidence: `README.md:6` and repository Python packages |
+| PDF-01-003 | PDF p. 1 | Combine stateful agents, RAG, tools, evals, observability, security, workers and delivery automation | required | partial | SPEC-006 | gap: only the initial stateful slice, security foundations and offline eval baseline exist |
+| PDF-01-004 | PDF p. 1 | Keep human approval and an auditable trail for risky actions | required | implemented | SPEC-001 | evidence: `packages/core/revops/infrastructure/agent/nodes.py:180` and `tests/integration/test_agent_runs_api.py:168` |
+| PDF-02-014 | PDF p. 2 | Define the business problem, target users and operating model for the platform | required | partial | SPEC-005 | evidence: `README.md:1`; gap: product workflows beyond prioritization are not yet implemented |
+| PDF-03-099 | PDF p. 3 | Establish the guide's functional architecture and implementation principles | required | partial | SPEC-004 | evidence: `docs/architecture/overview.md:1`; gap: this matrix tracks the remaining capability work |
+| PDF-02-001 | PDF p. 4 | Model CRM contacts, accounts, opportunities, campaigns, touchpoints, tasks and interactions | required | partial | SPEC-005 | evidence: `packages/core/revops/infrastructure/persistence/models.py:350`, `packages/core/revops/infrastructure/persistence/models.py:366`, and `tests/integration/test_attribution_behavior.py:167`; gap: tasks remain a later capability |
+| PDF-02-002 | PDF p. 4 | Ingest CRM data and enrich it asynchronously | required | partial | SPEC-002 | evidence: `apps/worker/main.py:1`; gap: current enrichment is synthetic and limited to imports |
+| PDF-02-003 | PDF p. 4 | Deduplicate and preserve a canonical record with history | required | implemented | SPEC-003 | evidence: `docs/specs/SPEC-003-deduplication/spec.md:1` and `apps/api/routes/deduplication.py:1` |
+| PDF-02-004 | PDF p. 4 | Score accounts and leads against ICP signals | required | implemented | SPEC-001 | evidence: `packages/core/revops/domain/policies/prioritization.py:1` and `tests/unit/domain/policies/test_prioritization.py:1` |
+| PDF-02-005 | PDF p. 4 | Research companies and accounts with external information | required | planned | SPEC-010 | gap: no external research adapter or grounded source pipeline |
+| PDF-02-006 | PDF p. 4 | Retrieve knowledge with RAG | required | planned | SPEC-007 | gap: no knowledge corpus, embedding, retrieval or generation path |
+| PDF-02-007 | PDF p. 4 | Generate personalized outreach | required | planned | SPEC-010 | gap: no production generation or outreach tool |
+| PDF-02-008 | PDF p. 4 | Ask for human approval before risky actions | required | implemented | SPEC-001 | evidence: `packages/core/revops/infrastructure/agent/nodes.py:182` and `tests/unit/application/use_cases/test_decide_approval.py:161` |
+| PDF-02-009 | PDF p. 4 | Provide email and calendar actions | required | planned | SPEC-017 | gap: `send_email` and `schedule_meeting` are not implemented |
+| PDF-02-010 | PDF p. 4 | Classify replies and recommend next actions | required | planned | SPEC-011 | gap: reply intelligence is not implemented |
+| PDF-02-011 | PDF p. 4 | Expose Agent Activity and campaign analytics | required | planned | SPEC-012 | gap: no Next.js UI or campaign analytics dashboard |
+| PDF-02-012 | PDF p. 4 | Capture feedback and feed it into improvement loops | required | planned | SPEC-015 | gap: no feedback persistence or dataset feedback loop |
+| PDF-02-013 | PDF p. 4 | Implement the request-to-feedback main flow with CRM, RAG, research, score, proposal, policy, HITL, execution, audit and metrics | required | partial | SPEC-009 | evidence: `packages/core/revops/infrastructure/agent/graph.py:35`; gap: graph has one bounded prioritization path and lacks RAG/research/metrics |
+| PDF-03-001 | PDF p. 5 | Provide a Next.js and Vercel presentation layer | recommended | planned | SPEC-012 | gap: `apps/web` does not exist |
+| PDF-03-002 | PDF p. 5 | Provide FastAPI API and LangGraph orchestration with routing, checkpoints, interrupts and retries | required | partial | SPEC-009 | evidence: `apps/api/main.py:1` and `packages/core/revops/infrastructure/agent/graph.py:35`; gap: no conditional router and limited graph paths |
+| PDF-03-003 | PDF p. 5 | Separate policy guardrails and tools or MCP adapters | required | partial | SPEC-016 | evidence: `packages/core/revops/domain/policies/risk.py:1`; gap: runtime catalog and MCP adapter are absent |
+| PDF-03-004 | PDF p. 5 | Use PostgreSQL with pgvector and Redis with Celery | required | partial | SPEC-018 | evidence: `docker-compose.yml:1` and `apps/worker/main.py:1`; gap: pgvector is provisioned but retrieval and broad worker workflows are not |
+| PDF-03-005 | PDF p. 5 | Include observability and AWS deployment targets | recommended | planned | SPEC-014 | gap: deployment and production telemetry are not wired |
+| PDF-04-001 | PDF p. 6 | Use Python 3.12, FastAPI and Pydantic | required | implemented | SPEC-001 | evidence: `pyproject.toml:1` and `apps/api/main.py:1` |
+| PDF-04-002 | PDF p. 6 | Use SQLAlchemy, Alembic, httpx and asyncio | required | partial | SPEC-001 | evidence: `pyproject.toml:1` and `packages/core/revops/infrastructure/persistence/migrations/`; gap: httpx is dependency-only until external adapters exist |
+| PDF-04-003 | PDF p. 6 | Use LangGraph with LangChain as an auxiliary library | required | partial | SPEC-001 | evidence: `packages/core/revops/infrastructure/agent/graph.py:1`; gap: no broader LangChain retrieval integration |
+| PDF-04-004 | PDF p. 6 | Use an own or LiteLLM model gateway with OpenAI and Anthropic support | required | planned | SPEC-006 | evidence: `apps/api/runtime.py:50` shows the unconfigured gateway; gap: provider adapters are absent |
+| PDF-04-005 | PDF p. 6 | Use PostgreSQL, pgvector, Redis, Celery, MCP, Next.js and SSE | required | partial | SPEC-008 | evidence: `docker-compose.yml:1`, `apps/worker/main.py:1` and `apps/api/routes/agent_runs.py:1`; gap: MCP and Next.js are absent |
+| PDF-04-006 | PDF p. 6 | Use LangSmith, OpenTelemetry, Sentry, GitHub Actions, Docker, Terraform, AWS and Vercel | recommended | partial | SPEC-014 | evidence: `.github/workflows/ci.yml:1` and `docker-compose.yml:1`; gap: production integrations are not wired |
+| PDF-05-001 | PDF p. 7 | Persist organizations and users with tenant ownership | required | implemented | SPEC-001 | evidence: `packages/core/revops/infrastructure/persistence/models.py:100` and `apps/api/auth.py:1` |
+| PDF-05-002 | PDF p. 7 | Persist contacts with account, email, phone, title and source | required | partial | SPEC-002 | evidence: `packages/core/revops/infrastructure/persistence/models.py:270`; gap: imported source coverage is narrower than the full model |
+| PDF-05-003 | PDF p. 7 | Persist accounts with domain, company and fit signals | required | implemented | SPEC-001 | evidence: `packages/core/revops/infrastructure/persistence/models.py:130` |
+| PDF-05-004 | PDF p. 7 | Persist opportunities with account, stage, value and status | required | implemented | SPEC-005 | evidence: `packages/core/revops/infrastructure/persistence/models.py:402` and `packages/core/revops/infrastructure/persistence/migrations/versions/e4f6a8c0d2b5_add_crm_attribution_schema.py:117` |
+| PDF-05-005 | PDF p. 7 | Persist campaigns and touchpoints with their relationships and timestamps | required | implemented | SPEC-005 | evidence: `packages/core/revops/infrastructure/persistence/models.py:350`, `packages/core/revops/infrastructure/persistence/models.py:366`, and `tests/integration/test_attribution_behavior.py:240` |
+| PDF-05-006 | PDF p. 7 | Persist tasks and interactions linked to CRM records | required | partial | SPEC-005 | evidence: `packages/core/revops/infrastructure/persistence/models.py:422` and `tests/integration/test_attribution_behavior.py:167`; gap: task relationships remain a later capability |
+| PDF-05-007 | PDF p. 7 | Persist agent runs with user, thread, graph, prompt, model, status, latency and cost | required | partial | SPEC-006 | evidence: `packages/core/revops/infrastructure/persistence/models.py:381`; gap: explicit thread and complete provider metadata need alignment |
+| PDF-05-008 | PDF p. 7 | Persist append-only agent actions, approvals and feedback | required | partial | SPEC-015 | evidence: `packages/core/revops/infrastructure/persistence/models.py:1`; gap: feedback persistence is absent |
+| PDF-05-009 | PDF p. 7 | Persist versioned knowledge documents and chunks | required | planned | SPEC-007 | gap: no knowledge document or chunk models |
+| PDF-05-010 | PDF p. 7 | Persist eval cases and eval runs | required | partial | SPEC-015 | evidence: `evals/datasets/lead_scoring.jsonl:1` and `evals/run.py:1`; gap: no persistence layer for eval runs |
+| PDF-06-001 | PDF p. 8 | Start with a single-agent V1 | required | implemented | SPEC-001 | evidence: `packages/core/revops/infrastructure/agent/graph.py:35` and `docs/decisions/ADR-0001-clean-architecture-and-langgraph.md:1` |
+| PDF-06-002 | PDF p. 8 | Route read, analysis, generation and external requests conditionally | required | planned | SPEC-009 | gap: current graph is a fixed prioritization sequence |
+| PDF-06-003 | PDF p. 8 | Validate structured model outputs before state or side effects | required | implemented | SPEC-001 | evidence: `packages/core/revops/application/use_cases/reason_about_accounts.py:41` and `tests/unit/application/use_cases/test_reason_about_accounts.py:55` |
+| PDF-06-004 | PDF p. 8 | Enforce schema, permissions, business rules and risk policy in order | required | implemented | SPEC-001 | evidence: `packages/core/revops/domain/policies/risk.py:1` and `tests/adversarial/test_agent_security.py:104` |
+| PDF-06-005 | PDF p. 8 | Support the initial CRM, research, follow-up and email/calendar tool catalog | required | partial | SPEC-009 | evidence: `packages/core/revops/domain/policies/risk.py:14`; gap: only the initial read/task path is wired |
+| PDF-07-001 | PDF p. 9 | Build task-specific context with token budgets and truncation | required | implemented | SPEC-001 | evidence: `packages/core/revops/application/context/builder.py:1` and `tests/unit/application/context/test_builder.py:1` |
+| PDF-07-002 | PDF p. 9 | Separate data from instructions and record source chunks/entities | required | partial | SPEC-007 | evidence: `packages/core/revops/application/context/builder.py:1`; gap: external/RAG source records are absent |
+| PDF-07-003 | PDF p. 9 | Ingest a versioned RAG corpus for ICP, product, pricing, playbooks, voice, objections and policies | required | planned | SPEC-007 | gap: corpus ingestion and versioning are not implemented |
+| PDF-07-004 | PDF p. 9 | Use pgvector retrieval, with hybrid search and reranking as a later improvement | required | planned | SPEC-007 | gap: no retrieval adapter; hybrid/rerank remains a later enhancement |
+| PDF-07-005 | PDF p. 9 | Separate retrieval quality from generation quality | recommended | planned | SPEC-008 | gap: no RAG retrieval metrics or grounded generation eval |
+| PDF-07-006 | PDF p. 9 | Support thread, business, long-term and user memory appropriately | recommended | planned | SPEC-008 | gap: no explicit memory stores beyond run checkpoint state |
+| PDF-08-001 | PDF p. 10 | Apply least privilege, explicit allowlists, JSON schemas and deterministic rules | required | partial | SPEC-016 | evidence: `packages/core/revops/domain/policies/risk.py:14`; gap: complete runtime allowlist catalog is absent |
+| PDF-08-002 | PDF p. 10 | Defend against prompt injection and treat external content as data | required | partial | SPEC-016 | evidence: `tests/adversarial/test_agent_security.py:64`; gap: external-content boundaries are not yet exercised end to end |
+| PDF-08-003 | PDF p. 10 | Redact PII in traces and logs and isolate tenant secrets | required | partial | SPEC-016 | evidence: `tests/adversarial/test_agent_security.py:83`; gap: runner still requires explicit PII redaction work |
+| PDF-08-004 | PDF p. 10 | Require HITL for email, bulk actions, meetings and sensitive changes | required | partial | SPEC-017 | evidence: `packages/core/revops/infrastructure/agent/nodes.py:182`; gap: only task approval exists |
+| PDF-08-005 | PDF p. 10 | Show proposal, recipient, payload, reason, risk and evidence with Approve/Edit/Reject | required | partial | SPEC-012 | evidence: `apps/api/routes/agent_runs.py:1`; gap: dedicated UI is not implemented |
+| PDF-09-001 | PDF p. 11 | Add timeout, retry, backoff, jitter, rate limits, idempotency, DLQ and circuit breakers | required | partial | SPEC-019 | evidence: `apps/worker/main.py:1` and `packages/core/revops/infrastructure/agent/runner.py:1`; gap: coordinated production controls are absent |
+| PDF-09-002 | PDF p. 11 | Reconcile failed external operations and reject invalid model schemas safely | required | partial | SPEC-019 | evidence: `packages/core/revops/application/use_cases/reason_about_accounts.py:41`; gap: external reconciliation is absent |
+| PDF-09-003 | PDF p. 11 | Use workers for enrichment, batch scoring, scheduled follow-ups, bulk research and evals | required | partial | SPEC-018 | evidence: `apps/worker/main.py:1`; gap: only ingestion and dedupe workers exist |
+| PDF-09-004 | PDF p. 11 | Keep PostgreSQL as source of truth and expose operational metrics | required | partial | SPEC-014 | evidence: `packages/core/revops/infrastructure/persistence/models.py:1`; gap: operational metrics are not wired |
+| PDF-10-001 | PDF p. 12 | Integrate LangSmith, OpenTelemetry, Sentry and CloudWatch observability | recommended | planned | SPEC-014 | gap: no production telemetry adapters |
+| PDF-10-002 | PDF p. 12 | Measure scoring, replies, tool arguments, task success, retrieval, groundedness, safety and performance | required | partial | SPEC-015 | evidence: `evals/run.py:27`; gap: only tool selection and lead scoring suites exist |
+| PDF-10-003 | PDF p. 12 | Include lead scoring, reply classification, tool selection, RAG and adversarial datasets | required | partial | SPEC-015 | evidence: `evals/datasets/lead_scoring.jsonl:1` and `tests/adversarial/:1`; gap: reply/RAG datasets are absent |
+| PDF-10-004 | PDF p. 12 | Make Agent Activity and run evidence observable | required | partial | SPEC-012 | evidence: `apps/api/routes/agent_runs.py:1`; gap: no frontend Agent Activity view |
+| PDF-11-001 | PDF p. 13 | Run lint, types, unit, integration, security, evals and gate checks in CI | required | implemented | SPEC-004 | evidence: `.github/workflows/ci.yml:1`, `.github/workflows/evals.yml:1` |
+| PDF-11-002 | PDF p. 13 | Build Docker artifacts identified by immutable code SHA | required | planned | SPEC-021 | gap: application image workflow is not implemented |
+| PDF-11-003 | PDF p. 13 | Deploy staging then production with smoke monitoring and rollback | required | planned | SPEC-023 | evidence: `.github/workflows/cd-staging.yml:3` is a stub; gap: no active deployment |
+| PDF-11-004 | PDF p. 13 | Version code, image, graph, prompt, model, RAG, eval and schema | required | partial | SPEC-006 | evidence: `packages/core/revops/infrastructure/agent/runner.py:49`; gap: complete version registry is absent |
+| PDF-12-001 | PDF p. 14 | Phase 0 establishes domain, architecture and design | required | implemented | SPEC-001 | evidence: `docs/architecture/overview.md:1` and `docs/decisions/ADR-0001-clean-architecture-and-langgraph.md:1` |
+| PDF-12-002 | PDF p. 14 | Phase 1 delivers a code-first vertical slice with structured tools, HITL, audit and Docker | required | partial | SPEC-001 | evidence: `docs/specs/SPEC-001-vertical-slice-account-prioritization/tasks.md:1`; gap: app containers and pgvector runtime evidence remain incomplete |
+| PDF-12-003 | PDF p. 14 | Follow the order vertical slice, RAG/evals, autonomy, queues and cloud | recommended | implemented | SPEC-004 | evidence: `docs/specs/ROADMAP.md:1` and this matrix |
+| PDF-12-004 | PDF p. 14 | Defer multi-agent implementation until evidence supports it | required | implemented | SPEC-004 | evidence: `docs/specs/ROADMAP.md:1` marks multi-agent implementation conditional |
+| PDF-13-001 | PDF p. 15 | MVP supports authenticated natural-language account prioritization | required | implemented | SPEC-001 | evidence: `tests/integration/test_agent_runs_api.py:168` |
+| PDF-13-002 | PDF p. 15 | MVP has at least five real tools with schemas | required | not-started | SPEC-009 | gap: current vertical slice has fewer wired tools |
+| PDF-13-003 | PDF p. 15 | MVP places risky writes behind HITL and makes runs/tools auditable in UI | required | partial | SPEC-012 | evidence: `tests/integration/test_agent_runs_api.py:168`; gap: UI is not implemented |
+| PDF-13-004 | PDF p. 15 | MVP resumes state and has an offline eval baseline with synthetic demo data | required | implemented | SPEC-001 | evidence: `tests/integration/test_langgraph_checkpoint_restart.py:37` and `evals/datasets/lead_scoring.jsonl:1` |
+| PDF-13-005 | PDF p. 15 | Strong portfolio scope includes RAG metrics, observability, workers, CI thresholds, rollback, security and dashboards | recommended | partial | SPEC-014 | evidence: `.github/workflows/ci.yml:1`; gap: most production-strength additions remain planned |
+| PDF-14-001 | PDF p. 16 | Provide a public demo with a synthetic tenant and safe/mock email and calendar actions | recommended | planned | SPEC-024 | gap: no public deployment or demo mode |
+| PDF-14-002 | PDF p. 16 | Enforce quotas/rate limits, link feedback to runs and publish reproducible deliverables | recommended | planned | SPEC-024 | gap: public demo controls and deliverables are not implemented |
+| PDF-15-001 | PDF p. 17 | Use MCP as a standardized tool integration boundary when appropriate | recommended | planned | SPEC-013 | gap: `apps/mcp` has no server implementation |
+| PDF-15-002 | PDF p. 17 | Treat memory, reliability, cost and latency as explicit agent engineering concerns | required | partial | SPEC-014 | evidence: `packages/core/revops/infrastructure/agent/runner.py:49`; gap: cost/latency operations and memory policy need implementation |
+| PDF-16-001 | PDF p. 18 | Organize repository around apps, packages, evals, tests, infrastructure and docs | recommended | implemented | SPEC-001 | evidence: `README.md:39` and repository directories |
+| PDF-16-002 | PDF p. 18 | Track quality, safety, reliability, cost and latency metrics | required | partial | SPEC-014 | evidence: `evals/run.py:1`; gap: runtime metric collection is incomplete |
+| PDF-17-001 | PDF p. 19 | Apply the guide's security, observability, eval and deployment checklist before production | required | partial | SPEC-016 | evidence: `AGENTS.md:71` and `.github/workflows/ci.yml:1`; gap: checklist items remain in planned specs |
+| PDF-18-001 | PDF p. 20 | Keep V1 single-agent and only implement multi-agent after comparative eval evidence | required | implemented | SPEC-004 | evidence: `docs/specs/ROADMAP.md:1` and `docs/decisions/ADR-0001-clean-architecture-and-langgraph.md:1` |
+| PDF-18-002 | PDF p. 20 | Define success through measurable business value, quality, safety and operability | required | partial | SPEC-015 | evidence: `evals/thresholds.toml:1`; gap: business and production operability measures are not complete |
+
+## Status rules
+
+- `implemented` requires a concrete repository path with a line or a reproducible command.
+- `partial` requires evidence for the existing subset and a written gap.
+- `planned` and `not-started` require a roadmap owner; they are not completion claims.
+- `conditional` is reserved for work that the guide explicitly gates on evidence.
+- A PDF revision requires recalculating the hash and reviewing every affected row in the same change.
+
+## Compatible extensions
+
+The repository may support Portuguese interactions, reversible logical deduplication and other
+implementation details that are compatible with the guide. Such extensions do not replace or
+silently satisfy a PDF requirement without the corresponding evidence.

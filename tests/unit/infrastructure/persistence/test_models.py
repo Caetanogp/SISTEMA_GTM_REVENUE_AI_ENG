@@ -9,6 +9,7 @@ construct: no column with `onupdate`, and no foreign key using `ondelete="CASCAD
 from __future__ import annotations
 
 from revops.infrastructure.persistence.models import Base
+from sqlalchemy import CheckConstraint, ColumnDefault, UniqueConstraint
 
 _EXPECTED_TABLES = {
     "organizations",
@@ -22,6 +23,8 @@ _EXPECTED_TABLES = {
     "agent_actions",
     "approvals",
     "agent_run_events",
+    "campaigns",
+    "touchpoints",
 }
 
 _APPEND_ONLY_TABLES = {"agent_runs", "agent_actions", "approvals", "agent_run_events"}
@@ -57,7 +60,7 @@ def test_accounts_domain_unique_per_organization() -> None:
     unique_constraints = {
         tuple(sorted(c.name for c in constraint.columns))
         for constraint in table.constraints
-        if constraint.__class__.__name__ == "UniqueConstraint"
+        if isinstance(constraint, UniqueConstraint)
     }
     assert tuple(sorted(("organization_id", "domain"))) in unique_constraints
 
@@ -67,7 +70,7 @@ def test_contacts_email_unique_per_organization() -> None:
     unique_constraints = {
         tuple(sorted(c.name for c in constraint.columns))
         for constraint in table.constraints
-        if constraint.__class__.__name__ == "UniqueConstraint"
+        if isinstance(constraint, UniqueConstraint)
     }
     assert tuple(sorted(("organization_id", "email"))) in unique_constraints
 
@@ -80,12 +83,77 @@ def test_deduplication_tables_have_tenant_scoped_idempotency_and_alias_constrain
     assert any(
         {column.name for column in constraint.columns} == {"organization_id", "idempotency_key"}
         for constraint in scans.constraints
+        if isinstance(constraint, UniqueConstraint)
     )
     assert any(
         {column.name for column in constraint.columns} == {"organization_id", "idempotency_key"}
         for constraint in events.constraints
+        if isinstance(constraint, UniqueConstraint)
     )
     assert any(
-        {column.name for column in constraint.columns} == {"organization_id", "alias_id"}
-        for constraint in (*account_aliases.constraints, *contact_aliases.constraints)
+        {column.name for column in index.columns} == {"organization_id", "alias_id"}
+        for index in (*account_aliases.indexes, *contact_aliases.indexes)
     )
+
+
+def test_attribution_models_declare_the_approved_columns_and_indexes() -> None:
+    campaigns = Base.metadata.tables["campaigns"]
+    touchpoints = Base.metadata.tables["touchpoints"]
+    interactions = Base.metadata.tables["interactions"]
+    opportunities = Base.metadata.tables["opportunities"]
+
+    assert {"name", "source", "channel", "metadata", "created_at", "updated_at"} <= set(
+        campaigns.columns.keys()
+    )
+    assert {
+        "account_id",
+        "contact_id",
+        "campaign_id",
+        "type",
+        "metadata",
+        "occurred_at",
+        "created_at",
+    } <= set(touchpoints.columns.keys())
+    assert {"contact_id", "content"} <= set(interactions.columns.keys())
+    assert {"status"} <= set(opportunities.columns.keys())
+    assert {index.name for index in touchpoints.indexes} >= {
+        "ix_touchpoints_org_account_occurred_at",
+        "ix_touchpoints_org_campaign_occurred_at",
+    }
+    status_default = opportunities.columns["status"].default
+    assert isinstance(status_default, ColumnDefault)
+    assert status_default.arg == "open"
+
+
+def test_attribution_relationships_use_tenant_scoped_foreign_keys() -> None:
+    expected_relationships = {
+        "touchpoints": {
+            ("organization_id", "account_id"),
+            ("organization_id", "contact_id"),
+            ("organization_id", "campaign_id"),
+        },
+        "interactions": {
+            ("organization_id", "account_id"),
+            ("organization_id", "contact_id"),
+        },
+        "opportunities": {("organization_id", "account_id")},
+    }
+
+    for table_name, relationships in expected_relationships.items():
+        table = Base.metadata.tables[table_name]
+        foreign_key_columns = {
+            tuple(foreign_key.parent.name for foreign_key in constraint.elements)
+            for constraint in table.foreign_key_constraints
+            if len(constraint.elements) == 2
+        }
+        assert relationships <= foreign_key_columns
+
+
+def test_opportunity_status_is_constrained_to_the_approved_lifecycle() -> None:
+    opportunities = Base.metadata.tables["opportunities"]
+    constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in opportunities.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert constraints["ck_opportunities_status"] == "status IN ('open', 'won', 'lost')"
