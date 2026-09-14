@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-09-13
 branch: feature/SPEC-005-crm-attribution-model
 spec: SPEC-005-crm-attribution-model
-phase: "Item 11 final gate blocked by untracked test artifact"
-status: in progress
+phase: "SPEC-005 complete; verify-before-done ready"
+status: complete
 ---
 
 # Current state
@@ -16,8 +16,9 @@ opportunity status, and complete account/contact interaction relationships.
 
 ## Now
 
-Item 11 has a committed checkbox and evidence, but the final gate exits 1 because an out-of-scope,
-untracked temporary test artifact contains deliberately invalid Python and TOML fixtures.
+SPEC-005 is complete. The former temporary pytest artifact was removed without changing the
+repository parent ACL, the launcher now uses an explicit external temp root, and the full
+autonomous gate is green.
 
 ## Done
 
@@ -32,21 +33,25 @@ untracked temporary test artifact contains deliberately invalid Python and TOML 
 - `32e7b78 test(persistence): cover attribution integration behavior` passed
   `pytest tests/integration -q` (36 passed) with relationship, lifecycle, tenant-isolation, and
   append-only touchpoint behavior.
+- `0e73e66 fix(loop): keep temporary artifacts outside checkout` moved launcher temp allocation to
+  `%LOCALAPPDATA%\Codex\Temp` and added a regression test; targeted supervisor tests passed
+  (`29 passed`) and PowerShell syntax parsing passed.
+- `python scripts/autonomous_gate.py` passed with `GOAL ACHIEVED: all queue items done, full gate
+  green`; Ruff, mypy, lint-imports, pytest, integration, adversarial, evals, gitleaks and agent-doc
+  checks all returned `OK`.
 - `2f8b190 fix(persistence): reconcile published migration history` passed migration round-trip
   tests (5) and existing ingestion/deduplication/prioritization integration tests (19).
 
 ## Next
 
-1. Obtain explicit authorization to remove the untracked temporary test artifact at
-   `UsersCaetanogp123AppDataLocalTempcodex-revops-pytest-21628codex-revops-supervisor-yr0n86r0turn-003-item-11pytest/`.
-2. Run `python scripts/autonomous_gate.py`; expect exit 0 before marking SPEC-005 complete.
-3. Do not begin another autonomous queue item in this session.
+1. Run the complete `verify-before-done` checklist on this feature branch.
+2. Merge `feature/SPEC-005-crm-attribution-model` into `develop` after verification.
+3. Do not begin another autonomous queue item until the next spec is materialized and approved.
 
 ## Gotchas
 
-- The temporary supervisor/pytest artifact is untracked and out of scope. Its fixture
-  `test_control_snapshot_detects_0/pyproject.toml` is intentionally invalid and makes the final
-  gate's Ruff/mypy checks fail; do not remove it without explicit authorization.
+- The former temporary supervisor/pytest artifact was removed after inspecting its contents; future
+  launcher runs must keep temp data outside the checkout.
 - The executor may not edit the queue, gate, supervisor, AGENTS.md, authorization artifacts, or main.
 - Applied revision `b7c9d1e2f304` is immutable; reconciliation uses forward revision `f6a8c0d2b5e7`.
 - New attribution fields are internal persistence contracts only; no agent tool, UI, analytics, or
@@ -62,3 +67,14 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 - None.
+
+## Autonomous loop HALT (2026-09-13T18:58:06+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The queue has no active item even though the full gate is not done
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop resolution (2026-09-13)
+
+The protected pytest artifact was removed by the user after the supervisor stopped. The launcher
+fix was committed in `0e73e66`, and a fresh full gate subsequently exited 0.
