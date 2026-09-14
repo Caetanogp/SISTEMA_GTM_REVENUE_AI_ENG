@@ -1,24 +1,23 @@
 ---
 agent: codex
 updated_at: 2026-09-13
-branch: feature/SPEC-005-crm-attribution-model
-spec: SPEC-005-crm-attribution-model
-phase: "SPEC-005 complete; verify-before-done ready"
-status: complete
+branch: feature/SPEC-006-llm-gateway
+spec: SPEC-006-llm-gateway
+phase: "SPEC-006 implementation"
+status: in_progress
 ---
 
 # Current state
 
 ## Goal
 
-Complete the PDF-aligned CRM attribution foundation: campaigns, touchpoints, source metadata,
-opportunity status, and complete account/contact interaction relationships.
+Implement the PDF-aligned multi-provider LLM gateway with structured output, safe fallback,
+versioned cost metadata, passive health and durable run auditing.
 
 ## Now
 
-SPEC-005 is complete. The former temporary pytest artifact was removed without changing the
-repository parent ACL, the launcher now uses an explicit external temp root, and the full
-autonomous gate is green.
+SPEC-005 is merged into develop. SPEC-006 documentation is materialized and implementation is
+starting on `feature/SPEC-006-llm-gateway`.
 
 ## Done
 
@@ -44,9 +43,10 @@ autonomous gate is green.
 
 ## Next
 
-1. Run the complete `verify-before-done` checklist on this feature branch.
-2. Merge `feature/SPEC-005-crm-attribution-model` into `develop` after verification.
-3. Do not begin another autonomous queue item until the next spec is materialized and approved.
+1. Implement the SPEC-006 application contracts, adapters, routing and persistence changes.
+2. Add offline gateway contract evals, adversarial coverage and PDF traceability evidence.
+3. Run the complete `verify-before-done` checklist and autonomous gate.
+4. Merge `feature/SPEC-006-llm-gateway` into `develop` only after verification; do not push.
 
 ## Gotchas
 
@@ -66,7 +66,7 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-- None.
+- None. Product and architecture choices are recorded in `docs/specs/SPEC-006-llm-gateway/`.
 
 ## Autonomous loop HALT (2026-09-13T18:58:06+00:00)
 
