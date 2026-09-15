@@ -21,10 +21,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from evals.scorers.lead_scoring import score_lead_scoring_dataset
+from evals.scorers.llm_gateway_contract import score_llm_gateway_contract_dataset
 from evals.scorers.tool_selection import score_tool_selection_dataset
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
-SUITES = ("tool_selection", "lead_scoring")
+SUITES = ("tool_selection", "lead_scoring", "llm_gateway_contract")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,9 +65,23 @@ def run_lead_scoring() -> SuiteReport:
     )
 
 
+def run_llm_gateway_contract() -> SuiteReport:
+    result = score_llm_gateway_contract_dataset()
+    return SuiteReport(
+        suite="llm_gateway_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
 RUNNERS: dict[str, Callable[[], SuiteReport]] = {
     "tool_selection": run_tool_selection,
     "lead_scoring": run_lead_scoring,
+    "llm_gateway_contract": run_llm_gateway_contract,
 }
 
 

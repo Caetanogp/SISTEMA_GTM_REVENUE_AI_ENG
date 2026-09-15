@@ -109,6 +109,7 @@ async def seed_reference_data(session: AsyncSession, marker: str) -> None:
     session.add(
         AgentRunModel(
             id=UUID(marker),
+            thread_id=marker,
             organization_id=organization_id,
             requested_by=actor_id,
             request_text="prioritize",

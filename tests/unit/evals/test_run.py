@@ -10,7 +10,7 @@ import pytest
 from evals.run import RUNNERS, run_suite, write_report
 
 
-@pytest.mark.parametrize("suite", ["tool_selection", "lead_scoring"])
+@pytest.mark.parametrize("suite", ["tool_selection", "lead_scoring", "llm_gateway_contract"])
 def test_run_suite_produces_a_sane_report(suite: str) -> None:
     report = run_suite(suite)
     assert report.suite == suite
@@ -26,7 +26,7 @@ def test_lead_scoring_suite_is_a_full_regression_match() -> None:
 
 
 def test_all_suites_are_registered_as_runners() -> None:
-    assert set(RUNNERS) == {"tool_selection", "lead_scoring"}
+    assert set(RUNNERS) == {"tool_selection", "lead_scoring", "llm_gateway_contract"}
 
 
 def test_write_report_writes_valid_json_to_the_given_directory(tmp_path: Path) -> None:

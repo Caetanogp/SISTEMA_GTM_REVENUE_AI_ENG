@@ -7,9 +7,10 @@ from evals.gate import evaluate_suite, load_thresholds, main
 
 def test_load_thresholds_declares_both_suites() -> None:
     thresholds = load_thresholds()
-    assert set(thresholds) == {"tool_selection", "lead_scoring"}
+    assert set(thresholds) == {"tool_selection", "lead_scoring", "llm_gateway_contract"}
     assert thresholds["lead_scoring"]["min_exact_match"] == 1.0
     assert thresholds["tool_selection"]["min_accuracy"] == 0.80
+    assert thresholds["llm_gateway_contract"]["min_exact_match"] == 1.0
 
 
 def test_lead_scoring_passes_its_own_threshold() -> None:

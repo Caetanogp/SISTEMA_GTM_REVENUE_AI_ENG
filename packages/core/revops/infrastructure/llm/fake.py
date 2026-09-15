@@ -7,7 +7,7 @@ from typing import TypeVar, cast
 
 from pydantic import BaseModel
 
-from revops.application.dto import LLMResult, LLMUsage
+from revops.application.dto import LLMGatewayHealth, LLMHealthStatus, LLMResult, LLMUsage
 
 T = TypeVar("T")
 
@@ -27,6 +27,16 @@ class FakeLLMGateway:
         )
     )
     calls: list[str] = field(default_factory=list)
+
+    def configuration_snapshot(self) -> dict[str, object]:
+        return dict(self.usage.model_config_json)
+
+    def health_snapshot(self) -> LLMGatewayHealth:
+        return LLMGatewayHealth(
+            mode="fake",
+            status=LLMHealthStatus.HEALTHY,
+            providers=({"provider": self.usage.provider, "status": LLMHealthStatus.HEALTHY},),
+        )
 
     async def complete(self, *, prompt: str, response_model: type[T]) -> LLMResult[T]:
         self.calls.append(prompt)

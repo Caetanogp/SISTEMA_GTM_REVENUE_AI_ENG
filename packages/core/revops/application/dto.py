@@ -239,6 +239,43 @@ class LLMUsage(BaseModel):
     latency_ms: int = Field(ge=0)
 
 
+class LLMHealthStatus(StrEnum):
+    DISABLED = "disabled"
+    UNKNOWN = "unknown"
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNAVAILABLE = "unavailable"
+
+
+class LLMFailureKind(StrEnum):
+    NETWORK = "network"
+    TIMEOUT = "timeout"
+    RATE_LIMIT = "rate_limit"
+    SERVER = "server"
+    AUTHENTICATION = "authentication"
+    PERMISSION = "permission"
+    BILLING = "billing"
+    CONFIGURATION = "configuration"
+    INVALID_REQUEST = "invalid_request"
+    SAFETY_REFUSAL = "safety_refusal"
+    INVALID_RESPONSE = "invalid_response"
+
+
+class LLMProviderHealth(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    status: LLMHealthStatus
+
+
+class LLMGatewayHealth(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str
+    status: LLMHealthStatus
+    providers: tuple[LLMProviderHealth, ...]
+
+
 @dataclass(frozen=True, slots=True)
 class LLMResult[T]:
     output: T
