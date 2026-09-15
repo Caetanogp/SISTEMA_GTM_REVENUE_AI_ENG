@@ -208,6 +208,7 @@ def test_invoke_codex_retries_transient_process_failure(
     tmp_path: Path,
 ) -> None:
     attempts = 0
+    captured_env: Mapping[str, str] | None = None
 
     def runner(
         args: Sequence[str],
@@ -216,7 +217,8 @@ def test_invoke_codex_retries_transient_process_failure(
         _env: Mapping[str, str] | None,
         _timeout: int,
     ) -> supervisor.ProcessResult:
-        nonlocal attempts
+        nonlocal attempts, captured_env
+        captured_env = _env
         attempts += 1
         if attempts == 1:
             return supervisor.ProcessResult(1, stderr="503 temporarily unavailable")
@@ -238,6 +240,8 @@ def test_invoke_codex_retries_transient_process_failure(
 
     assert result["status"] == "continue"
     assert attempts == 2
+    assert captured_env is not None
+    assert "PYTEST_ADDOPTS" not in captured_env
 
 
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(

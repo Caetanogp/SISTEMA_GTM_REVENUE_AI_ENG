@@ -444,16 +444,10 @@ def _invoke_codex(
         output_path=output_path,
         read_only=read_only,
     )
+    # Do not pass host-style Windows temp paths into the Codex child. Its sandbox shell can
+    # interpret those values as relative paths and recreate them inside the checkout. The
+    # launcher already isolates the supervisor process; the child must use its native temp root.
     env = os.environ.copy()
-    pytest_temp = artifact_dir / "pytest"
-    pytest_temp.mkdir(exist_ok=True)
-    env.update(
-        {
-            "TEMP": str(pytest_temp),
-            "TMP": str(pytest_temp),
-            "PYTEST_ADDOPTS": f"--basetemp={pytest_temp}",
-        }
-    )
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
         output_path.unlink(missing_ok=True)
