@@ -21,8 +21,8 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 | [SPEC-003](SPEC-003-deduplication/) | 1 | normalize -> match -> merge -> master record -> preserve history, for contacts and accounts | done, merged into develop |
 | [SPEC-004](SPEC-004-requirements-alignment/) | 0 | PDF traceability matrix, source-hash checker and mandatory offline eval gate | done |
 | [SPEC-005](SPEC-005-crm-attribution-model/) | 1 | Campaigns, touchpoints, source attribution, opportunity status and complete interaction relationships | done, merged into develop |
-| [SPEC-006](SPEC-006-llm-gateway/) | 1/3 | Own multi-provider gateway for OpenAI and Anthropic with routing, fallback, health, versions and cost metadata | in progress |
-| SPEC-007-rag-ingestion | 2 | Versioned ICP, product, pricing, playbook, brand voice and policy corpus with pgvector ingestion | not started |
+| [SPEC-006](SPEC-006-llm-gateway/) | 1/3 | Own multi-provider gateway for OpenAI and Anthropic with routing, fallback, health, versions and cost metadata | done, merged into develop |
+| [SPEC-007](SPEC-007-rag-ingestion/) | 2 | Versioned ICP, product, pricing, playbook, brand voice and policy corpus with pgvector ingestion | in progress |
 | SPEC-008-context-retrieval-memory | 2 | Task-scoped retrieval, hybrid/reranking evolution, memory and retrieval/generation evals | not started |
 | SPEC-009-single-agent-tool-runtime | 2/3 | Bounded single-agent routing and up to five tool calls with explicit schemas and one-write/HITL rules | not started |
 | SPEC-010-research-and-outreach | 2/3 | Grounded company research and personalized follow-up preparation | not started |
