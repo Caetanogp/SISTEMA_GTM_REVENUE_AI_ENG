@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-13
+updated_at: 2026-09-14
 branch: feature/SPEC-006-llm-gateway
 spec: SPEC-006-llm-gateway
-phase: "SPEC-006 implementation"
-status: in_progress
+phase: "SPEC-006 verified"
+status: ready_for_merge
 ---
 
 # Current state
@@ -16,8 +16,8 @@ versioned cost metadata, passive health and durable run auditing.
 
 ## Now
 
-SPEC-005 is merged into develop. SPEC-006 documentation is materialized and implementation is
-starting on `feature/SPEC-006-llm-gateway`.
+SPEC-005 is merged into develop. SPEC-006 is implemented and verified on
+`feature/SPEC-006-llm-gateway`; no autonomous loop is running.
 
 ## Done
 
@@ -40,20 +40,32 @@ starting on `feature/SPEC-006-llm-gateway`.
   checks all returned `OK`.
 - `2f8b190 fix(persistence): reconcile published migration history` passed migration round-trip
   tests (5) and existing ingestion/deduplication/prioritization integration tests (19).
+- SPEC-006 implementation adds the provider-neutral HTTPX gateway, OpenAI/Anthropic structured
+  adapters, bounded retry/fallback, Decimal pricing, passive health, explicit thread journaling,
+  bilingual prompt v2, offline gateway evals and the scoped external-temp cleanup safeguards.
+- `pytest tests/unit -q`: `345 passed`; `pytest tests/integration -q`: `36 passed`; adversarial:
+  `11 passed`; evals: tool selection `14/14`, lead scoring `15/15`, gateway `6/6`.
+- `ruff check .`, format check, `mypy .`, `lint-imports`, agent docs, PDF traceability and
+  `gitleaks detect --no-git` all passed.
+- `python scripts/autonomous_gate.py`: `GOAL ACHIEVED: all queue items done, full gate green`.
+- Local database upgraded to migration head `a1b2c3d4e5f6`; Docker Postgres and Redis were healthy.
+- Legacy supervisor artifacts were removed manually; new launcher preflight refuses repository
+  temp paths and reparse points. Future cleanup is restricted to `%LOCALAPPDATA%\Codex\Temp`.
 
 ## Next
 
-1. Implement the SPEC-006 application contracts, adapters, routing and persistence changes.
-2. Add offline gateway contract evals, adversarial coverage and PDF traceability evidence.
-3. Run the complete `verify-before-done` checklist and autonomous gate.
-4. Merge `feature/SPEC-006-llm-gateway` into `develop` only after verification; do not push.
+1. Commit the verified SPEC-006 changes on `feature/SPEC-006-llm-gateway`.
+2. Show the diff summary before merging, per the user's instruction.
+3. Merge `feature/SPEC-006-llm-gateway` into `develop`; do not push.
+4. Do not start another implementation loop until the next real spec is materialized and agreed.
 
 ## Gotchas
 
 - The former temporary supervisor/pytest artifact was removed after inspecting its contents; future
   launcher runs must keep temp data outside the checkout.
 - The executor may not edit the queue, gate, supervisor, AGENTS.md, authorization artifacts, or main.
-- Applied revision `b7c9d1e2f304` is immutable; reconciliation uses forward revision `f6a8c0d2b5e7`.
+- Applied revision `b7c9d1e2f304` is immutable; reconciliation uses forward revision `f6a8c0d2b5e7`,
+  followed by SPEC-006 migration `a1b2c3d4e5f6`.
 - New attribution fields are internal persistence contracts only; no agent tool, UI, analytics, or
   external connector is in scope.
 

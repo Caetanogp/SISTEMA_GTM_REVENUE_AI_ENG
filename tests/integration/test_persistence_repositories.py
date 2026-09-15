@@ -287,6 +287,7 @@ class TestAuditTrail:
         session.add(
             AgentRunModel(
                 id=run_id,
+                thread_id=str(run_id),
                 organization_id=org_id,
                 requested_by=actor_id,
                 request_text="prioritize",

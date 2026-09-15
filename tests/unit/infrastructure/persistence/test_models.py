@@ -39,6 +39,18 @@ def test_agent_actions_run_id_is_not_nullable() -> None:
     assert run_id_column.nullable is False
 
 
+def test_agent_runs_have_explicit_unique_thread_id() -> None:
+    table = Base.metadata.tables["agent_runs"]
+    thread_id = table.columns["thread_id"]
+
+    assert thread_id.nullable is False
+    assert any(
+        isinstance(constraint, UniqueConstraint)
+        and tuple(column.name for column in constraint.columns) == ("thread_id",)
+        for constraint in table.constraints
+    )
+
+
 def test_append_only_tables_have_no_update_enabling_construct() -> None:
     for table_name in _APPEND_ONLY_TABLES:
         table = Base.metadata.tables[table_name]

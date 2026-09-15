@@ -18,7 +18,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from revops.application.dto import ApprovalDecisionType
 from revops.application.ports import (
@@ -411,6 +411,7 @@ class SqlAlchemyAgentRunRepository:
         self._session.add(
             AgentRunModel(
                 id=run.id,
+                thread_id=run.thread_id,
                 organization_id=run.organization_id,
                 requested_by=run.requested_by,
                 request_text=run.request_text,
@@ -443,3 +444,22 @@ class SqlAlchemyAgentRunRepository:
             )
         )
         await self._session.flush()
+
+
+class SqlAlchemyAgentRunJournal:
+    """Commit immutable run roots and lifecycle events outside request/business transactions."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def start(self, run: AgentRunRecord, event: AgentRunEventRecord) -> None:
+        async with self._session_factory() as session:
+            repository = SqlAlchemyAgentRunRepository(session)
+            await repository.add(run)
+            await repository.add_event(event)
+            await session.commit()
+
+    async def append(self, event: AgentRunEventRecord) -> None:
+        async with self._session_factory() as session:
+            await SqlAlchemyAgentRunRepository(session).add_event(event)
+            await session.commit()

@@ -23,6 +23,8 @@ from revops.application.dto import (
     ApprovalDecisionType,
     EnrichmentProfile,
     IngestionItemSummary,
+    LLMFailureKind,
+    LLMGatewayHealth,
     LLMResult,
     StagedIngestionItem,
     StagedIngestionJob,
@@ -58,6 +60,7 @@ class ApprovalRecord:
 @dataclass(frozen=True, slots=True)
 class AgentRunRecord:
     id: UUID
+    thread_id: str
     organization_id: UUID
     requested_by: UUID
     request_text: str
@@ -184,6 +187,15 @@ class AgentRunRepository(Protocol):
     async def add_event(self, event: AgentRunEventRecord) -> None: ...
 
 
+@runtime_checkable
+class AgentRunJournal(Protocol):
+    """Durable append-only lifecycle journal independent from business transactions."""
+
+    async def start(self, run: AgentRunRecord, event: AgentRunEventRecord) -> None: ...
+
+    async def append(self, event: AgentRunEventRecord) -> None: ...
+
+
 T = TypeVar("T")
 
 
@@ -198,6 +210,30 @@ class LLMGateway(Protocol):
     """Structured-output access to the LLM. Free text never crosses this boundary unvalidated."""
 
     async def complete(self, *, prompt: str, response_model: type[T]) -> LLMResult[T]: ...
+
+    def configuration_snapshot(self) -> Mapping[str, object]: ...
+
+    def health_snapshot(self) -> LLMGatewayHealth: ...
+
+
+class LLMGatewayError(RuntimeError):
+    """A provider failure with safe, structured details and no raw provider payload."""
+
+    def __init__(
+        self,
+        *,
+        provider: str,
+        kind: LLMFailureKind,
+        attempts: int,
+        retryable: bool,
+        request_id: str | None = None,
+    ) -> None:
+        self.provider = provider
+        self.kind = kind
+        self.attempts = attempts
+        self.retryable = retryable
+        self.request_id = request_id
+        super().__init__(f"LLM provider failure: {provider}/{kind.value}")
 
 
 @runtime_checkable

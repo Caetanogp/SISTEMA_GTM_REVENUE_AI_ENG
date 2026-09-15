@@ -474,6 +474,7 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(128), unique=True)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     requested_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
     request_text: Mapped[str] = mapped_column(String(2000), default="legacy/unattributed")

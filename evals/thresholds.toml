@@ -16,3 +16,6 @@ min_exact_match = 1.00
 # harder adversarial cases doesn't instantly fail the gate on a heuristic that was never meant to
 # be the final answer.
 min_accuracy = 0.80
+
+[llm_gateway_contract]
+min_exact_match = 1.00

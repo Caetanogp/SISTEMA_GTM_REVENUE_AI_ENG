@@ -110,7 +110,7 @@ async def start_agent_run(
             await session.rollback()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         except RuntimeError as exc:
-            await session.rollback()
+            await session.commit()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(exc),
@@ -261,7 +261,7 @@ async def approve_agent_run(
                 await session.rollback()
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
             except RuntimeError as exc:
-                await session.rollback()
+                await session.commit()
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=str(exc),

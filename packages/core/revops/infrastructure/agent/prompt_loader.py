@@ -7,7 +7,7 @@ from pathlib import Path
 
 from revops.application.dto import AccountCandidate
 
-_PROMPT_PATH = Path(__file__).with_name("prompts") / "prioritize_accounts.v1.md"
+_PROMPT_PATH = Path(__file__).with_name("prompts") / "prioritize_accounts.v2.md"
 
 
 def load_prioritize_accounts_prompt(

@@ -13,6 +13,7 @@ from revops.application.ports import (
     IngestionUnitOfWorkFactory,
     LLMGateway,
 )
+from revops.infrastructure.llm.gateway import build_live_gateway
 from revops.infrastructure.persistence.ingestion_unit_of_work import SqlAlchemyIngestionUnitOfWork
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -64,5 +65,7 @@ def deduplication_uow_factory(request: Request) -> DeduplicationUnitOfWorkFactor
     return factory
 
 
-def default_llm_gateway() -> LLMGateway:
+def default_llm_gateway(settings: ApiSettings) -> LLMGateway:
+    if settings.llm_gateway_mode == "live":
+        return build_live_gateway(settings)
     return UnconfiguredLLMGateway()

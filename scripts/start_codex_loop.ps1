@@ -84,6 +84,15 @@ $codexTempRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")
 $pytestBaseTemp = Join-Path $codexTempRoot ("codex-revops-pytest-{0}" -f $PID)
 New-Item -ItemType Directory -Force -Path $codexTempRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
+$repoCanonical = (Resolve-Path -LiteralPath $repo).Path.TrimEnd('\')
+$tempCanonical = (Resolve-Path -LiteralPath $pytestBaseTemp).Path.TrimEnd('\')
+if ($tempCanonical.StartsWith("$repoCanonical\", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to launch: temporary directory resolved inside repository"
+}
+$tempItem = Get-Item -LiteralPath $pytestBaseTemp -Force
+if (($tempItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Refusing to launch: temporary directory is a reparse point"
+}
 $env:TEMP = $pytestBaseTemp
 $env:TMP = $pytestBaseTemp
 $env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"

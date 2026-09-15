@@ -47,3 +47,14 @@ def test_published_deduplication_revision_is_immutable() -> None:
     normalized = _source(_PUBLISHED_DEDUPLICATION).replace("\r\n", "\n").encode()
 
     assert hashlib.sha256(normalized).hexdigest() == _PUBLISHED_DEDUPLICATION_SHA256
+
+
+def test_thread_id_revision_is_forward_only_and_additive() -> None:
+    migration = _VERSIONS / "a1b2c3d4e5f6_add_agent_run_thread_id.py"
+    source = _source(migration)
+    upgrade = source.split("def downgrade", maxsplit=1)[0].upper()
+
+    assert 'revision: str = "a1b2c3d4e5f6"' in source
+    assert 'down_revision: str | None = "f6a8c0d2b5e7"' in source
+    for destructive_operation in ("DROP ", "DELETE ", "TRUNCATE "):
+        assert destructive_operation not in upgrade
