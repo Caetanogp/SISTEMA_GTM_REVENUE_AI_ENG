@@ -1,6 +1,6 @@
 # SPEC-007 tasks
 
-- [ ] Reconcile SPEC-006 closeout, roadmap, handoff, and PDF traceability in `docs/` and `.handoff/` - verified by `python scripts/check_pdf_traceability.py`
+- [x] Reconcile SPEC-006 closeout, roadmap, handoff, and PDF traceability in `docs/` and `.handoff/` - verified by `python scripts/check_pdf_traceability.py` (86 rows, pages 1-20 covered)
 - [ ] Define pure knowledge categories, language, scope, lifecycle, and validation contracts in `packages/core/revops/domain/` - verified by domain unit tests
 - [ ] Define application DTOs, repository/UoW/embedding/dispatch ports in `packages/core/revops/application/` - verified by import and application unit tests
 - [ ] Implement deterministic normalization, metadata validation, heading/paragraph chunking, limits, and hashes - verified by chunking unit tests
