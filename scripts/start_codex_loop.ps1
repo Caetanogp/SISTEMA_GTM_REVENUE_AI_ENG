@@ -77,25 +77,9 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
-# Keep each loop's pytest files outside the checkout, even when the inherited TEMP points into
-# the repository. The shared .pytest_cache path may be a OneDrive reparse point, and pytest's
-# fallback directory can pollute the checkout during mypy.
-$codexTempRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Codex\Temp"
-$pytestBaseTemp = Join-Path $codexTempRoot ("codex-revops-pytest-{0}" -f $PID)
-New-Item -ItemType Directory -Force -Path $codexTempRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
-$repoCanonical = (Resolve-Path -LiteralPath $repo).Path.TrimEnd('\')
-$tempCanonical = (Resolve-Path -LiteralPath $pytestBaseTemp).Path.TrimEnd('\')
-if ($tempCanonical.StartsWith("$repoCanonical\", [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Refusing to launch: temporary directory resolved inside repository"
-}
-$tempItem = Get-Item -LiteralPath $pytestBaseTemp -Force
-if (($tempItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw "Refusing to launch: temporary directory is a reparse point"
-}
-$env:TEMP = $pytestBaseTemp
-$env:TMP = $pytestBaseTemp
-$env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"
+# The supervisor owns temporary-directory selection and validates that its artifact directory is
+# outside the checkout. Do not override TEMP/TMP/PYTEST_ADDOPTS here: Codex child processes can
+# reinterpret host-style Windows paths as relative paths and recreate them inside the repository.
 
 Push-Location $repo
 try {
