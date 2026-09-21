@@ -447,12 +447,11 @@ def _invoke_codex(
         output_path=output_path,
         read_only=read_only,
     )
-    # Do not pass host-style Windows temp paths into the Codex child. Its sandbox shell can
-    # interpret those values as relative paths and recreate them inside the checkout. The
-    # launcher already isolates the supervisor process; the child must use its native temp root.
+    # Preserve native OS TEMP/TMP values. Removing them makes Python on Windows fall back to the
+    # current checkout when it cannot find another valid temp root. Only remove the launcher-
+    # specific pytest override, which could point the child sandbox at a host-style path.
     env = os.environ.copy()
-    for variable in ("TEMP", "TMP", "PYTEST_ADDOPTS"):
-        env.pop(variable, None)
+    env.pop("PYTEST_ADDOPTS", None)
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
         output_path.unlink(missing_ok=True)

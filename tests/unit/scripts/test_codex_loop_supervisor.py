@@ -244,7 +244,7 @@ def test_invoke_codex_retries_transient_process_failure(
     assert result["status"] == "continue"
     assert attempts == 2
     assert captured_env is not None
-    assert all(variable not in captured_env for variable in ("TEMP", "TMP", "PYTEST_ADDOPTS"))
+    assert "PYTEST_ADDOPTS" not in captured_env
     assert captured_timeout == supervisor.DEFAULT_CHILD_TIMEOUT_SECONDS
 
 
