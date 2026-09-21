@@ -270,6 +270,7 @@ def default_runner(
         env=dict(env) if env is not None else None,
         capture_output=True,
         encoding="utf-8",
+        errors="replace",
         text=True,
         timeout=timeout,
         check=False,

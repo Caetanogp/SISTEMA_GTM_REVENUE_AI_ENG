@@ -178,6 +178,7 @@ def test_default_runner_sends_prompts_as_utf8(
     supervisor.default_runner(["codex-test"], tmp_path, prompt, None, 60)
 
     assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
 
 
 def test_control_snapshot_detects_modified_or_deleted_controls(tmp_path: Path) -> None:
