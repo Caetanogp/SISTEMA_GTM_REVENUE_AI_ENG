@@ -449,6 +449,8 @@ def _invoke_codex(
     # interpret those values as relative paths and recreate them inside the checkout. The
     # launcher already isolates the supervisor process; the child must use its native temp root.
     env = os.environ.copy()
+    for variable in ("TEMP", "TMP", "PYTEST_ADDOPTS"):
+        env.pop(variable, None)
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
         output_path.unlink(missing_ok=True)

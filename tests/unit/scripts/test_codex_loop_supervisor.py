@@ -242,7 +242,7 @@ def test_invoke_codex_retries_transient_process_failure(
     assert result["status"] == "continue"
     assert attempts == 2
     assert captured_env is not None
-    assert "PYTEST_ADDOPTS" not in captured_env
+    assert all(variable not in captured_env for variable in ("TEMP", "TMP", "PYTEST_ADDOPTS"))
 
 
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(
