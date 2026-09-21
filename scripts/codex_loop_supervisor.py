@@ -25,6 +25,7 @@ DEFAULT_ARCHITECTURE_MODEL = "gpt-5.6-sol"
 DEFAULT_IMPLEMENTATION_EFFORT = "medium"
 DEFAULT_ARCHITECTURE_EFFORT = "xhigh"
 MAX_ARCHITECTURE_ATTEMPTS = 2
+DEFAULT_CHILD_TIMEOUT_SECONDS = 1_800
 MAX_TEXT_LENGTH = 8_000
 MAX_LIST_ITEMS = 100
 EXTERNAL_TEMP_CONFIG = "sandbox_workspace_write.exclude_tmpdir_env_var=false"
@@ -97,6 +98,7 @@ class SupervisorConfig:
     max_architecture_attempts: int = MAX_ARCHITECTURE_ATTEMPTS
     max_process_retries: int = 2
     retry_delay_seconds: int = 30
+    child_timeout_seconds: int = DEFAULT_CHILD_TIMEOUT_SECONDS
     use_live_search: bool = False
 
 
@@ -455,7 +457,7 @@ def _invoke_codex(
     for attempt in range(1, config.max_process_retries + 2):
         output_path.unlink(missing_ok=True)
         try:
-            result = runner(command, config.repo, prompt, env, 14_400)
+            result = runner(command, config.repo, prompt, env, config.child_timeout_seconds)
         except subprocess.SubprocessError as exc:
             result = ProcessResult(1, stderr=str(exc))
         (artifact_dir / f"{phase}.attempt-{attempt}.stdout.log").write_text(
@@ -957,6 +959,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-architecture-attempts", type=int, default=MAX_ARCHITECTURE_ATTEMPTS)
     parser.add_argument("--max-process-retries", type=int, default=2)
     parser.add_argument("--retry-delay-seconds", type=int, default=30)
+    parser.add_argument("--child-timeout-seconds", type=int, default=DEFAULT_CHILD_TIMEOUT_SECONDS)
     parser.add_argument("--search", action="store_true", dest="use_live_search")
     return parser.parse_args(argv)
 
@@ -968,6 +971,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         or args.max_architecture_attempts not in {1, 2}
         or args.max_process_retries < 0
         or args.retry_delay_seconds < 0
+        or args.child_timeout_seconds < 1
     ):
         print(
             "invalid turn, architecture-attempt, process-retry, or retry-delay limit",
@@ -985,6 +989,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_architecture_attempts=args.max_architecture_attempts,
         max_process_retries=args.max_process_retries,
         retry_delay_seconds=args.retry_delay_seconds,
+        child_timeout_seconds=args.child_timeout_seconds,
         use_live_search=args.use_live_search,
     )
     if config.repo != ROOT.resolve():

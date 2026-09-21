@@ -210,6 +210,7 @@ def test_invoke_codex_retries_transient_process_failure(
 ) -> None:
     attempts = 0
     captured_env: Mapping[str, str] | None = None
+    captured_timeout = 0
 
     def runner(
         args: Sequence[str],
@@ -218,8 +219,9 @@ def test_invoke_codex_retries_transient_process_failure(
         _env: Mapping[str, str] | None,
         _timeout: int,
     ) -> supervisor.ProcessResult:
-        nonlocal attempts, captured_env
+        nonlocal attempts, captured_env, captured_timeout
         captured_env = _env
+        captured_timeout = _timeout
         attempts += 1
         if attempts == 1:
             return supervisor.ProcessResult(1, stderr="503 temporarily unavailable")
@@ -243,6 +245,7 @@ def test_invoke_codex_retries_transient_process_failure(
     assert attempts == 2
     assert captured_env is not None
     assert all(variable not in captured_env for variable in ("TEMP", "TMP", "PYTEST_ADDOPTS"))
+    assert captured_timeout == supervisor.DEFAULT_CHILD_TIMEOUT_SECONDS
 
 
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(
