@@ -9,7 +9,7 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 - **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Requires:** agreed SPEC-007 docs and no unresolved architecture decision
-- **Closes:** 3 tasks.md checkboxes, including the completed traceability checkbox
+- **Closes:** 3 tasks.md checkboxes
 - **What:** implement pure validation, lifecycle, normalization, chunking, limits, and hashes.
 - **Done when:** focused domain tests pass and no infrastructure dependency enters the domain.
 
