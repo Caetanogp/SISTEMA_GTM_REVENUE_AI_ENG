@@ -83,8 +83,8 @@ python scripts/autonomous_gate.py
 
 - None for the agreed SPEC-007 scope.
 
-## Autonomous loop HALT (2026-09-24T21:13:31+00:00)
+## Autonomous loop HALT (2026-09-24T22:58:39+00:00)
 
-Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
+Invalid baseline rollover authorization: baseline rollover requires a clean worktree
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
