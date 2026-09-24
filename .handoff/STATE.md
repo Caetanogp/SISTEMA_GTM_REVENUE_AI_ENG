@@ -63,6 +63,10 @@ no supervisor or pytest artifacts were recreated.
 - A follow-up pilot with a 600-second child timeout was started but intentionally interrupted
   before it produced a result; it left no running supervisor child, checkout artifacts, or code
   changes.
+- In the subsequent uninterrupted attempt, the native Codex child exited but the supervisor
+  process did not return its structured result or final status. The pilot was then interrupted
+  after confirming that only the pilot supervisor was stopped. This is now a concrete runner
+  lifecycle/pipe-handling blocker; do not launch the long loop until it is fixed and tested.
 
 ## Resume
 
