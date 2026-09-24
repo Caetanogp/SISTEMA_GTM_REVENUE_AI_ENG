@@ -60,6 +60,9 @@ no supervisor or pytest artifacts were recreated.
   installed package instead of falling back to `codex.cmd`.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
   no checkout artifacts or code changes were produced. Do not launch the long loop yet.
+- A follow-up pilot with a 600-second child timeout was started but intentionally interrupted
+  before it produced a result; it left no running supervisor child, checkout artifacts, or code
+  changes.
 
 ## Resume
 
