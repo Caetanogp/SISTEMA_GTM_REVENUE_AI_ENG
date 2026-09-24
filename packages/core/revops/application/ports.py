@@ -21,8 +21,12 @@ from uuid import UUID
 from revops.application.dto import (
     AccountEnrichmentRecord,
     ApprovalDecisionType,
+    CorpusRevision,
+    EmbeddingBatch,
     EnrichmentProfile,
     IngestionItemSummary,
+    KnowledgeChunkEmbedding,
+    KnowledgeDocumentVersion,
     LLMFailureKind,
     LLMGatewayHealth,
     LLMResult,
@@ -41,6 +45,7 @@ from revops.domain.entities.deduplication import (
 )
 from revops.domain.entities.ingestion import IngestionJobStatus
 from revops.domain.entities.interaction import Interaction
+from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersionStatus
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
 from revops.domain.entities.touchpoint import Touchpoint
@@ -527,3 +532,104 @@ class EnrichmentGateway(Protocol):
 
 class EnrichmentGatewayError(Exception):
     """An expected provider failure that should become a per-item outcome."""
+
+
+@runtime_checkable
+class KnowledgeDocumentRepository(Protocol):
+    """Tenant-scoped document/version persistence with idempotent draft reservation."""
+
+    async def get_version(
+        self, organization_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None: ...
+
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> KnowledgeDocumentVersion | None: ...
+
+    async def reserve_draft(
+        self,
+        *,
+        organization_id: UUID,
+        requested_by: UUID,
+        document: KnowledgeDocument,
+        idempotency_key: str,
+        created_at: datetime,
+    ) -> KnowledgeDocumentVersion: ...
+
+    async def transition_status(
+        self,
+        *,
+        organization_id: UUID,
+        version_id: UUID,
+        status: KnowledgeVersionStatus,
+        failure_code: str | None = None,
+    ) -> KnowledgeDocumentVersion: ...
+
+    async def list_versions(
+        self, organization_id: UUID, *, offset: int, limit: int
+    ) -> Sequence[KnowledgeDocumentVersion]: ...
+
+
+@runtime_checkable
+class EmbeddingProvider(Protocol):
+    """Bounded vector generation; adapters never choose a fallback provider."""
+
+    async def embed(self, texts: Sequence[str]) -> EmbeddingBatch: ...
+
+
+@runtime_checkable
+class CorpusRevisionRepository(Protocol):
+    """Atomic, append-only corpus publication and explicit historical activation."""
+
+    async def publish(
+        self,
+        *,
+        organization_id: UUID,
+        version_id: UUID,
+        chunks: Sequence[KnowledgeChunkEmbedding],
+        manifest_hash: str,
+        activated_by: UUID,
+        created_at: datetime,
+    ) -> CorpusRevision: ...
+
+    async def get_active(self, organization_id: UUID) -> CorpusRevision | None: ...
+
+    async def activate(
+        self,
+        *,
+        organization_id: UUID,
+        version_id: UUID,
+        activated_by: UUID,
+        created_at: datetime,
+    ) -> CorpusRevision: ...
+
+
+@runtime_checkable
+class KnowledgeJobDispatcher(Protocol):
+    """At-least-once dispatch boundary invoked only after confirmation commits."""
+
+    async def publish(self, *, organization_id: UUID, version_id: UUID) -> None: ...
+
+
+@runtime_checkable
+class KnowledgeUnitOfWork(Protocol):
+    """One transaction for lifecycle changes and atomic corpus publication."""
+
+    documents: KnowledgeDocumentRepository
+    revisions: CorpusRevisionRepository
+
+    async def __aenter__(self) -> KnowledgeUnitOfWork: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+type KnowledgeUnitOfWorkFactory = Callable[[], KnowledgeUnitOfWork]

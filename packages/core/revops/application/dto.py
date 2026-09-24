@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
@@ -27,6 +27,14 @@ from revops.domain.entities.ingestion import (
     EnrichmentOutcome,
     IngestionItemStatus,
     IngestionJobStatus,
+)
+from revops.domain.entities.knowledge import (
+    KnowledgeCategory,
+    KnowledgeDocument,
+    KnowledgeFormat,
+    KnowledgeLanguage,
+    KnowledgeScope,
+    KnowledgeVersionStatus,
 )
 from revops.domain.values.score import ScoreTier
 
@@ -407,3 +415,90 @@ class ProcessIngestionResult:
     job_id: UUID
     status: IngestionJobStatus
     processed_domains: tuple[str, ...]
+
+
+class SubmitKnowledgeDocumentArgs(BaseModel):
+    """Untrusted tenant fields before the authenticated context is injected.
+
+    Tenant callers cannot select scope. The application creates organization-private
+    documents only; platform content is reserved for deployment-controlled seeding.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_key: str = Field(min_length=1, max_length=200)
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    content: str = Field(min_length=1)
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+    def to_domain(self) -> KnowledgeDocument:
+        """Build the pure document after schema validation, before persistence."""
+        return KnowledgeDocument(
+            document_key=self.document_key,
+            category=self.category,
+            language=self.language,
+            format=self.format,
+            scope=KnowledgeScope.ORGANIZATION,
+            content=self.content,
+            metadata=self.metadata,
+        )
+
+
+class KnowledgeAdminContext(BaseModel):
+    """Authenticated tenant identity accepted by knowledge lifecycle use cases."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_id: UUID
+    organization_id: UUID
+    role: Literal["admin"]
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeDocumentVersion:
+    """An immutable content version and its lifecycle state."""
+
+    id: UUID
+    document_id: UUID
+    organization_id: UUID
+    requested_by: UUID
+    document: KnowledgeDocument
+    status: KnowledgeVersionStatus
+    idempotency_key: str
+    created_at: datetime
+    embedding_model: str | None = None
+    embedding_dimension: int | None = None
+    failure_code: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeChunkEmbedding:
+    """One chunk and its vector, retained together until atomic publication."""
+
+    ordinal: int
+    text: str
+    content_hash: str
+    vector: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddingBatch:
+    """Ordered provider output; vectors correspond positionally to submitted texts."""
+
+    model: str
+    dimension: int
+    vectors: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CorpusRevision:
+    """Immutable publication manifest for an organization corpus."""
+
+    id: UUID
+    organization_id: UUID
+    version_id: UUID
+    manifest_hash: str
+    activated_by: UUID
+    created_at: datetime

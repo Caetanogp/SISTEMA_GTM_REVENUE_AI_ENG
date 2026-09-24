@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-24
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 native Codex pilot blocked"
+phase: "SPEC-007 Item 2 committed; Item 3 ready"
 status: in_progress
 ---
 
@@ -16,17 +16,18 @@ immutable publication history, bounded embeddings, and an offline contract evalu
 
 ## Now
 
-SPEC-005 and SPEC-006 are merged into `develop` and published to `origin/develop`.
-SPEC-007 documentation and queue are materialized on `feature/SPEC-007-rag-ingestion`.
-The domain/chunking implementation and tests are complete. The supervisor and launcher preserve
-native Windows temp variables, remove only the custom pytest override, bound child execution time,
-and keep supervisor artifacts outside the checkout. The launcher now resolves the bundled native
-Codex executable when it is not on PATH. The native executable pilot started but did not return a
-structured response within the bounded run; it was interrupted. The checkout remained clean and
-no supervisor or pytest artifacts were recreated.
+Item 2 application contracts are implemented, tested, and committed. The next queue item is Item 3,
+which covers infrastructure models and migrations. The pilot must not be relaunched until the gate
+has been rerun from the committed Item 2 state.
 
 ## Done
 
+- Item 2 implementation is present in `packages/core/revops/application/dto.py` and `ports.py`,
+  with `tests/unit/application/test_knowledge_contracts.py`; `pytest tests/unit/application -q`
+  passed (`70 passed`), and Ruff, format, mypy, and lint-imports passed on 2026-09-24. The executor
+  reported this evidence before the session committed the change manually.
+- Item 2 was committed as `feat(application): add knowledge ingestion contracts` after the executor
+  lacked permission to create `.git/index.lock`.
 - `c237b95` is the verified SPEC-006 integration head in `develop`.
 - `0e73e66` moved supervisor temporary allocation outside the checkout and added preflight guards.
 - `1adb120` removed child `TEMP/TMP/PYTEST_ADDOPTS` overrides; supervisor tests passed `28 tests`.
@@ -42,13 +43,9 @@ no supervisor or pytest artifacts were recreated.
 
 ## Next
 
-1. Diagnose why the native Codex child does not return a structured response under the supervisor,
-   using read-only process and command-line checks.
-2. Repeat the bounded pilot only after the cause is understood; require normal return and no
-   checkout artifacts.
-3. Tick Item 2 only when the executor has produced the required application-layer implementation
-   and evidence, then run the gate.
-4. Only after the pilot and gate pass, launch the bounded long loop.
+1. Run `python scripts/autonomous_gate.py` after the Item 2 commit and retain its exit code/output.
+2. Confirm the gate advances its baseline to the committed Item 2 state without a scope violation.
+3. Only then resume Item 3; do not relaunch the old pilot against the already-completed Item 2.
 
 ## Gotchas
 
@@ -79,10 +76,3 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 - None for the agreed SPEC-007 scope.
-
-## Autonomous loop HALT (2026-09-24T05:03:04+00:00)
-
-The pipe-handling fix allowed the supervisor to receive the executor's structured response, but the
-executor could not complete mandatory terminal checks (`git rev-parse`, `AGENTS.md` read, and a
-minimal echo) and timed out after 600 seconds. No repository files were changed. Do not launch the
-long loop until the executor terminal environment is responsive and a bounded pilot completes.
