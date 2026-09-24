@@ -54,10 +54,24 @@ if ($branch -in @("main", "develop")) {
     throw "Refusing to launch the Codex autonomous loop on branch '$branch'. Use a feature branch."
 }
 
+$codexExecutable = (Get-Command codex.exe -ErrorAction SilentlyContinue).Source
+if ([string]::IsNullOrWhiteSpace($codexExecutable)) {
+    $codexShim = (Get-Command codex.cmd -ErrorAction SilentlyContinue).Source
+    if (-not [string]::IsNullOrWhiteSpace($codexShim)) {
+        $codexPackageRoot = Join-Path (Split-Path -Parent $codexShim) "node_modules\@openai\codex\node_modules"
+        $codexExecutable = Get-ChildItem -LiteralPath $codexPackageRoot -Filter "codex.exe" -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\vendor\*\bin\codex.exe" } |
+            Select-Object -First 1 -ExpandProperty FullName
+    }
+}
+if ([string]::IsNullOrWhiteSpace($codexExecutable)) {
+    throw "Could not locate the native Codex executable (codex.exe)."
+}
+
 $args = @(
     "-m", "scripts.codex_loop_supervisor",
     "--repo", $repo,
-    "--codex-command", (Get-Command codex.exe -ErrorAction Stop).Source,
+    "--codex-command", $codexExecutable,
     "--implementation-effort", $ReasoningEffort,
     "--architecture-effort", $ArchitectureReasoningEffort,
     "--max-turns", $MaxTurns,
