@@ -404,10 +404,10 @@ def _codex_command(
     output_path: Path,
     read_only: bool,
 ) -> list[str]:
-    args = [config.codex_command]
-    # These two flags are global CLI options and must precede the subcommand.
-    if read_only:
-        args.extend(("--ask-for-approval", "never"))
+    # The unattended executor must not wait for approval, but it remains confined to the Codex
+    # sandbox selected by project config. Never replace this with the dangerous full-access mode.
+    args = [config.codex_command, "--ask-for-approval", "never"]
+    # This flag is global and must precede the subcommand.
     if config.use_live_search:
         args.append("--search")
     args.extend(
@@ -429,8 +429,6 @@ def _codex_command(
     )
     if read_only:
         args.extend(("--sandbox", "read-only"))
-    else:
-        args.append("--approve-for-me")
     args.append("-")
     return args
 

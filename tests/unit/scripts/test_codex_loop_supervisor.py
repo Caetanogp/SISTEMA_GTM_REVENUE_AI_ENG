@@ -130,7 +130,7 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     assert "--approve-for-me" not in command
 
 
-def test_codex_command_uses_auto_review_for_normal_executor(tmp_path: Path) -> None:
+def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_path: Path) -> None:
     config = _config(tmp_path)
     command = supervisor._codex_command(
         config,
@@ -143,7 +143,9 @@ def test_codex_command_uses_auto_review_for_normal_executor(tmp_path: Path) -> N
 
     assert 'model_reasoning_effort="medium"' in command
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
-    assert "--approve-for-me" in command
+    assert command[:4] == ["codex-test", "--ask-for-approval", "never", "exec"]
+    assert "--ask-for-approval" in command
+    assert "--approve-for-me" not in command
     assert "--sandbox" not in command
 
 
@@ -159,7 +161,8 @@ def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:
         read_only=False,
     )
 
-    assert command[:3] == ["codex-test", "--search", "exec"]
+    assert command[:4] == ["codex-test", "--ask-for-approval", "never", "--search"]
+    assert command[4] == "exec"
 
 
 def test_default_runner_sends_prompts_as_utf8(

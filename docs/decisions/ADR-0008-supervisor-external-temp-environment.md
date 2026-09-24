@@ -17,12 +17,15 @@ gate.
 
 The supervisor selects its artifact directory from the native OS temporary root, verifies that the
 resolved path is outside the repository and not a reparse point, and passes no host-style temp
-overrides to Codex children. The child still runs with `workspace-write` for implementation or
-`read-only` for architecture review; no dangerous full-access mode is enabled.
+overrides to Codex children. Unattended children use `--ask-for-approval never` inside the
+configured `workspace-write` sandbox for implementation, or `read-only` for architecture review;
+the dangerous full-access mode is never enabled.
 
 ## Consequences
 
-The loop preserves artifact isolation on Windows while retaining the Codex sandbox mode. Normal
-project Codex sessions continue using the project default. A future CLI change to
+The loop preserves artifact isolation on Windows while retaining the Codex sandbox mode. Explicit
+non-interactive approval is required because the CLI's automatic review mode can reject ordinary
+PowerShell commands before execution; this does not grant access outside the workspace or network.
+Normal project Codex sessions continue using the project default. A future CLI change to
 temporary-directory handling must rerun the short pilot and verify that no generated path appears
 under the checkout.
