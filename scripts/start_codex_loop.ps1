@@ -57,7 +57,7 @@ if ($branch -in @("main", "develop")) {
 $args = @(
     "-m", "scripts.codex_loop_supervisor",
     "--repo", $repo,
-    "--codex-command", "codex.cmd",
+    "--codex-command", (Get-Command codex.exe -ErrorAction Stop).Source,
     "--implementation-effort", $ReasoningEffort,
     "--architecture-effort", $ArchitectureReasoningEffort,
     "--max-turns", $MaxTurns,
