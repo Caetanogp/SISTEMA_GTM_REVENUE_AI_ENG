@@ -179,6 +179,27 @@ def test_default_runner_sends_prompts_as_utf8(
 
     assert captured["encoding"] == "utf-8"
     assert captured["errors"] == "replace"
+    assert "capture_output" not in captured
+    assert captured["stdout"] is not None
+    assert captured["stderr"] is not None
+
+
+def test_default_runner_returns_redirected_output(tmp_path: Path) -> None:
+    result = supervisor.default_runner(
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('stdout-marker'); print('stderr-marker', file=sys.stderr)",
+        ],
+        tmp_path,
+        None,
+        None,
+        60,
+    )
+
+    assert result.returncode == 0
+    assert "stdout-marker" in result.stdout
+    assert "stderr-marker" in result.stderr
 
 
 def test_control_snapshot_detects_modified_or_deleted_controls(tmp_path: Path) -> None:

@@ -265,19 +265,30 @@ def default_runner(
     env: Mapping[str, str] | None,
     timeout: int,
 ) -> ProcessResult:
-    completed = subprocess.run(  # noqa: S603 - argv is constructed, never shell-expanded.
-        list(args),
-        cwd=cwd,
-        input=input_text,
-        env=dict(env) if env is not None else None,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
-    return ProcessResult(completed.returncode, completed.stdout, completed.stderr)
+    # Redirect to files instead of PIPE so descendants cannot keep the supervisor waiting for EOF
+    # after the native Codex process has already exited. Temporary files remain outside the repo.
+    with (
+        tempfile.TemporaryFile(mode="w+b") as stdout_file,
+        tempfile.TemporaryFile(mode="w+b") as stderr_file,
+    ):
+        completed = subprocess.run(  # noqa: S603 - argv is constructed, never shell-expanded.
+            list(args),
+            cwd=cwd,
+            input=input_text,
+            env=dict(env) if env is not None else None,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            encoding="utf-8",
+            errors="replace",
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = stdout_file.read().decode("utf-8", errors="replace")
+        stderr = stderr_file.read().decode("utf-8", errors="replace")
+    return ProcessResult(completed.returncode, stdout, stderr)
 
 
 def _object_schema(properties: JsonObject, required: Sequence[str]) -> JsonObject:
