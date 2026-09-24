@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-09-22
+updated_at: 2026-09-24
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 final temp-isolation pilot pending"
+phase: "SPEC-007 native Codex pilot blocked"
 status: in_progress
 ---
 
@@ -18,10 +18,12 @@ immutable publication history, bounded embeddings, and an offline contract evalu
 
 SPEC-005 and SPEC-006 are merged into `develop` and published to `origin/develop`.
 SPEC-007 documentation and queue are materialized on `feature/SPEC-007-rag-ingestion`.
-The domain/chunking implementation and tests are complete. The supervisor and launcher now preserve
+The domain/chunking implementation and tests are complete. The supervisor and launcher preserve
 native Windows temp variables, remove only the custom pytest override, bound child execution time,
-and keep supervisor artifacts outside the checkout. The last interrupted validation left two old
-checkout artifacts; they must be removed before the final pilot.
+and keep supervisor artifacts outside the checkout. The launcher now resolves the bundled native
+Codex executable when it is not on PATH. The native executable pilot started but did not return a
+structured response within the bounded run; it was interrupted. The checkout remained clean and
+no supervisor or pytest artifacts were recreated.
 
 ## Done
 
@@ -32,14 +34,21 @@ checkout artifacts; they must be removed before the final pilot.
 - The residual pilot artifact was confirmed absent with `Test-Path=False` on 2026-09-20.
 - Domain/chunking pilot implementation is present in `packages/core/revops/domain/entities/knowledge.py`;
   Ruff, format, mypy, lint-imports, and domain/architecture tests passed (`128 passed`).
-- Supervisor and launcher regression suites passed (`30 passed`); the latest fix is `9202567`.
+- Supervisor and launcher regression suites passed (`30 passed`); the native executable resolution
+  fix passed its focused launcher tests (`2 passed`) and was committed as `d60b770`.
+- The supervisor baseline was formally rolled over to `d60b770`; the gate reports Item 2 green but
+  not yet ticked in `tasks.md`.
+- The native Codex binary is installed and responds to `--version` as `codex-cli 0.150.0`.
 
 ## Next
 
-1. Remove `codex-revops-supervisor-53vtxjqd` and `pytest-of-Caetanogp123`, then confirm a clean tree.
-2. Perform the formal baseline rollover for `9202567` and run the gate.
-3. Execute one final Item 2 pilot with a bounded child timeout and verify no checkout artifacts.
-4. Only after the pilot returns normally, launch the bounded long loop.
+1. Diagnose why the native Codex child does not return a structured response under the supervisor,
+   using read-only process and command-line checks.
+2. Repeat the bounded pilot only after the cause is understood; require normal return and no
+   checkout artifacts.
+3. Tick Item 2 only when the executor has produced the required application-layer implementation
+   and evidence, then run the gate.
+4. Only after the pilot and gate pass, launch the bounded long loop.
 
 ## Gotchas
 
@@ -47,8 +56,10 @@ checkout artifacts; they must be removed before the final pilot.
 - Supervisor artifacts must remain outside the checkout.
 - The live embedding adapter must never silently fall back to fake vectors.
 - Do not delete `.handoff/.autonomous_gate_state.json`; use the formal rollover authorization.
-- The last final-pilot attempt timed out without a structured response, but produced no new code;
-  its two old checkout artifacts are cleanup-only residues.
+- The native executable is not exposed as `codex.exe` on PATH; the launcher resolves it from the
+  installed package instead of falling back to `codex.cmd`.
+- The latest final-pilot attempt did not return within the configured 120-second child timeout;
+  no checkout artifacts or code changes were produced. Do not launch the long loop yet.
 
 ## Resume
 
