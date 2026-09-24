@@ -28,6 +28,8 @@ has been rerun from the committed Item 2 state.
   reported this evidence before the session committed the change manually.
 - Item 2 was committed as `feat(application): add knowledge ingestion contracts` after the executor
   lacked permission to create `.git/index.lock`.
+- After the commit, `python scripts/autonomous_gate.py` passed all quality checks and established
+  Item 3 as the next queue item (`Item 3 gate is green but not yet ticked`).
 - `c237b95` is the verified SPEC-006 integration head in `develop`.
 - `0e73e66` moved supervisor temporary allocation outside the checkout and added preflight guards.
 - `1adb120` removed child `TEMP/TMP/PYTEST_ADDOPTS` overrides; supervisor tests passed `28 tests`.
@@ -43,9 +45,10 @@ has been rerun from the committed Item 2 state.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` after the Item 2 commit and retain its exit code/output.
-2. Confirm the gate advances its baseline to the committed Item 2 state without a scope violation.
-3. Only then resume Item 3; do not relaunch the old pilot against the already-completed Item 2.
+1. Resolve the executor's inability to create `.git/index.lock` without granting dangerous
+   full-access sandbox privileges.
+2. Run a bounded Item 3 pilot that can commit its own verified work and pass the gate.
+3. Only then launch the long loop; do not relaunch the already-completed Item 2.
 
 ## Gotchas
 
@@ -55,6 +58,9 @@ has been rerun from the committed Item 2 state.
 - Do not delete `.handoff/.autonomous_gate_state.json`; use the formal rollover authorization.
 - The native executable is not exposed as `codex.exe` on PATH; the launcher resolves it from the
   installed package instead of falling back to `codex.cmd`.
+- The executor now runs commands successfully with `--ask-for-approval never` inside the configured
+  workspace-write sandbox, but the sandbox still denies `.git/index.lock` creation. The main
+  session manually committed Item 2; the long loop must not rely on that manual intervention.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
   no checkout artifacts or code changes were produced. Do not launch the long loop yet.
 - A follow-up pilot with a 600-second child timeout was started but intentionally interrupted
@@ -76,3 +82,9 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 - None for the agreed SPEC-007 scope.
+
+## Autonomous loop HALT (2026-09-24T21:13:31+00:00)
+
+Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
