@@ -408,6 +408,10 @@ def _codex_command(
     # sandbox selected by project config. Never replace this with the dangerous full-access mode.
     args = [config.codex_command, "--ask-for-approval", "never"]
     # This flag is global and must precede the subcommand.
+    if not read_only:
+        # Git metadata is outside the writable workspace policy on Windows; grant only .git so the
+        # executor can create its own verified commit without gaining access to unrelated paths.
+        args.extend(("--add-dir", str(config.repo / ".git")))
     if config.use_live_search:
         args.append("--search")
     args.extend(

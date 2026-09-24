@@ -128,6 +128,7 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     assert command[command.index("--ask-for-approval") + 1] == "never"
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
     assert "--approve-for-me" not in command
+    assert "--add-dir" not in command
 
 
 def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_path: Path) -> None:
@@ -143,9 +144,17 @@ def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_pa
 
     assert 'model_reasoning_effort="medium"' in command
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
-    assert command[:4] == ["codex-test", "--ask-for-approval", "never", "exec"]
+    assert command[:6] == [
+        "codex-test",
+        "--ask-for-approval",
+        "never",
+        "--add-dir",
+        str(tmp_path / ".git"),
+        "exec",
+    ]
     assert "--ask-for-approval" in command
     assert "--approve-for-me" not in command
+    assert command[command.index("--add-dir") + 1] == str(tmp_path / ".git")
     assert "--sandbox" not in command
 
 
@@ -161,8 +170,15 @@ def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:
         read_only=False,
     )
 
-    assert command[:4] == ["codex-test", "--ask-for-approval", "never", "--search"]
-    assert command[4] == "exec"
+    assert command[:6] == [
+        "codex-test",
+        "--ask-for-approval",
+        "never",
+        "--add-dir",
+        str(tmp_path / ".git"),
+        "--search",
+    ]
+    assert command[6] == "exec"
 
 
 def test_default_runner_sends_prompts_as_utf8(

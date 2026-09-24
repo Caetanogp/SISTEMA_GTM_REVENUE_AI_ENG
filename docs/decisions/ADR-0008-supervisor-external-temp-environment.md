@@ -25,7 +25,9 @@ the dangerous full-access mode is never enabled.
 
 The loop preserves artifact isolation on Windows while retaining the Codex sandbox mode. Explicit
 non-interactive approval is required because the CLI's automatic review mode can reject ordinary
-PowerShell commands before execution; this does not grant access outside the workspace or network.
+PowerShell commands before execution. Implementation children receive one additional writable
+directory, the checkout's `.git`, solely to create their verified commit; read-only architecture
+children do not receive it. This does not grant access outside the checkout or network.
 Normal project Codex sessions continue using the project default. A future CLI change to
 temporary-directory handling must rerun the short pilot and verify that no generated path appears
 under the checkout.
