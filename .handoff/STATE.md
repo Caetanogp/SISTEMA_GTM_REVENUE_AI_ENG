@@ -79,3 +79,10 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 - None for the agreed SPEC-007 scope.
+
+## Autonomous loop HALT (2026-09-24T05:03:04+00:00)
+
+The pipe-handling fix allowed the supervisor to receive the executor's structured response, but the
+executor could not complete mandatory terminal checks (`git rev-parse`, `AGENTS.md` read, and a
+minimal echo) and timed out after 600 seconds. No repository files were changed. Do not launch the
+long loop until the executor terminal environment is responsive and a bounded pilot completes.
