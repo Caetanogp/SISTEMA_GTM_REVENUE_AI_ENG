@@ -94,6 +94,10 @@ target only the organization corpus.
 - Supervisor lifecycle correction is implemented: `start_codex_loop.ps1` exposes
   `-ChildTimeoutSeconds`, progress markers flush immediately, and focused supervisor/launcher tests
   pass (`31 passed`). A formal supervisor-baseline rollover is required before the next pilot.
+- The post-rollover pilot completed the executor turn and returned `architecture_required` as
+  designed. With the explicit 180-second timeout, the read-only `gpt-5.6-sol` architect timed out
+  before returning its plan; the supervisor stopped cleanly and left no checkout changes. Retry
+  with a 600-second child timeout before treating this as a model or lifecycle defect.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -161,5 +165,12 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-28T17:06:22+00:00)
 
 Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/start_codex_loop.ps1']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:33:42+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Codex architecture-1 process exited 1:
+Command '['C:\\Users\\Caetanogp123\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe', '--ask-for-approval', 'never', 'exec', '--cd', 'C:\\Users\\Caetanogp123\\OneDrive\\Desktop\\PROJETOS VSCODE INCLUINDO N8N\\SISTEMA_PORTFOLIO_AI_ENG', '--model', 'gpt-5.6-sol', '--config', 'model_reasoning_effort="xhigh"', '--config', 'sandbox_workspace_write.exclude_tmpdir_env_var=false', '--output-schema', 'C:\\Users\\Caetanogp123\\AppData\\Local\\Temp\\codex-revops-supervisor-cjhmdm9v\\turn-001-item-4\\architecture-1.schema.json', '--output-last-message', 'C:\\Users\\Caetanogp123\\AppData\\Local\\Temp\\codex-revops-supervisor-cjhmdm9v\\turn-001-item-4\\architecture-1.output.json', '--sandbox', 'read-only', '-']' timed out after 180.0 seconds
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
