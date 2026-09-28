@@ -156,7 +156,13 @@ class KnowledgeChunk(Base):
     __tablename__ = "knowledge_chunks"
     __table_args__ = (
         UniqueConstraint("version_id", "ordinal", name="uq_knowledge_chunks_version_ordinal"),
-        Index("ix_knowledge_chunks_corpus", "corpus_id"),
+        Index("ix_knowledge_chunks_corpus_id", "corpus_id"),
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)

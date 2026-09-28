@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 3 persistence validation"
+phase: "SPEC-007 Item 4 repository implementation"
 status: in_progress
 ---
 
@@ -40,6 +40,9 @@ target only the organization corpus.
   contract tests passed (`18 passed`), the full unit/architecture suite passed (`367 passed`),
   Ruff, format, mypy, lint-imports, and `alembic heads` passed on 2026-09-28. The Alembic head is
   singular after correcting the revision chain.
+- Docker Engine became reachable and PostgreSQL migration validation passed: upgrade to
+  `c7d8e9f0a1b2`, migration reconciliation/round-trip tests (`5 passed`), and current head
+  verification all passed. The Item 3 persistence checkbox is now ticked.
 - `python scripts/autonomous_gate.py` was rerun on 2026-09-24 from the committed Item 2 checkout;
   Item 3 was reported as gate-green with Ruff, mypy, lint-imports, pytest, and `check_agent_docs`
   all passing.
@@ -60,10 +63,10 @@ target only the organization corpus.
 
 ## Next
 
-1. Run the real PostgreSQL migration upgrade/downgrade tests for Item 3 once Docker Engine is
-   reachable; do not tick the persistence task before that evidence exists.
-2. Tick only the Item 3 persistence task after its migration evidence passes, then rerun the gate.
-3. Run a bounded pilot from a clean committed checkout; launch the long loop only after the pilot
+1. Implement Item 4 repositories, idempotency, immutable history, and atomic corpus revisions.
+2. Run the bounded Item 4 pilot from a clean committed checkout and inspect its real commit/gate
+   evidence before any long loop.
+3. Launch the long loop only after the pilot
    makes a real commit and the gate remains green.
 
 ## Gotchas
@@ -74,9 +77,8 @@ target only the organization corpus.
 - Do not delete `.handoff/.autonomous_gate_state.json`; use the formal rollover authorization.
 - The native executable is not exposed as `codex.exe` on PATH; the launcher resolves it from the
   installed package instead of falling back to `codex.cmd`.
-- Docker validation was attempted on 2026-09-28 but Docker Engine was unavailable: the
-  `dockerDesktopLinuxEngine` named pipe was not present. No migration upgrade/downgrade claim was
-  made and the Item 3 checkbox remains unchecked.
+- Docker was initially unavailable, then became reachable; the real migration validation is now
+  recorded above.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;

@@ -59,7 +59,7 @@ def test_knowledge_tables_use_explicit_corpus_identity_and_vector_storage() -> N
     chunks = Base.metadata.tables["knowledge_chunks"]
     assert isinstance(chunks.columns["embedding"].type, Vector)
     assert chunks.columns["embedding"].type.dim == 1536
-    assert any(index.name == "ix_knowledge_chunks_corpus" for index in chunks.indexes)
+    assert any(index.name == "ix_knowledge_chunks_corpus_id" for index in chunks.indexes)
 
 
 def test_knowledge_versions_are_idempotent_and_revisions_are_append_only() -> None:
