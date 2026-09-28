@@ -630,6 +630,9 @@ and list the additional repository paths that a correct solution would require. 
 `human_required` for product scope, public-contract invention, dependencies, destructive migration,
 security relaxation, external actions, or any decision without a dominant safe recommendation.
 
+When returning `architecture_required` or `human_required`, do not edit any file, including
+`.handoff/STATE.md`; the supervisor records the escalation only after the worktree remains clean.
+
 Otherwise implement and verify this one item, make small conventional commits, tick only its mapped
 checkboxes after evidence exists, update .handoff/STATE.md, and run the autonomous gate. Return
 `complete` only if the gate exits 0; otherwise return `continue` after making concrete progress.

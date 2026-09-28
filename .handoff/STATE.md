@@ -66,8 +66,7 @@ target only the organization corpus.
 1. Implement Item 4 repositories, idempotency, immutable history, and atomic corpus revisions.
 2. Run the bounded Item 4 pilot from a clean committed checkout and inspect its real commit/gate
    evidence before any long loop.
-3. Launch the long loop only after the pilot
-   makes a real commit and the gate remains green.
+3. Launch the long loop only after the pilot makes a real commit and the gate remains green.
 
 ## Gotchas
 
@@ -98,6 +97,9 @@ target only the organization corpus.
   designed. With the explicit 180-second timeout, the read-only `gpt-5.6-sol` architect timed out
   before returning its plan; the supervisor stopped cleanly and left no checkout changes. Retry
   with a 600-second child timeout before treating this as a model or lifecycle defect.
+- The 600-second retry exposed a prompt contradiction: the executor updated `STATE.md` while
+  returning `architecture_required`, so the supervisor correctly refused to architect over a dirty
+  worktree. The executor prompt is being tightened to forbid all file edits on escalation.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -131,19 +133,16 @@ Get-Content -Raw docs/specs/SPEC-007-rag-ingestion/plan.md
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
 ## Autonomous loop HALT (2026-09-28T03:31:03+00:00)
 
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py', 'tests/unit/infrastructure/persistence/test_models.py']. Revert the out-of-scope changes or stop and ask.
 
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
+ The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
 ## Autonomous loop HALT (2026-09-28T17:05:10+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
 ## Autonomous loop HALT (2026-09-28T17:05:33+00:00)
 
 Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/start_codex_loop.ps1']. Revert the out-of-scope changes or stop and ask.

@@ -221,6 +221,15 @@ def test_default_runner_returns_redirected_output(tmp_path: Path) -> None:
     assert "stderr-marker" in result.stderr
 
 
+def test_executor_prompt_forbids_handoff_edits_before_architecture_escalation(
+    tmp_path: Path,
+) -> None:
+    prompt = supervisor._executor_prompt(_active(tmp_path), None)
+
+    assert "When returning `architecture_required` or `human_required`" in prompt
+    assert "do not edit any file, including" in prompt
+
+
 def test_control_snapshot_detects_modified_or_deleted_controls(tmp_path: Path) -> None:
     config = _config(tmp_path)
     for relative_path in supervisor.CONTROL_PLANE_PATHS:
