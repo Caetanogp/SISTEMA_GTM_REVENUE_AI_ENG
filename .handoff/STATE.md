@@ -88,6 +88,10 @@ target only the organization corpus.
   process did not return its structured result or final status. The pilot was then interrupted
   after confirming that only the pilot supervisor was stopped. This is now a concrete runner
   lifecycle/pipe-handling blocker; do not launch the long loop until it is fixed and tested.
+- The gate was rerun after the Item 3 schema commit and correctly halted on the approved
+  architecture/documentation/application changes outside Item 3's declared scope. The baseline
+  remains `65d98836`; do not edit it manually or launch the loop until that scope is regularized
+  through the formal authorization path.
 
 ## Resume
 
@@ -104,5 +108,11 @@ Get-Content -Raw docs/specs/SPEC-007-rag-ingestion/plan.md
 ## Autonomous loop HALT (2026-09-28T03:23:33+00:00)
 
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T03:31:03+00:00)
+
+Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py', 'tests/unit/infrastructure/persistence/test_models.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
