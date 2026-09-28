@@ -100,6 +100,8 @@ target only the organization corpus.
 - The 600-second retry exposed a prompt contradiction: the executor updated `STATE.md` while
   returning `architecture_required`, so the supervisor correctly refused to architect over a dirty
   worktree. The executor prompt is being tightened to forbid all file edits on escalation.
+- A rollover attempt using an incorrect target SHA was rejected by the gate and did not change the
+  baseline. The correct target SHA must be read from Git before retrying.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -171,5 +173,17 @@ The loop stopped itself. Do not restart it against the same queue item without a
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Codex architecture-1 process exited 1:
 Command '['C:\\Users\\Caetanogp123\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe', '--ask-for-approval', 'never', 'exec', '--cd', 'C:\\Users\\Caetanogp123\\OneDrive\\Desktop\\PROJETOS VSCODE INCLUINDO N8N\\SISTEMA_PORTFOLIO_AI_ENG', '--model', 'gpt-5.6-sol', '--config', 'model_reasoning_effort="xhigh"', '--config', 'sandbox_workspace_write.exclude_tmpdir_env_var=false', '--output-schema', 'C:\\Users\\Caetanogp123\\AppData\\Local\\Temp\\codex-revops-supervisor-cjhmdm9v\\turn-001-item-4\\architecture-1.schema.json', '--output-last-message', 'C:\\Users\\Caetanogp123\\AppData\\Local\\Temp\\codex-revops-supervisor-cjhmdm9v\\turn-001-item-4\\architecture-1.output.json', '--sandbox', 'read-only', '-']' timed out after 180.0 seconds
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:40:39+00:00)
+
+Invalid baseline rollover authorization: baseline rollover authorization has a mismatched target_sha
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:40:39+00:00)
+
+Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/codex_loop_supervisor.py', 'tests/unit/scripts/test_codex_loop_supervisor.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
