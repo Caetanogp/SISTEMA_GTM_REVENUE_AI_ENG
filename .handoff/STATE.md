@@ -91,6 +91,9 @@ target only the organization corpus.
   result after several minutes; the supervisor was stopped with Ctrl+C. No child process, checkout
   artifact, or code change remained. Do not launch the long loop until this bounded pilot completes
   one real Item 4 turn and returns structured gate evidence.
+- Supervisor lifecycle correction is implemented: `start_codex_loop.ps1` exposes
+  `-ChildTimeoutSeconds`, progress markers flush immediately, and focused supervisor/launcher tests
+  pass (`31 passed`). A formal supervisor-baseline rollover is required before the next pilot.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;

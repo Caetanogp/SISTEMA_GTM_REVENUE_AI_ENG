@@ -492,7 +492,7 @@ def _invoke_codex(
                 break
         if attempt <= config.max_process_retries:
             delay = config.retry_delay_seconds * attempt
-            print(f"Transient Codex {phase} failure; retrying in {delay} seconds.")
+            print(f"Transient Codex {phase} failure; retrying in {delay} seconds.", flush=True)
             time.sleep(delay)
     raise SupervisorError(last_error)
 
@@ -867,7 +867,7 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
     control_snapshot = _capture_control_snapshot(config)
 
     artifact_dir = _create_artifact_dir(config)
-    print(f"Supervisor artifacts: {artifact_dir}")
+    print(f"Supervisor artifacts: {artifact_dir}", flush=True)
     authorization_path: Path | None = None
     approved_plan: ArchitecturePlan | None = None
 
@@ -897,7 +897,10 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
         )
         _verify_control_snapshot(config, control_snapshot)
         outcome = ExecutorOutcome.from_json(raw)
-        print(f"Turn {turn}, Item {active.number}: {outcome.status.value} - {outcome.summary}")
+        print(
+            f"Turn {turn}, Item {active.number}: {outcome.status.value} - {outcome.summary}",
+            flush=True,
+        )
 
         if outcome.status is TurnStatus.HUMAN_REQUIRED:
             raise SupervisorError(outcome.halt_reason or outcome.summary)
@@ -923,7 +926,8 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
             approved_plan = plan
             print(
                 f"Architecture approved for Item {active.number}: {plan.decision} "
-                f"(plan {plan_sha256[:12]})"
+                f"(plan {plan_sha256[:12]})",
+                flush=True,
             )
             continue
 

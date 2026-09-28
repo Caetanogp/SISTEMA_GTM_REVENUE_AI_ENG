@@ -15,6 +15,8 @@ param(
     [int]$MaxProcessRetries = 2,
     [ValidateRange(0, 3600)]
     [int]$RetryDelaySeconds = 30,
+    [ValidateRange(1, 3600)]
+    [int]$ChildTimeoutSeconds = 1800,
     [switch]$UseLiveSearch
 )
 
@@ -78,7 +80,8 @@ $args = @(
     "--architecture-effort", $ArchitectureReasoningEffort,
     "--max-turns", $MaxTurns,
     "--max-process-retries", $MaxProcessRetries,
-    "--retry-delay-seconds", $RetryDelaySeconds
+    "--retry-delay-seconds", $RetryDelaySeconds,
+    "--child-timeout-seconds", $ChildTimeoutSeconds
 )
 
 if ($Model) {

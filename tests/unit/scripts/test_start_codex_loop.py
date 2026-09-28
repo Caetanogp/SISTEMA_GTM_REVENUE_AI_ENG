@@ -14,6 +14,7 @@ def test_launcher_leaves_temp_selection_to_the_supervisor() -> None:
     assert "supervisor owns temporary-directory selection" in source
     assert "Get-Command codex.exe -ErrorAction SilentlyContinue" in source
     assert '"--codex-command", $codexExecutable' in source
+    assert '"--child-timeout-seconds", $ChildTimeoutSeconds' in source
     assert "Could not locate the native Codex executable" in source
     assert '"--codex-command", "codex.cmd"' not in source
 
