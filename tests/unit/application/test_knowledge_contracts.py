@@ -13,12 +13,14 @@ from revops.application.dto import (
     CorpusRevision,
     EmbeddingBatch,
     KnowledgeChunkEmbedding,
+    KnowledgeCorpus,
     KnowledgeDocumentVersion,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import (
     CorpusRevisionRepository,
     EmbeddingProvider,
+    KnowledgeCorpusRepository,
     KnowledgeDocumentRepository,
     KnowledgeJobDispatcher,
     KnowledgeUnitOfWork,
@@ -51,19 +53,19 @@ def test_tenant_submission_rejects_untrusted_extra_fields() -> None:
 
 class _FakeDocuments:
     async def get_version(
-        self, organization_id: UUID, version_id: UUID
+        self, corpus_id: UUID, version_id: UUID
     ) -> KnowledgeDocumentVersion | None:
         return None
 
     async def get_by_idempotency_key(
-        self, organization_id: UUID, idempotency_key: str
+        self, corpus_id: UUID, idempotency_key: str
     ) -> KnowledgeDocumentVersion | None:
         return None
 
     async def reserve_draft(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         requested_by: UUID,
         document: KnowledgeDocument,
         idempotency_key: str,
@@ -74,7 +76,7 @@ class _FakeDocuments:
     async def transition_status(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         status: KnowledgeVersionStatus,
         failure_code: str | None = None,
@@ -82,7 +84,7 @@ class _FakeDocuments:
         raise NotImplementedError
 
     async def list_versions(
-        self, organization_id: UUID, *, offset: int, limit: int
+        self, corpus_id: UUID, *, offset: int, limit: int
     ) -> Sequence[KnowledgeDocumentVersion]:
         return []
 
@@ -96,7 +98,7 @@ class _FakeRevisions:
     async def publish(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         chunks: Sequence[KnowledgeChunkEmbedding],
         manifest_hash: str,
@@ -105,13 +107,13 @@ class _FakeRevisions:
     ) -> CorpusRevision:
         raise NotImplementedError
 
-    async def get_active(self, organization_id: UUID) -> CorpusRevision | None:
+    async def get_active(self, corpus_id: UUID) -> CorpusRevision | None:
         return None
 
     async def activate(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         activated_by: UUID,
         created_at: datetime,
@@ -120,15 +122,25 @@ class _FakeRevisions:
 
 
 class _FakeDispatcher:
-    async def publish(self, *, organization_id: UUID, version_id: UUID) -> None: ...
+    async def publish(self, *, corpus_id: UUID, version_id: UUID) -> None: ...
+
+
+class _FakeCorpora:
+    async def get_platform(self) -> KnowledgeCorpus:
+        raise NotImplementedError
+
+    async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
+        raise NotImplementedError
 
 
 class _FakeKnowledgeUnitOfWork:
     documents: KnowledgeDocumentRepository
+    corpora: KnowledgeCorpusRepository
     revisions: CorpusRevisionRepository
 
     def __init__(self) -> None:
         self.documents = _FakeDocuments()
+        self.corpora = _FakeCorpora()
         self.revisions = _FakeRevisions()
 
     async def __aenter__(self) -> _FakeKnowledgeUnitOfWork:
@@ -148,6 +160,7 @@ class _FakeKnowledgeUnitOfWork:
 
 def test_knowledge_ports_are_structural_protocols() -> None:
     assert isinstance(_FakeDocuments(), KnowledgeDocumentRepository)
+    assert isinstance(_FakeCorpora(), KnowledgeCorpusRepository)
     assert isinstance(_FakeEmbeddings(), EmbeddingProvider)
     assert isinstance(_FakeRevisions(), CorpusRevisionRepository)
     assert isinstance(_FakeDispatcher(), KnowledgeJobDispatcher)

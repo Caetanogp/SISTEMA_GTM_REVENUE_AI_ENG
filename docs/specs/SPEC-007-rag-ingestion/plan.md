@@ -26,10 +26,19 @@ unchanged.
 
 ## Persistence and versioning
 
-Use separate logical documents and immutable versions. Store normalized content hash, source,
+Use an explicit `KnowledgeCorpus` owner with `platform` and `organization` scope. Keep one
+deployment-owned platform corpus and one uniquely owned corpus per organization; enforce the
+scope/owner invariant in the database and application authorization. Use separate logical documents
+and immutable versions. Store normalized content hash, source,
 metadata, embedding model/dimension, processing status, idempotency key, and timestamps. Store
 chunk ordinal, text/hash, structured metadata, and vector. Corpus heads point to active revisions;
 revisions store an immutable manifest/hash. Migrations are additive and downgrade-safe.
+
+Every document, version, chunk, and revision is addressed by `corpus_id`; tenant-scoped application
+ports accept a resolved corpus identity rather than a nullable or sentinel organization. Tenant
+reads may combine the platform corpus with the caller's organization corpus, with the organization
+version overriding the platform version by `document_key`. Platform seed loading is deployment-
+controlled and cannot be invoked through tenant admin routes.
 
 ## Chunking and embeddings
 
@@ -61,3 +70,6 @@ before any merge into `develop`.
 - PDF/URL parsing is deferred to avoid hidden parser/network policy and unbounded ingestion scope.
 - Automatic rollback is rejected because activation is a product decision requiring explicit audit.
 - Live-to-fake fallback is rejected because it masks provider failure and produces misleading data.
+- A sentinel organization is rejected because it pollutes tenant ownership and risks treating shared
+  platform content as a real tenant. Nullable `organization_id` is rejected because `NULL` would
+  encode ownership semantics inconsistently across documents, versions, revisions, and queries.

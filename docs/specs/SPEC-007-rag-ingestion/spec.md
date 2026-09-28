@@ -83,9 +83,13 @@ content was approved, published, or retired.
 
 ## Data model impact
 
-Add `knowledge_documents`, immutable `knowledge_document_versions`, `knowledge_chunks` with
-`Vector(1536)`, and append-only corpus head/revision records. Additive migration only; create the
-vector extension and HNSW cosine index when absent, and never drop the extension on downgrade.
+Add `knowledge_corpora`, `knowledge_documents`, immutable `knowledge_document_versions`,
+`knowledge_chunks` with `Vector(1536)`, and append-only corpus head/revision records. A corpus is
+explicitly scoped as `platform` or `organization`; the platform corpus is a singleton and each
+organization has its own corpus. Documents, versions, chunks, and revisions reference `corpus_id`.
+Only organization corpora carry an organization owner; platform content never uses a sentinel
+organization. Additive migration only; create the vector extension and HNSW cosine index when
+absent, and never drop the extension on downgrade.
 
 ## Security considerations
 
@@ -104,5 +108,15 @@ and groundedness datasets are deferred to SPEC-008.
 - Live embedding availability and cost are operational concerns; offline fake vectors keep local
   development deterministic and do not claim semantic quality.
 - Corpus revision writes must remain atomic across chunks, embeddings, heads, and audit events.
+- The explicit corpus owner must remain the authorization boundary: tenant queries resolve an
+  organization corpus and may read the platform corpus, while tenant writes can target only their
+  organization corpus.
 - The PDF remains the product source of truth; numbers and scope may change in a later approved
   spec revision.
+
+## Approved architecture decision
+
+Platform and organization knowledge use explicit `KnowledgeCorpus` identities. The platform corpus
+is a deployment-owned singleton; organization corpora are uniquely owned by one organization.
+`corpus_id` is the required foreign-key boundary for documents, immutable versions, chunks, and
+corpus revisions. This avoids both a fake tenant sentinel and nullable ownership semantics.

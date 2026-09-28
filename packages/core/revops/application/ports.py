@@ -26,6 +26,7 @@ from revops.application.dto import (
     EnrichmentProfile,
     IngestionItemSummary,
     KnowledgeChunkEmbedding,
+    KnowledgeCorpus,
     KnowledgeDocumentVersion,
     LLMFailureKind,
     LLMGatewayHealth,
@@ -536,20 +537,20 @@ class EnrichmentGatewayError(Exception):
 
 @runtime_checkable
 class KnowledgeDocumentRepository(Protocol):
-    """Tenant-scoped document/version persistence with idempotent draft reservation."""
+    """Corpus-scoped document/version persistence with idempotent draft reservation."""
 
     async def get_version(
-        self, organization_id: UUID, version_id: UUID
+        self, corpus_id: UUID, version_id: UUID
     ) -> KnowledgeDocumentVersion | None: ...
 
     async def get_by_idempotency_key(
-        self, organization_id: UUID, idempotency_key: str
+        self, corpus_id: UUID, idempotency_key: str
     ) -> KnowledgeDocumentVersion | None: ...
 
     async def reserve_draft(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         requested_by: UUID,
         document: KnowledgeDocument,
         idempotency_key: str,
@@ -559,15 +560,24 @@ class KnowledgeDocumentRepository(Protocol):
     async def transition_status(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         status: KnowledgeVersionStatus,
         failure_code: str | None = None,
     ) -> KnowledgeDocumentVersion: ...
 
     async def list_versions(
-        self, organization_id: UUID, *, offset: int, limit: int
+        self, corpus_id: UUID, *, offset: int, limit: int
     ) -> Sequence[KnowledgeDocumentVersion]: ...
+
+
+@runtime_checkable
+class KnowledgeCorpusRepository(Protocol):
+    """Resolves deployment-owned platform and organization corpus identities."""
+
+    async def get_platform(self) -> KnowledgeCorpus: ...
+
+    async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus: ...
 
 
 @runtime_checkable
@@ -584,7 +594,7 @@ class CorpusRevisionRepository(Protocol):
     async def publish(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         chunks: Sequence[KnowledgeChunkEmbedding],
         manifest_hash: str,
@@ -592,12 +602,12 @@ class CorpusRevisionRepository(Protocol):
         created_at: datetime,
     ) -> CorpusRevision: ...
 
-    async def get_active(self, organization_id: UUID) -> CorpusRevision | None: ...
+    async def get_active(self, corpus_id: UUID) -> CorpusRevision | None: ...
 
     async def activate(
         self,
         *,
-        organization_id: UUID,
+        corpus_id: UUID,
         version_id: UUID,
         activated_by: UUID,
         created_at: datetime,
@@ -608,7 +618,7 @@ class CorpusRevisionRepository(Protocol):
 class KnowledgeJobDispatcher(Protocol):
     """At-least-once dispatch boundary invoked only after confirmation commits."""
 
-    async def publish(self, *, organization_id: UUID, version_id: UUID) -> None: ...
+    async def publish(self, *, corpus_id: UUID, version_id: UUID) -> None: ...
 
 
 @runtime_checkable
@@ -616,6 +626,7 @@ class KnowledgeUnitOfWork(Protocol):
     """One transaction for lifecycle changes and atomic corpus publication."""
 
     documents: KnowledgeDocumentRepository
+    corpora: KnowledgeCorpusRepository
     revisions: CorpusRevisionRepository
 
     async def __aenter__(self) -> KnowledgeUnitOfWork: ...

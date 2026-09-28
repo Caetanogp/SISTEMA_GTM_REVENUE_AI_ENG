@@ -457,12 +457,21 @@ class KnowledgeAdminContext(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
+class KnowledgeCorpus:
+    """Explicit owner boundary for platform or organization knowledge."""
+
+    id: UUID
+    scope: KnowledgeScope
+    organization_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class KnowledgeDocumentVersion:
     """An immutable content version and its lifecycle state."""
 
     id: UUID
     document_id: UUID
-    organization_id: UUID
+    corpus_id: UUID
     requested_by: UUID
     document: KnowledgeDocument
     status: KnowledgeVersionStatus
@@ -497,7 +506,7 @@ class CorpusRevision:
     """Immutable publication manifest for an organization corpus."""
 
     id: UUID
-    organization_id: UUID
+    corpus_id: UUID
     version_id: UUID
     manifest_hash: str
     activated_by: UUID

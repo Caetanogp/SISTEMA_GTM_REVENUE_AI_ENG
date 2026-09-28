@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-24T20:01:38-03:00
+updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 3 architecture decision required"
-status: architecture_required
+phase: "SPEC-007 Item 3 persistence implementation"
+status: in_progress
 ---
 
 # Current state
@@ -16,11 +16,11 @@ immutable publication history, bounded embeddings, and an offline contract evalu
 
 ## Now
 
-Item 3 is blocked before implementation. The approved spec requires shared platform content and
-organization-private content, but does not resolve the database ownership/corpus-head representation
-for platform content. The existing `KnowledgeDocumentVersion` contract has a non-null
-`organization_id`, so a sentinel organization and a nullable organization ID are both defensible
-but materially different persistence designs.
+The platform-content ownership decision is resolved. The approved design uses explicit
+`KnowledgeCorpus` identities: one deployment-owned platform corpus and one uniquely owned corpus
+per organization. Knowledge versions, chunks, and revisions reference `corpus_id`; tenant reads
+may combine platform and organization corpora with organization overrides, while tenant writes
+target only the organization corpus.
 
 ## Done
 
@@ -30,6 +30,12 @@ but materially different persistence designs.
   reported this evidence before the session committed the change manually.
 - Item 2 was committed as `feat(application): add knowledge ingestion contracts` after the executor
   lacked permission to create `.git/index.lock`.
+- The explicit-corpus decision was approved in this session and recorded in
+  `docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md`; SPEC-007 `spec.md` and
+  `plan.md` now define the same ownership and override rules.
+- Application contracts were reconciled to `corpus_id`, including the corpus resolver port and
+  `KnowledgeUnitOfWork.corpora`; application tests passed (`70 passed`), Ruff, format, and mypy
+  passed on 2026-09-28.
 - `python scripts/autonomous_gate.py` was rerun on 2026-09-24 from the committed Item 2 checkout;
   Item 3 was reported as gate-green with Ruff, mypy, lint-imports, pytest, and `check_agent_docs`
   all passing.
@@ -50,9 +56,10 @@ but materially different persistence designs.
 
 ## Next
 
-1. Resolve the platform-content ownership and corpus-head model in SPEC-007 documentation.
-2. Reconcile the application contracts if that decision changes their non-null organization scope.
-3. Implement only Item 3 models, migration, and migration/model tests after approval.
+1. Implement Item 3 SQLAlchemy models, additive migration, pgvector indexes, and migration/model tests.
+2. Tick only the Item 3 persistence task after its migration evidence passes, then rerun the gate.
+3. Run a bounded pilot from a clean committed checkout; launch the long loop only after the pilot
+   makes a real commit and the gate remains green.
 
 ## Gotchas
 
@@ -62,9 +69,8 @@ but materially different persistence designs.
 - Do not delete `.handoff/.autonomous_gate_state.json`; use the formal rollover authorization.
 - The native executable is not exposed as `codex.exe` on PATH; the launcher resolves it from the
   installed package instead of falling back to `codex.cmd`.
-- `KnowledgeDocumentVersion` and the current knowledge repository ports take a non-null
-  organization UUID, while the spec also requires platform-scoped seed content. Do not choose a
-  sentinel organization or nullable tenant FK without an approved architecture decision.
+- The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
+  or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
   no checkout artifacts or code changes were produced. Do not launch the long loop yet.
 - A follow-up pilot with a 600-second child timeout was started but intentionally interrupted
@@ -85,11 +91,10 @@ Get-Content -Raw docs/specs/SPEC-007-rag-ingestion/plan.md
 
 ## Open questions
 
-- How must platform-scoped knowledge be owned and addressed in persistence: a dedicated immutable
-  platform corpus identity, or nullable organization ownership with explicit scope constraints?
+- None for the approved platform and organization corpus ownership decision.
 
-## Autonomous loop HALT (2026-09-24T23:02:08+00:00)
+## Autonomous loop HALT (2026-09-28T03:23:33+00:00)
 
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture escalation was requested after uncommitted changes; refusing to design over a partial implementation
+Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
