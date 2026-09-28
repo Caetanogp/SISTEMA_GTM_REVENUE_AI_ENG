@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 3 persistence implementation"
+phase: "SPEC-007 Item 3 persistence validation"
 status: in_progress
 ---
 
@@ -36,6 +36,10 @@ target only the organization corpus.
 - Application contracts were reconciled to `corpus_id`, including the corpus resolver port and
   `KnowledgeUnitOfWork.corpora`; application tests passed (`70 passed`), Ruff, format, and mypy
   passed on 2026-09-28.
+- Item 3 persistence code is present in `models.py` and migration `c7d8e9f0a1b2`; the model and
+  contract tests passed (`18 passed`), the full unit/architecture suite passed (`367 passed`),
+  Ruff, format, mypy, lint-imports, and `alembic heads` passed on 2026-09-28. The Alembic head is
+  singular after correcting the revision chain.
 - `python scripts/autonomous_gate.py` was rerun on 2026-09-24 from the committed Item 2 checkout;
   Item 3 was reported as gate-green with Ruff, mypy, lint-imports, pytest, and `check_agent_docs`
   all passing.
@@ -56,7 +60,8 @@ target only the organization corpus.
 
 ## Next
 
-1. Implement Item 3 SQLAlchemy models, additive migration, pgvector indexes, and migration/model tests.
+1. Run the real PostgreSQL migration upgrade/downgrade tests for Item 3 once Docker Engine is
+   reachable; do not tick the persistence task before that evidence exists.
 2. Tick only the Item 3 persistence task after its migration evidence passes, then rerun the gate.
 3. Run a bounded pilot from a clean committed checkout; launch the long loop only after the pilot
    makes a real commit and the gate remains green.
@@ -69,6 +74,9 @@ target only the organization corpus.
 - Do not delete `.handoff/.autonomous_gate_state.json`; use the formal rollover authorization.
 - The native executable is not exposed as `codex.exe` on PATH; the launcher resolves it from the
   installed package instead of falling back to `codex.cmd`.
+- Docker validation was attempted on 2026-09-28 but Docker Engine was unavailable: the
+  `dockerDesktopLinuxEngine` named pipe was not present. No migration upgrade/downgrade claim was
+  made and the Item 3 checkbox remains unchecked.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;

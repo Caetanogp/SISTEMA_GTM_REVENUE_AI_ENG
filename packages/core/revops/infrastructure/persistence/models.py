@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 from uuid import UUID
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -74,6 +75,128 @@ class User(Base):
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     email: Mapped[str] = mapped_column(String(320))
     role: Mapped[str] = mapped_column(String(64))
+
+
+class KnowledgeCorpus(Base):
+    """Explicit platform or organization owner for knowledge records."""
+
+    __tablename__ = "knowledge_corpora"
+    __table_args__ = (
+        CheckConstraint("scope IN ('platform', 'organization')", name="ck_knowledge_corpora_scope"),
+        CheckConstraint(
+            "(scope = 'platform' AND organization_id IS NULL) OR "
+            "(scope = 'organization' AND organization_id IS NOT NULL)",
+            name="ck_knowledge_corpora_scope_owner",
+        ),
+        UniqueConstraint("organization_id", name="uq_knowledge_corpora_organization"),
+        Index(
+            "uq_knowledge_corpora_platform",
+            "scope",
+            unique=True,
+            postgresql_where=text("scope = 'platform'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(32), nullable=False)
+    organization_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("organizations.id"), default=None, index=True
+    )
+    created_at: Mapped[datetime]
+
+
+class KnowledgeDocument(Base):
+    """Logical document identity within one explicit corpus."""
+
+    __tablename__ = "knowledge_documents"
+    __table_args__ = (
+        UniqueConstraint("corpus_id", "document_key", name="uq_knowledge_documents_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    document_key: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime]
+
+
+class KnowledgeDocumentVersion(Base):
+    """Immutable normalized content version and its processing lifecycle."""
+
+    __tablename__ = "knowledge_document_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "corpus_id", "idempotency_key", name="uq_knowledge_versions_corpus_idempotency"
+        ),
+        UniqueConstraint("document_id", "id", name="uq_knowledge_versions_document_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    category: Mapped[str] = mapped_column(String(64))
+    language: Mapped[str] = mapped_column(String(8))
+    format: Mapped[str] = mapped_column(String(16))
+    scope: Mapped[str] = mapped_column(String(32))
+    content: Mapped[str] = mapped_column(String(1_048_576))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    embedding_model: Mapped[str | None] = mapped_column(String(128), default=None)
+    embedding_dimension: Mapped[int | None] = mapped_column(Integer, default=None)
+    failure_code: Mapped[str | None] = mapped_column(String(128), default=None)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class KnowledgeChunk(Base):
+    """Immutable chunk and embedding produced from one document version."""
+
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        UniqueConstraint("version_id", "ordinal", name="uq_knowledge_chunks_version_ordinal"),
+        Index("ix_knowledge_chunks_corpus", "corpus_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(String(3_000))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536))
+
+
+class KnowledgeRevision(Base):
+    """Append-only publication manifest for a corpus."""
+
+    __tablename__ = "knowledge_revisions"
+    __table_args__ = (
+        UniqueConstraint("corpus_id", "manifest_hash", name="uq_knowledge_revisions_manifest"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    manifest_hash: Mapped[str] = mapped_column(String(64))
+    activated_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime]
+
+
+class KnowledgeCorpusHead(Base):
+    """Current revision pointer; revision rows remain immutable history."""
+
+    __tablename__ = "knowledge_corpus_heads"
+
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), primary_key=True)
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), unique=True)
+    updated_at: Mapped[datetime]
 
 
 class Account(Base):
