@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 4 repository implementation"
+phase: "SPEC-007 Item 4 repository design validation"
 status: in_progress
 ---
 
@@ -63,10 +63,11 @@ target only the organization corpus.
 
 ## Next
 
-1. Implement Item 4 repositories, idempotency, immutable history, and atomic corpus revisions.
-2. Run the bounded Item 4 pilot from a clean committed checkout and inspect its real commit/gate
-   evidence before any long loop.
-3. Launch the long loop only after the pilot makes a real commit and the gate remains green.
+1. Resolve the Item 4 corpus-revision activation semantics in the approved plan and contracts,
+   then implement repositories only with complete manifest membership and append-only activation
+   history.
+2. Run the Item 4 integration tests and gate from a clean committed checkout; do not advance to
+   Item 5 or launch a long loop on partial repository code.
 
 ## Gotchas
 
@@ -105,6 +106,10 @@ target only the organization corpus.
 - The next clean architecture escalation returned a technically coherent snapshot/activation plan,
   but policy rejected its redundant `migrations/versions` path. The prompt now directs the architect
   to use the already-authorized persistence parent scope instead of a migration subpath.
+- The next pilot generated an uncommitted partial repository implementation and incorrectly ticked
+  Item 4. Review found it accepted conflicting idempotency payloads and lacked the approved
+  append-only activation history/manifest semantics. Those pilot artifacts were discarded; Item 4
+  remains open.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -194,5 +199,23 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-28T17:53:24+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture escalation may not authorize 'packages/core/revops/infrastructure/persistence/migrations/versions'
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T18:02:08+00:00)
+
+Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['tests/integration/test_knowledge_repositories.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T18:02:16+00:00)
+
+Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['tests/integration/test_knowledge_repositories.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T18:02:16+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. HALT: Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['tests/integration/test_knowledge_repositories.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
