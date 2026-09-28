@@ -87,6 +87,10 @@ target only the organization corpus.
   required before retrying; no manual gate-state edit is permitted.
 - The first external rollover file was rejected because PowerShell encoded it with a UTF-8 BOM;
   it was not consumed and will be recreated as UTF-8 without BOM.
+- After the valid rollover, the Item 4 pilot started with a clean tree but produced no executor
+  result after several minutes; the supervisor was stopped with Ctrl+C. No child process, checkout
+  artifact, or code change remained. Do not launch the long loop until this bounded pilot completes
+  one real Item 4 turn and returns structured gate evidence.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
