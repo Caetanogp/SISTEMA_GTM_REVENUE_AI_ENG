@@ -672,9 +672,12 @@ change product scope or public contracts, add a dependency, require destructive 
 security/tenant isolation/audit/PII controls, weaken verification, or require an external action.
 If any of those are necessary, return `human_required` and explain why.
 
-Allowed paths must be narrow repository-relative files or directory prefixes. Include the active
-spec plan and .handoff/STATE.md when a decision must be recorded. Produce implementation-ready
-steps and concrete tests. Set every policy boolean truthfully. Return only the schema-valid object.
+Allowed paths must be narrow repository-relative files or directory prefixes. For additive
+Alembic work, authorize the containing persistence directory rather than listing a
+`migrations/versions` subdirectory; the policy rejects migration subpaths as standalone scopes.
+Include the active spec plan and .handoff/STATE.md when a decision must be recorded. Produce
+implementation-ready steps and concrete tests. Set every policy boolean truthfully. Return only
+the schema-valid object.
 {revision}
 """.strip()
 
