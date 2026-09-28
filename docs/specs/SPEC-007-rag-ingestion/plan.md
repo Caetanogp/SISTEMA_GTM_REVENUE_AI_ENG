@@ -34,6 +34,15 @@ metadata, embedding model/dimension, processing status, idempotency key, and tim
 chunk ordinal, text/hash, structured metadata, and vector. Corpus heads point to active revisions;
 revisions store an immutable manifest/hash. Migrations are additive and downgrade-safe.
 
+Each revision is a complete immutable corpus snapshot. Its membership is stored as one
+`document_key -> version_id` entry per logical document, and its manifest hash is SHA-256 over a
+canonical, versioned JSON array sorted by `document_key`. Activation is a separate append-only
+event recording actor, timestamp, selected revision/version, action, and corpus-scoped idempotency
+key. Reusing an existing snapshot is valid and does not duplicate the revision; it still appends a
+new activation event. A novel combination of document versions creates a new snapshot. The corpus
+head is the only mutable pointer. All publication and activation operations lock the corpus row
+and commit through the shared unit of work.
+
 Every document, version, chunk, and revision is addressed by `corpus_id`; tenant-scoped application
 ports accept a resolved corpus identity rather than a nullable or sentinel organization. Tenant
 reads may combine the platform corpus with the caller's organization corpus, with the organization

@@ -4,8 +4,8 @@
 - [x] Define pure knowledge categories, language, scope, lifecycle, and validation contracts in `packages/core/revops/domain/` - verified by `mypy packages/core/revops/domain tests/unit/domain/entities/test_knowledge.py` and domain tests (`128 passed`)
 - [x] Define application DTOs, repository/UoW/embedding/dispatch ports in `packages/core/revops/application/` - verified by `pytest tests/unit/application -q` (`70 passed`), `mypy .`, and `lint-imports`
 - [x] Implement deterministic normalization, metadata validation, heading/paragraph chunking, limits, and hashes - verified by `pytest tests/unit/domain tests/architecture -q` (`128 passed`)
-- [x] Add knowledge SQLAlchemy models, pgvector indexes, and additive migration - verified by `pytest tests/integration/test_migration_history_reconciliation.py tests/integration/test_attribution_migration_round_trip.py -q` (`5 passed`), `python -m alembic upgrade head`, and `python -m alembic current` (`c7d8e9f0a1b2`)
-- [ ] Implement tenant-scoped repositories, idempotency, immutable versions, and corpus revisions - verified by integration tests
+- [x] Add knowledge SQLAlchemy models, pgvector indexes, and additive migration - verified by `pytest tests/integration/test_migration_history_reconciliation.py tests/integration/test_attribution_migration_round_trip.py -q`, `python -m alembic upgrade head`, and `python -m alembic check` (`d8e9f0a1b2c3`)
+- [x] Implement tenant-scoped repositories, idempotency, immutable versions, and corpus revisions - verified by `pytest tests/integration/test_knowledge_revision_persistence.py tests/integration/test_migration_history_reconciliation.py -q` (`6 passed`), full integration suite (`38 passed`), `mypy .`, and `lint-imports`
 - [ ] Implement deterministic offline fake embeddings - verified by deterministic vector tests
 - [ ] Implement bounded OpenAI embedding adapter with explicit configuration - verified by adapter unit tests
 - [ ] Implement confirmation, processing, publication, failure, retirement, and activation use cases - verified by application tests

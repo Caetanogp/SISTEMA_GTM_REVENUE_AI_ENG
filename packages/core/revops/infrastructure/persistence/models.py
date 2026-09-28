@@ -195,6 +195,61 @@ class KnowledgeRevision(Base):
     created_at: Mapped[datetime]
 
 
+class KnowledgeRevisionEntry(Base):
+    """One immutable document version in a complete corpus snapshot."""
+
+    __tablename__ = "knowledge_revision_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "revision_id", "document_key", name="uq_knowledge_revision_entry_document"
+        ),
+        UniqueConstraint(
+            "revision_id", "document_key", "version_id", name="uq_knowledge_revision_entry_version"
+        ),
+        Index("ix_knowledge_revision_entries_corpus", "corpus_id"),
+        Index("ix_knowledge_revision_entries_revision_id", "revision_id"),
+        Index("ix_knowledge_revision_entries_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"))
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), index=True)
+    document_key: Mapped[str] = mapped_column(String(200))
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+
+
+class KnowledgeRevisionActivation(Base):
+    """Append-only provenance for one publication or historical activation."""
+
+    __tablename__ = "knowledge_revision_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('publication', 'historical_activation')",
+            name="ck_knowledge_revision_activations_action",
+        ),
+        UniqueConstraint(
+            "corpus_id", "idempotency_key", name="uq_knowledge_revision_activation_idempotency"
+        ),
+        Index("ix_knowledge_revision_activations_corpus_id", "corpus_id"),
+        Index("ix_knowledge_revision_activations_revision_id", "revision_id"),
+        Index("ix_knowledge_revision_activations_target_version_id", "target_version_id"),
+        Index("ix_knowledge_revision_activations_history", "corpus_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), index=True)
+    target_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(32))
+    activated_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime]
+
+
 class KnowledgeCorpusHead(Base):
     """Current revision pointer; revision rows remain immutable history."""
 

@@ -15,6 +15,7 @@ from revops.application.dto import (
     KnowledgeChunkEmbedding,
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
+    KnowledgeRevisionActivation,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import (
@@ -101,7 +102,6 @@ class _FakeRevisions:
         corpus_id: UUID,
         version_id: UUID,
         chunks: Sequence[KnowledgeChunkEmbedding],
-        manifest_hash: str,
         activated_by: UUID,
         created_at: datetime,
     ) -> CorpusRevision:
@@ -114,11 +114,17 @@ class _FakeRevisions:
         self,
         *,
         corpus_id: UUID,
-        version_id: UUID,
+        revision_id: UUID,
         activated_by: UUID,
+        idempotency_key: str,
         created_at: datetime,
     ) -> CorpusRevision:
         raise NotImplementedError
+
+    async def list_activation_history(
+        self, corpus_id: UUID, *, offset: int, limit: int
+    ) -> Sequence[KnowledgeRevisionActivation]:
+        return []
 
 
 class _FakeDispatcher:

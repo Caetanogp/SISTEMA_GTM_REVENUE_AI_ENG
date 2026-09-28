@@ -42,6 +42,8 @@ def test_knowledge_tables_use_explicit_corpus_identity_and_vector_storage() -> N
         "knowledge_document_versions",
         "knowledge_chunks",
         "knowledge_revisions",
+        "knowledge_revision_entries",
+        "knowledge_revision_activations",
         "knowledge_corpus_heads",
     }
     assert expected <= set(Base.metadata.tables)
@@ -72,6 +74,16 @@ def test_knowledge_versions_are_idempotent_and_revisions_are_append_only() -> No
 
     revisions = Base.metadata.tables["knowledge_revisions"]
     assert all(column.onupdate is None for column in revisions.columns)
+
+    entries = Base.metadata.tables["knowledge_revision_entries"]
+    assert "uq_knowledge_revision_entry_document" in {
+        constraint.name for constraint in entries.constraints
+    }
+    activations = Base.metadata.tables["knowledge_revision_activations"]
+    assert "uq_knowledge_revision_activation_idempotency" in {
+        constraint.name for constraint in activations.constraints
+    }
+    assert all(column.onupdate is None for column in activations.columns)
 
 
 def test_agent_actions_run_id_is_not_nullable() -> None:

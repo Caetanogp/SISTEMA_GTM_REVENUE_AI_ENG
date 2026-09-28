@@ -465,6 +465,25 @@ class KnowledgeCorpus:
     organization_id: UUID | None = None
 
 
+class KnowledgeActivationAction(StrEnum):
+    PUBLICATION = "publication"
+    HISTORICAL_ACTIVATION = "historical_activation"
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeRevisionActivation:
+    """Safe provenance for one append-only corpus activation event."""
+
+    id: UUID
+    corpus_id: UUID
+    revision_id: UUID
+    target_version_id: UUID
+    action: KnowledgeActivationAction
+    activated_by: UUID
+    idempotency_key: str
+    created_at: datetime
+
+
 @dataclass(frozen=True, slots=True)
 class KnowledgeDocumentVersion:
     """An immutable content version and its lifecycle state."""
