@@ -79,6 +79,9 @@ target only the organization corpus.
   installed package instead of falling back to `codex.cmd`.
 - Docker was initially unavailable, then became reachable; the real migration validation is now
   recorded above.
+- The first Item 4 pilot attempt after the schema work was correctly refused because the launcher
+  fix was still uncommitted. `scripts/start_codex_loop.ps1` now resolves native commands through
+  `.Path`; its focused tests passed (`2 passed`).
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -116,5 +119,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-28T03:31:03+00:00)
 
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py', 'tests/unit/infrastructure/persistence/test_models.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:05:10+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

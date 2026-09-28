@@ -54,9 +54,11 @@ if ($branch -in @("main", "develop")) {
     throw "Refusing to launch the Codex autonomous loop on branch '$branch'. Use a feature branch."
 }
 
-$codexExecutable = (Get-Command codex.exe -ErrorAction SilentlyContinue).Source
+$codexCommand = Get-Command codex.exe -ErrorAction SilentlyContinue
+$codexExecutable = if ($null -ne $codexCommand) { $codexCommand.Path } else { $null }
 if ([string]::IsNullOrWhiteSpace($codexExecutable)) {
-    $codexShim = (Get-Command codex.cmd -ErrorAction SilentlyContinue).Source
+    $codexShimCommand = Get-Command codex.cmd -ErrorAction SilentlyContinue
+    $codexShim = if ($null -ne $codexShimCommand) { $codexShimCommand.Path } else { $null }
     if (-not [string]::IsNullOrWhiteSpace($codexShim)) {
         $codexPackageRoot = Join-Path (Split-Path -Parent $codexShim) "node_modules\@openai\codex\node_modules"
         $codexExecutable = Get-ChildItem -LiteralPath $codexPackageRoot -Filter "codex.exe" -File -Recurse -ErrorAction SilentlyContinue |
