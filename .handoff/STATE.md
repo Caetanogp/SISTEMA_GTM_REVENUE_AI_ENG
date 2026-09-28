@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 4 repository design validation"
+phase: "SPEC-007 Item 4 repository implementation complete"
 status: in_progress
 ---
 
@@ -21,6 +21,10 @@ The platform-content ownership decision is resolved. The approved design uses ex
 per organization. Knowledge versions, chunks, and revisions reference `corpus_id`; tenant reads
 may combine platform and organization corpora with organization overrides, while tenant writes
 target only the organization corpus.
+
+Item 4 is now implemented and committed as `5c0921d`. Corpus revisions store complete immutable
+document-key membership, publication and historical activation events are append-only and
+idempotent per corpus, and the corpus head is updated atomically under the corpus row lock.
 
 ## Done
 
@@ -60,14 +64,18 @@ target only the organization corpus.
 - The supervisor baseline was formally rolled over through `65d9883`; Item 3 is the active gated
   item and its architecture decision is currently required.
 - The native Codex binary is installed and responds to `--version` as `codex-cli 0.150.0`.
+- Item 4 repository implementation is committed as `5c0921d`: `pytest tests/integration -q` passed
+  (`38 passed`) with PostgreSQL and Redis running, the focused migration/revision tests passed
+  (`6 passed`), `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, and
+  `python scripts/check_agent_docs.py` all passed. The gate reported Item 5 as green but correctly
+  left it unticked because no Item 5 implementation has started.
 
 ## Next
 
-1. Resolve the Item 4 corpus-revision activation semantics in the approved plan and contracts,
-   then implement repositories only with complete manifest membership and append-only activation
-   history.
-2. Run the Item 4 integration tests and gate from a clean committed checkout; do not advance to
-   Item 5 or launch a long loop on partial repository code.
+1. Start SPEC-007 Item 5 only after its embedding-provider scope is reviewed: implement the
+   deterministic offline fake and bounded explicit OpenAI adapter, then add unit tests.
+2. Do not launch a long loop until the Item 5 architecture/design boundary is resolved and its
+   bounded pilot returns clean evidence.
 
 ## Gotchas
 
@@ -143,6 +151,13 @@ Get-Content -Raw docs/specs/SPEC-007-rag-ingestion/plan.md
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Item 4 completion checkpoint (2026-09-28)
+
+The deliberate design pass was recorded in `docs/decisions/ADR-0012-corpus-manifests-and-activation-history.md`.
+The first partial repository pilot was not accepted; the final implementation was reviewed,
+tested against real PostgreSQL/Redis, committed as `5c0921d`, and passed the full repository
+quality checks. Item 4 is closed in `tasks.md`; Item 5 is the next open item and remains unticked.
 ## Autonomous loop HALT (2026-09-28T03:31:03+00:00)
 
 Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0011-platform-knowledge-corpus-ownership.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md', 'packages/core/revops/application/dto.py', 'packages/core/revops/application/ports.py', 'tests/unit/application/test_knowledge_contracts.py', 'tests/unit/infrastructure/persistence/test_models.py']. Revert the out-of-scope changes or stop and ask.
