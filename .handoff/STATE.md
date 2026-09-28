@@ -82,6 +82,9 @@ target only the organization corpus.
 - The first Item 4 pilot attempt after the schema work was correctly refused because the launcher
   fix was still uncommitted. `scripts/start_codex_loop.ps1` now resolves native commands through
   `.Path`; its focused tests passed (`2 passed`).
+- The next pilot reached the supervisor and was halted by the gate because this launcher fix is a
+  supervisor-control change outside Item 4's implementation scope. A formal baseline rollover is
+  required before retrying; no manual gate-state edit is permitted.
 - The explicit corpus decision is recorded in ADR-0011; do not reintroduce sentinel organizations
   or nullable tenant ownership for knowledge persistence.
 - The latest final-pilot attempt did not return within the configured 120-second child timeout;
@@ -125,5 +128,17 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-28T17:05:10+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:05:33+00:00)
+
+Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/start_codex_loop.ps1']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-28T17:05:33+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. HALT: Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/start_codex_loop.ps1']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
