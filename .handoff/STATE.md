@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 5 complete; Item 6 lifecycle use cases ready"
+phase: "SPEC-007 Item 6 lifecycle use cases complete; Item 7 worker ready"
 status: in_progress
 ---
 
@@ -30,6 +30,11 @@ Item 5 is implemented and committed as `e1d8bcc`. The deterministic fake and bou
 OpenAI adapter pass the focused provider suite and the full unit suite. The queue declaration was
 corrected in `a3d5868`, and the formal baseline rollover was approved from `e1d8bcc` to
 `a3d5868`; the ordinary gate now selects Item 6.
+
+Item 6 lifecycle use cases are implemented and committed as `56d60c5`. Confirmation commits
+before dispatch, processing batches embeddings and marks failures without publishing partial
+revisions, and retirement plus explicit historical activation enforce the authenticated
+organization corpus. Focused lifecycle tests and the full unit suite pass.
 
 ## Done
 
@@ -77,8 +82,9 @@ corrected in `a3d5868`, and the formal baseline rollover was approved from `e1d8
 
 ## Next
 
-1. Implement Item 6 lifecycle use cases in `packages/core/revops/application/` with unit tests.
-2. Run the bounded Item 6 pilot; do not run Item 7 worker work before Item 6 is complete.
+1. Implement Item 7 worker processing and safe audit/error handling in `apps/worker/` and the
+   authorized infrastructure/integration test scope.
+2. Run the bounded Item 7 pilot; only consider a long loop after that pilot returns clean evidence.
 
 ## Gotchas
 
