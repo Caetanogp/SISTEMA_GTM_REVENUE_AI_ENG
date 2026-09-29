@@ -8,7 +8,7 @@
 - [x] Implement tenant-scoped repositories, idempotency, immutable versions, and corpus revisions - verified by `pytest tests/integration/test_knowledge_revision_persistence.py tests/integration/test_migration_history_reconciliation.py -q` (`6 passed`), full integration suite (`38 passed`), `mypy .`, and `lint-imports`
 - [x] Implement deterministic offline fake embeddings - verified by `pytest tests/unit/infrastructure/embeddings/test_providers.py -q` (`5 passed`), including deterministic normalized vectors and the 64-input bound
 - [x] Implement bounded OpenAI embedding adapter with explicit configuration - verified by the same focused suite (`5 passed`) and `mypy .`; timeout, retry, response validation, ordering, and no-fallback behavior are covered
-- [ ] Implement confirmation, processing, publication, failure, retirement, and activation use cases - verified by application tests
+- [x] Implement confirmation, processing, publication, failure, retirement, and activation use cases - verified by `pytest tests/unit/application/use_cases/test_knowledge.py -q` (`5 passed`), full unit suite (`376 passed`), `mypy .`, and `lint-imports`
 - [ ] Implement Celery processing task and safe audit/error handling - verified by worker integration tests
 - [ ] Implement tenant-scoped admin API routes and schemas - verified by API tests
 - [ ] Implement trusted platform seed loading without tenant mutation - verified by seed integration tests
