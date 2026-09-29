@@ -41,7 +41,7 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 - **Scope:** `packages/core/revops/infrastructure/`, `tests/unit/infrastructure/`
 - **Requires:** Item 2
-- **Closes:** tasks 7-8
+- **Closes:** 2 tasks.md checkboxes
 - **What:** add deterministic offline fake and bounded explicit OpenAI adapter.
 - **Done when:** batch, timeout, retry, dimension, determinism, and no-fallback tests pass.
 
