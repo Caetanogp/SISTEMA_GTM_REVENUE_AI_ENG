@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-09-28T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 4 repository implementation complete"
+phase: "SPEC-007 Item 5 embedding providers complete; queue mapping requires correction"
 status: in_progress
 ---
 
@@ -25,6 +25,13 @@ target only the organization corpus.
 Item 4 is now implemented and committed as `5c0921d`. Corpus revisions store complete immutable
 document-key membership, publication and historical activation events are append-only and
 idempotent per corpus, and the corpus head is updated atomically under the corpus row lock.
+
+Item 5 is implemented and committed as `e1d8bcc`. The deterministic fake and bounded explicit
+OpenAI adapter pass the focused provider suite and the full unit suite. The next implementation
+should be Item 6 lifecycle use cases, but the queue currently declares Item 5 as closing the
+non-parseable text `tasks 7-8`; the gate therefore selected Item 7 after the two embedding
+checkboxes were closed. Do not launch a pilot until this queue/gate mapping is corrected through
+the repository's control-plane authorization process.
 
 ## Done
 
@@ -72,10 +79,10 @@ idempotent per corpus, and the corpus head is updated atomically under the corpu
 
 ## Next
 
-1. Start SPEC-007 Item 5 only after its embedding-provider scope is reviewed: implement the
-   deterministic offline fake and bounded explicit OpenAI adapter, then add unit tests.
-2. Do not launch a long loop until the Item 5 architecture/design boundary is resolved and its
-   bounded pilot returns clean evidence.
+1. Correct the Item 5 `Closes` declaration in `.handoff/AUTONOMOUS_QUEUE.md` through the
+   authorized control-plane path so it counts two task checkboxes and the gate selects Item 6.
+2. Then implement Item 6 lifecycle use cases and run its bounded pilot; do not run Item 7 worker
+   work before Item 6 is complete.
 
 ## Gotchas
 
