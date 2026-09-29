@@ -6,8 +6,8 @@
 - [x] Implement deterministic normalization, metadata validation, heading/paragraph chunking, limits, and hashes - verified by `pytest tests/unit/domain tests/architecture -q` (`128 passed`)
 - [x] Add knowledge SQLAlchemy models, pgvector indexes, and additive migration - verified by `pytest tests/integration/test_migration_history_reconciliation.py tests/integration/test_attribution_migration_round_trip.py -q`, `python -m alembic upgrade head`, and `python -m alembic check` (`d8e9f0a1b2c3`)
 - [x] Implement tenant-scoped repositories, idempotency, immutable versions, and corpus revisions - verified by `pytest tests/integration/test_knowledge_revision_persistence.py tests/integration/test_migration_history_reconciliation.py -q` (`6 passed`), full integration suite (`38 passed`), `mypy .`, and `lint-imports`
-- [ ] Implement deterministic offline fake embeddings - verified by deterministic vector tests
-- [ ] Implement bounded OpenAI embedding adapter with explicit configuration - verified by adapter unit tests
+- [x] Implement deterministic offline fake embeddings - verified by `pytest tests/unit/infrastructure/embeddings/test_providers.py -q` (`5 passed`), including deterministic normalized vectors and the 64-input bound
+- [x] Implement bounded OpenAI embedding adapter with explicit configuration - verified by the same focused suite (`5 passed`) and `mypy .`; timeout, retry, response validation, ordering, and no-fallback behavior are covered
 - [ ] Implement confirmation, processing, publication, failure, retirement, and activation use cases - verified by application tests
 - [ ] Implement Celery processing task and safe audit/error handling - verified by worker integration tests
 - [ ] Implement tenant-scoped admin API routes and schemas - verified by API tests
