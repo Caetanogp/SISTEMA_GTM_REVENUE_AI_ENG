@@ -9,7 +9,7 @@
 - [x] Implement deterministic offline fake embeddings - verified by `pytest tests/unit/infrastructure/embeddings/test_providers.py -q` (`5 passed`), including deterministic normalized vectors and the 64-input bound
 - [x] Implement bounded OpenAI embedding adapter with explicit configuration - verified by the same focused suite (`5 passed`) and `mypy .`; timeout, retry, response validation, ordering, and no-fallback behavior are covered
 - [x] Implement confirmation, processing, publication, failure, retirement, and activation use cases - verified by `pytest tests/unit/application/use_cases/test_knowledge.py -q` (`5 passed`), full unit suite (`376 passed`), `mypy .`, and `lint-imports`
-- [ ] Implement Celery processing task and safe audit/error handling - verified by worker integration tests
+- [x] Implement Celery processing task and safe audit/error handling - verified by commit `cb35fdd`, `pytest tests/integration/test_knowledge_worker.py tests/integration/test_knowledge_revision_persistence.py tests/unit/application/use_cases/test_knowledge.py tests/unit/application/test_knowledge_contracts.py tests/unit/infrastructure/embeddings/test_providers.py tests/unit/infrastructure/persistence/test_models.py tests/unit/infrastructure/persistence/test_repositories.py tests/unit/apps/worker/test_main.py -q` (`68 passed`), `mypy .`, Ruff/format, `python -m alembic upgrade head`, and `python -m alembic check`
 - [ ] Implement tenant-scoped admin API routes and schemas - verified by API tests
 - [ ] Implement trusted platform seed loading without tenant mutation - verified by seed integration tests
 - [ ] Add migration, API, worker, tenant-isolation, and append-only integration coverage - verified by `pytest tests/integration -q`

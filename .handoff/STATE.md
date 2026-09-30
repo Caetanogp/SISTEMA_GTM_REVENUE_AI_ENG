@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-30T00:00:00-03:00
+updated_at: 2026-09-30T01:10:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 7 deliberate design approved; implementation starting"
-status: in_progress
+phase: "SPEC-007 Item 7 implementation complete; gate verification pending"
+status: ready_for_gate
 ---
 
 # Current state
@@ -40,6 +40,12 @@ The deliberate Item 7 design is now approved. ADR-0013 selects corpus/version-on
 explicitly classified and bounded retries, confirmation replay recovery, embedding provenance, and
 a dedicated append-only processing event journal. Item 7's queue scope is expanded to the exact
 application, infrastructure, worker, configuration, and test paths required by that design.
+
+Item 7 is implemented and committed as `cb35fdd`. The worker publishes only corpus/version
+identifiers, uses the configured fake or explicit OpenAI provider, records append-only processing
+events, bounds task retries to two attempts, and treats READY/terminal replays as duplicate-safe.
+The processing-event identity is scoped by corpus, version, delivery, attempt, and event type;
+the corrective migration is `f0a1b2c3d4e5`.
 
 ## Done
 
@@ -84,12 +90,17 @@ application, infrastructure, worker, configuration, and test paths required by t
   (`6 passed`), `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, and
   `python scripts/check_agent_docs.py` all passed. The gate reported Item 5 as green but correctly
   left it unticked because no Item 5 implementation has started.
+- Item 7 worker implementation is committed as `cb35fdd`. The focused worker, lifecycle,
+  persistence, provider, and repository tests passed (`68 passed`), worker integration covers
+  successful publication/replay and retry-to-terminal-failure without a head, and `mypy .`, Ruff,
+  format, `python -m alembic upgrade head`, and `python -m alembic check` passed on 2026-09-30.
 
 ## Next
 
-1. Apply the formal baseline rollover for the approved Item 7 architecture commit.
-2. Implement and verify the ADR-0013 worker, processing journal, retries, and atomic publication.
-3. Run the gate and a bounded Item 8 pilot; only consider a long loop after clean evidence.
+1. Run `python scripts/autonomous_gate.py` to verify Item 7 and advance to Item 8 if green.
+2. Review the Item 8 API/tenant-isolation scope before implementing it; return `architecture_required`
+   if the implementation reveals a new non-dominant design choice.
+3. Run a bounded Item 8 pilot before considering any long autonomous loop.
 
 ## Gotchas
 
