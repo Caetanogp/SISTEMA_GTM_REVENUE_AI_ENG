@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-09-28T00:00:00-03:00
+updated_at: 2026-09-30T00:00:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 6 lifecycle use cases complete; Item 7 worker ready"
+phase: "SPEC-007 Item 7 deliberate design approved; implementation starting"
 status: in_progress
 ---
 
@@ -35,6 +35,11 @@ Item 6 lifecycle use cases are implemented and committed as `56d60c5`. Confirmat
 before dispatch, processing batches embeddings and marks failures without publishing partial
 revisions, and retirement plus explicit historical activation enforce the authenticated
 organization corpus. Focused lifecycle tests and the full unit suite pass.
+
+The deliberate Item 7 design is now approved. ADR-0013 selects corpus/version-only queue payloads,
+explicitly classified and bounded retries, confirmation replay recovery, embedding provenance, and
+a dedicated append-only processing event journal. Item 7's queue scope is expanded to the exact
+application, infrastructure, worker, configuration, and test paths required by that design.
 
 ## Done
 
@@ -82,9 +87,9 @@ organization corpus. Focused lifecycle tests and the full unit suite pass.
 
 ## Next
 
-1. Implement Item 7 worker processing and safe audit/error handling in `apps/worker/` and the
-   authorized infrastructure/integration test scope.
-2. Run the bounded Item 7 pilot; only consider a long loop after that pilot returns clean evidence.
+1. Apply the formal baseline rollover for the approved Item 7 architecture commit.
+2. Implement and verify the ADR-0013 worker, processing journal, retries, and atomic publication.
+3. Run the gate and a bounded Item 8 pilot; only consider a long loop after clean evidence.
 
 ## Gotchas
 

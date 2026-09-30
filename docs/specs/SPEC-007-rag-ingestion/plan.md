@@ -57,6 +57,25 @@ of no more than 64, with a 30-second timeout and two retries. The live provider 
 never silently falls back to fake vectors. The offline provider is deterministic, L2-normalized,
 and clearly not a production semantic substitute.
 
+## Worker delivery, retry, and audit
+
+Celery carries only `corpus_id` and `version_id`, uses late acknowledgement and worker-loss
+redelivery, and treats processing as at-least-once. The application derives the publication actor
+from the immutable version. Confirmation replay republishes confirmed or processing work so a
+broker failure after the confirmation commit is recoverable.
+
+Provider calls retain their bounded two retries. The Celery task performs at most two additional
+whole-job retries only for explicitly retryable provider failures and transient persistence
+failures. Deterministic contract, state, payload, and programming failures are terminal. A replay
+of a ready version succeeds without duplicating chunks, revisions, activation, or the corpus head.
+
+Persist processing attempts in append-only `knowledge_processing_events` using deterministic event
+identity per delivery, attempt, and event type. Store only identifiers, event type, retryability,
+sanitized failure code, and timestamp. Never store document content, vectors, credentials, raw
+provider responses, or exception messages. Commit the success event atomically with the ready
+status, embedding model/dimension, chunks, revision, activation, and head; commit a terminal failure
+event atomically with the failed status. See ADR-0013.
+
 ## Tests and evals
 
 Add domain/application unit tests first, then migration/repository and API/worker integration tests.
@@ -82,3 +101,5 @@ before any merge into `develop`.
 - A sentinel organization is rejected because it pollutes tenant ownership and risks treating shared
   platform content as a real tenant. Nullable `organization_id` is rejected because `NULL` would
   encode ownership semantics inconsistently across documents, versions, revisions, and queries.
+- Reusing `agent_actions` for worker audit is rejected because knowledge processing is not an agent
+  run. Status plus logs alone is rejected because it cannot provide append-only attempt history.

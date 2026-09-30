@@ -55,11 +55,12 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 ## Item 7 - Worker
 
-- **Scope:** `apps/worker/`, `packages/core/revops/infrastructure/`, `tests/integration/`
+- **Scope:** `.env.example`, `apps/worker/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/`, `tests/unit/application/`, `tests/unit/apps/worker/`, `tests/unit/infrastructure/`, `tests/integration/`
 - **Requires:** Item 6
 - **Closes:** task 10
-- **What:** run bounded asynchronous processing with safe audit/error behavior.
-- **Done when:** Celery task tests prove retry and atomic publication behavior.
+- **What:** run bounded asynchronous processing with classified retries and append-only safe audit
+  events under ADR-0013.
+- **Done when:** Celery task tests prove retry, replay, provenance, and atomic publication behavior.
 
 ## Item 8 - Admin API
 
