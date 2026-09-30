@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-30T01:10:00-03:00
+updated_at: 2026-09-30T01:20:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 7 implementation complete; gate verification pending"
-status: ready_for_gate
+phase: "SPEC-007 Item 7 gate green; Item 8 selected"
+status: ready_for_item_8_design
 ---
 
 # Current state
@@ -94,6 +94,9 @@ the corrective migration is `f0a1b2c3d4e5`.
   persistence, provider, and repository tests passed (`68 passed`), worker integration covers
   successful publication/replay and retry-to-terminal-failure without a head, and `mypy .`, Ruff,
   format, `python -m alembic upgrade head`, and `python -m alembic check` passed on 2026-09-30.
+- The autonomous gate passed Item 7 on 2026-09-30 with Ruff, mypy, lint-imports, pytest, and
+  `check_agent_docs` all green. It selected Item 8, which remains unticked and requires API and
+  tenant-isolation design review before implementation.
 
 ## Next
 
