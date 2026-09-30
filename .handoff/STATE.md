@@ -273,3 +273,9 @@ completion behavior are resolved.
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. HALT: Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['tests/integration/test_knowledge_repositories.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-30T18:49:00+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. human_required: implementar Item 8 exigiria inventar um contrato público HTTP para criação, confirmação, inspeção, listagem, retirada e ativação de versões de conhecimento. A especificação define as capacidades, mas não define URLs, payloads/respostas, códigos HTTP nem quais mutações além de submit/activate exigem Idempotency-Key. Pela regra solicitada, isso requer decisão humana antes de editar qualquer arquivo.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
