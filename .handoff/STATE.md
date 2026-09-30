@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-30T02:05:00-03:00
+updated_at: 2026-09-30T02:15:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 8 implementation complete; gate verification pending"
-status: ready_for_gate
+phase: "SPEC-007 Item 8 gate green; Item 9 selected"
+status: ready_for_item_9
 ---
 
 # Current state
@@ -109,6 +109,9 @@ idempotency replay/conflict handling, lifecycle mappings, and cross-tenant autho
 - Item 8 evidence passed on a clean PostgreSQL database: full unit suite (`380 passed`), full
   integration suite (`41 passed`), `mypy .`, Ruff, format, lint-imports, `check_agent_docs`, and
   `python -m alembic check`. The integration database reached head `f0a1b2c3d4e5`.
+- The autonomous gate passed Item 8 on 2026-09-30 with Ruff, mypy, lint-imports, pytest, and
+  `check_agent_docs` all green. It selected Item 9, which remains unticked and may require a
+  deliberate design pass for trusted platform seed loading and mutation boundaries.
 
 ## Next
 
