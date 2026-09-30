@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-30T01:20:00-03:00
+updated_at: 2026-09-30T01:35:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 7 gate green; Item 8 selected"
-status: ready_for_item_8_design
+phase: "SPEC-007 Item 8 API contract approved; implementation ready"
+status: ready_for_item_8
 ---
 
 # Current state
@@ -46,6 +46,11 @@ identifiers, uses the configured fake or explicit OpenAI provider, records appen
 events, bounds task retries to two attempts, and treats READY/terminal replays as duplicate-safe.
 The processing-event identity is scoped by corpus, version, delivery, attempt, and event type;
 the corrective migration is `f0a1b2c3d4e5`.
+
+The Item 8 public Admin API contract is approved and recorded in ADR-0014. It fixes the six
+`/v1/knowledge` routes, administrator bearer authentication, token-derived tenant isolation,
+metadata-only list responses, status mappings, and `Idempotency-Key` requirements for create and
+historical activation. The executor may implement this contract without further product design.
 
 ## Done
 
@@ -101,9 +106,9 @@ the corrective migration is `f0a1b2c3d4e5`.
 ## Next
 
 1. Run `python scripts/autonomous_gate.py` to verify Item 7 and advance to Item 8 if green.
-2. Review the Item 8 API/tenant-isolation scope before implementing it; return `architecture_required`
-   if the implementation reveals a new non-dominant design choice.
-3. Run a bounded Item 8 pilot before considering any long autonomous loop.
+2. Run a bounded Item 8 pilot against the approved ADR-0014 contract.
+3. If the pilot returns a real commit and gate evidence, launch the long loop for the remaining
+   queue; stop on any new `HUMAN_REQUIRED` rather than inferring product scope.
 
 ## Gotchas
 

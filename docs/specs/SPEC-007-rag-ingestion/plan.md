@@ -24,6 +24,15 @@ unchanged.
 - API: admin routes for create, confirm, inspect, list metadata, retire, and explicit activate;
   all routes require tenant-scoped authorization and `Idempotency-Key` where specified.
 
+The public API is versioned under `/v1/knowledge`. `POST /versions` creates a draft and requires
+`Idempotency-Key`; `GET /versions` lists metadata and `GET /versions/{version_id}` inspects one
+version; `POST /versions/{version_id}/confirm` dispatches processing; `POST
+/versions/{version_id}/retire` performs logical retirement; and `POST
+/revisions/{revision_id}/activate` explicitly activates a historical revision and requires
+`Idempotency-Key`. The API maps tenant-inaccessible resources to `404`, conflicts and invalid
+lifecycle transitions to `409`, and does not accept a client-supplied organization scope. See
+ADR-0014 for the complete response and error contract.
+
 ## Persistence and versioning
 
 Use an explicit `KnowledgeCorpus` owner with `platform` and `organization` scope. Keep one
