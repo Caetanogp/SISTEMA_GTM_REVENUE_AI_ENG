@@ -326,3 +326,9 @@ until the pilot produces a real Item 9 commit and a green gate.
 Item 9 declares scope ('apps/', 'packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0015-platform-seed-loading-and-attribution.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-30T20:10:11+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. É necessária aprovação humana do manifesto canônico completo — conteúdo, chaves, categorias, metadados, revisões e hashes. Criar esses valores durante a implementação inventaria conteúdo de produto fora da spec aprovada.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
