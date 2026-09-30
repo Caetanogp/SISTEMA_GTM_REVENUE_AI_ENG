@@ -250,6 +250,41 @@ class KnowledgeRevisionActivation(Base):
     created_at: Mapped[datetime]
 
 
+class KnowledgeProcessingEvent(Base):
+    """Append-only, sanitized facts about asynchronous knowledge processing."""
+
+    __tablename__ = "knowledge_processing_events"
+    __table_args__ = (
+        CheckConstraint("attempt >= 1", name="ck_knowledge_processing_events_attempt"),
+        CheckConstraint(
+            "event_type IN ('started', 'retry_scheduled', 'succeeded', 'failed', "
+            "'duplicate_ignored')",
+            name="ck_knowledge_processing_events_type",
+        ),
+        UniqueConstraint(
+            "corpus_id",
+            "version_id",
+            "delivery_id",
+            "attempt",
+            "event_type",
+            name="uq_knowledge_processing_events_identity",
+        ),
+        Index("ix_knowledge_processing_events_corpus", "corpus_id"),
+        Index("ix_knowledge_processing_events_version", "version_id"),
+        Index("ix_knowledge_processing_events_history", "corpus_id", "occurred_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"))
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_document_versions.id"))
+    delivery_id: Mapped[str] = mapped_column(String(128))
+    attempt: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(32))
+    retryable: Mapped[bool] = mapped_column(default=False)
+    failure_code: Mapped[str | None] = mapped_column(String(128), default=None)
+    occurred_at: Mapped[datetime]
+
+
 class KnowledgeCorpusHead(Base):
     """Current revision pointer; revision rows remain immutable history."""
 

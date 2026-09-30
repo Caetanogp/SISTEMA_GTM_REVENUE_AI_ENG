@@ -105,7 +105,7 @@ async def test_openai_provider_retries_transient_failure_but_never_falls_back() 
         provider = OpenAIEmbeddingProvider(
             client=client, api_key="test-key", dimension=2, max_retries=0
         )
-        with pytest.raises(EmbeddingProviderError, match="status 503"):
+        with pytest.raises(EmbeddingProviderError, match="embedding_unavailable"):
             await provider.embed(("alpha",))
 
 
@@ -116,7 +116,7 @@ async def test_openai_provider_rejects_malformed_dimensions_and_large_batches() 
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         provider = OpenAIEmbeddingProvider(client=client, api_key="test-key", dimension=2)
-        with pytest.raises(EmbeddingProviderError, match="dimension"):
+        with pytest.raises(EmbeddingProviderError, match="embedding_invalid_response"):
             await provider.embed(("alpha",))
         with pytest.raises(ValueError, match="64"):
             await provider.embed(tuple(str(index) for index in range(65)))

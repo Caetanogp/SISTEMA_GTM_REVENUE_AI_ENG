@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -7,9 +8,12 @@ from celery.exceptions import Reject
 from revops.application.dto import ProcessIngestionResult
 from revops.domain.entities.deduplication import DeduplicationScanStatus
 from revops.domain.entities.ingestion import IngestionJobStatus
+from revops.domain.entities.knowledge import KnowledgeVersionStatus
 from revops.infrastructure.queue import (
     DEDUPLICATION_SCAN_TASK_NAME,
     INGESTION_TASK_NAME,
+    KNOWLEDGE_PROCESSING_TASK_NAME,
+    KnowledgeWorkerResult,
     ProcessDeduplicationScanResult,
 )
 
@@ -28,6 +32,13 @@ def test_worker_registers_bounded_replay_safe_deduplication_task() -> None:
     assert main.process_deduplication_scan.reject_on_worker_lost is True
 
 
+def test_worker_registers_bounded_knowledge_task() -> None:
+    assert main.process_knowledge.name == KNOWLEDGE_PROCESSING_TASK_NAME
+    assert main.process_knowledge.max_retries == 2
+    assert main.process_knowledge.acks_late is True
+    assert main.process_knowledge.reject_on_worker_lost is True
+
+
 def test_worker_rejects_malformed_identifiers_without_requeueing() -> None:
     with pytest.raises(Reject) as caught:
         main.process_ingestion.run(organization_id="not-a-uuid", job_id=str(uuid4()))
@@ -41,6 +52,13 @@ def test_deduplication_worker_rejects_malformed_identifiers_without_requeueing()
             organization_id=str(uuid4()),
             scan_id="not-a-uuid",
         )
+
+    assert caught.value.requeue is False
+
+
+def test_knowledge_worker_rejects_malformed_identifiers_without_requeueing() -> None:
+    with pytest.raises(Reject) as caught:
+        main.process_knowledge.run(corpus_id="not-a-uuid", version_id=str(uuid4()))
 
     assert caught.value.requeue is False
 
@@ -98,5 +116,37 @@ def test_worker_delegates_deduplication_identifiers_to_the_processor(
         "status": "completed",
         "record_count": 4,
         "candidate_count": 2,
+        "failure_code": None,
+    }
+
+
+def test_worker_delegates_knowledge_identifiers_to_the_processor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus_id, version_id = uuid4(), uuid4()
+    calls: list[tuple[UUID, UUID, int, bool]] = []
+
+    def fake_run_knowledge(**kwargs: object) -> KnowledgeWorkerResult:
+        calls.append(
+            (
+                cast(UUID, kwargs["corpus_id"]),
+                cast(UUID, kwargs["version_id"]),
+                cast(int, kwargs["attempt"]),
+                cast(bool, kwargs["terminal_attempt"]),
+            )
+        )
+        return KnowledgeWorkerResult(version_id, KnowledgeVersionStatus.READY)
+
+    monkeypatch.setattr(main, "_run_async_knowledge", fake_run_knowledge)
+
+    result = main.process_knowledge.run(
+        corpus_id=str(corpus_id),
+        version_id=str(version_id),
+    )
+
+    assert calls == [(corpus_id, version_id, 1, False)]
+    assert result == {
+        "version_id": str(version_id),
+        "status": "ready",
         "failure_code": None,
     }

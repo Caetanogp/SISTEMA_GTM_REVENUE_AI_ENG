@@ -16,6 +16,7 @@ from revops.application.dto import (
     KnowledgeAdminContext,
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
+    KnowledgeProcessingEvent,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import KnowledgeUnitOfWork
@@ -23,7 +24,9 @@ from revops.application.use_cases.knowledge import (
     ActivateKnowledgeRevision,
     ConfirmKnowledgeDocument,
     KnowledgeLifecycleError,
+    KnowledgeProcessingError,
     ProcessKnowledgeDocument,
+    RecordKnowledgeProcessingFailure,
     RetireKnowledgeVersion,
     SubmitKnowledgeDocument,
 )
@@ -54,6 +57,11 @@ class _Documents:
     ) -> KnowledgeDocumentVersion | None:
         version = self.versions.get(version_id)
         return version if version is not None and version.corpus_id == corpus_id else None
+
+    async def get_version_for_update(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None:
+        return await self.get_version(corpus_id, version_id)
 
     async def get_by_idempotency_key(
         self, corpus_id: UUID, idempotency_key: str
@@ -93,6 +101,19 @@ class _Documents:
         self.versions[version_id] = updated
         return updated
 
+    async def mark_ready(self, *, corpus_id, version_id, embedding_model, embedding_dimension):
+        version = await self.get_version(corpus_id, version_id)
+        assert version is not None
+        updated = replace(
+            version,
+            status=KnowledgeVersionStatus.READY,
+            embedding_model=embedding_model,
+            embedding_dimension=embedding_dimension,
+            failure_code=None,
+        )
+        self.versions[version_id] = updated
+        return updated
+
     async def list_versions(self, corpus_id, *, offset, limit):
         return tuple(
             version for version in self.versions.values() if version.corpus_id == corpus_id
@@ -127,6 +148,14 @@ class _Revisions:
         return ()
 
 
+class _ProcessingEvents:
+    def __init__(self) -> None:
+        self.events: list[KnowledgeProcessingEvent] = []
+
+    async def append(self, event: KnowledgeProcessingEvent) -> None:
+        self.events.append(event)
+
+
 class _Dispatcher:
     def __init__(self) -> None:
         self.calls: list[tuple[UUID, UUID]] = []
@@ -152,6 +181,7 @@ class _Uow:
         self.documents = documents
         self.corpora = _Corpora()
         self.revisions = revisions
+        self.processing_events = _ProcessingEvents()
 
     async def __aenter__(self) -> _Uow:
         return self
@@ -175,9 +205,12 @@ class _Factory:
     def __init__(self) -> None:
         self.documents = _Documents()
         self.revisions = _Revisions()
+        self.processing_events = _ProcessingEvents()
 
     def __call__(self) -> KnowledgeUnitOfWork:
-        return cast(KnowledgeUnitOfWork, _Uow(self.documents, self.revisions))
+        uow = _Uow(self.documents, self.revisions)
+        uow.processing_events = self.processing_events
+        return cast(KnowledgeUnitOfWork, uow)
 
 
 def _context() -> KnowledgeAdminContext:
@@ -212,7 +245,7 @@ async def test_confirmation_commits_then_dispatches_and_replays() -> None:
 
     assert confirmed.status is KnowledgeVersionStatus.CONFIRMED
     assert replay.status is KnowledgeVersionStatus.CONFIRMED
-    assert dispatcher.calls == [(CORPUS_ID, version.id)]
+    assert dispatcher.calls == [(CORPUS_ID, version.id), (CORPUS_ID, version.id)]
 
 
 @pytest.mark.asyncio
@@ -225,10 +258,12 @@ async def test_processing_embeds_in_batches_and_publishes_only_after_ready() -> 
     embeddings = _Embeddings()
 
     result = await ProcessKnowledgeDocument(factory, embeddings, _Clock()).execute(
-        context=_context(), version_id=version.id
+        corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
     )
 
     assert result.status is KnowledgeVersionStatus.READY
+    assert result.embedding_model == "fake"
+    assert result.embedding_dimension == 2
     assert embeddings.calls == [("# Product\n\nApproved content",)]
     assert len(factory.revisions.published) == 1
 
@@ -241,13 +276,23 @@ async def test_processing_failure_marks_version_failed_and_does_not_publish() ->
         context=_context(), version_id=version.id
     )
 
-    with pytest.raises(RuntimeError, match="provider unavailable"):
+    with pytest.raises(KnowledgeProcessingError, match="embedding_provider_error"):
         await ProcessKnowledgeDocument(factory, _Embeddings(fail=True), _Clock()).execute(
-            context=_context(), version_id=version.id
+            corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
         )
 
-    assert factory.documents.versions[version.id].status is KnowledgeVersionStatus.FAILED
+    assert factory.documents.versions[version.id].status is KnowledgeVersionStatus.PROCESSING
     assert factory.revisions.published == []
+    failed = await RecordKnowledgeProcessingFailure(factory, _Clock()).execute(
+        corpus_id=CORPUS_ID,
+        version_id=version.id,
+        delivery_id="delivery-1",
+        attempt=1,
+        failure_code="embedding_provider_error",
+        retryable=False,
+        terminal=True,
+    )
+    assert failed.status is KnowledgeVersionStatus.FAILED
 
 
 @pytest.mark.asyncio
@@ -258,7 +303,7 @@ async def test_retirement_and_historical_activation_are_admin_operations() -> No
         context=_context(), version_id=version.id
     )
     await ProcessKnowledgeDocument(factory, _Embeddings(), _Clock()).execute(
-        context=_context(), version_id=version.id
+        corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
     )
 
     retired = await RetireKnowledgeVersion(factory).execute(

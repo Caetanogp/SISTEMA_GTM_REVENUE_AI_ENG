@@ -24,6 +24,7 @@ from revops.application.ports import (
     KnowledgeCorpusRepository,
     KnowledgeDocumentRepository,
     KnowledgeJobDispatcher,
+    KnowledgeProcessingEventRepository,
     KnowledgeUnitOfWork,
 )
 from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersionStatus
@@ -74,6 +75,11 @@ class _FakeDocuments:
     ) -> KnowledgeDocumentVersion:
         raise NotImplementedError
 
+    async def get_version_for_update(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None:
+        raise NotImplementedError
+
     async def transition_status(
         self,
         *,
@@ -81,6 +87,16 @@ class _FakeDocuments:
         version_id: UUID,
         status: KnowledgeVersionStatus,
         failure_code: str | None = None,
+    ) -> KnowledgeDocumentVersion:
+        raise NotImplementedError
+
+    async def mark_ready(
+        self,
+        *,
+        corpus_id: UUID,
+        version_id: UUID,
+        embedding_model: str,
+        embedding_dimension: int,
     ) -> KnowledgeDocumentVersion:
         raise NotImplementedError
 
@@ -131,6 +147,10 @@ class _FakeDispatcher:
     async def publish(self, *, corpus_id: UUID, version_id: UUID) -> None: ...
 
 
+class _FakeProcessingEvents:
+    async def append(self, event: object) -> None: ...
+
+
 class _FakeCorpora:
     async def get_platform(self) -> KnowledgeCorpus:
         raise NotImplementedError
@@ -143,11 +163,13 @@ class _FakeKnowledgeUnitOfWork:
     documents: KnowledgeDocumentRepository
     corpora: KnowledgeCorpusRepository
     revisions: CorpusRevisionRepository
+    processing_events: KnowledgeProcessingEventRepository
 
     def __init__(self) -> None:
         self.documents = _FakeDocuments()
         self.corpora = _FakeCorpora()
         self.revisions = _FakeRevisions()
+        self.processing_events = _FakeProcessingEvents()
 
     async def __aenter__(self) -> _FakeKnowledgeUnitOfWork:
         return self

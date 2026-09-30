@@ -470,6 +470,29 @@ class KnowledgeActivationAction(StrEnum):
     HISTORICAL_ACTIVATION = "historical_activation"
 
 
+class KnowledgeProcessingEventType(StrEnum):
+    STARTED = "started"
+    RETRY_SCHEDULED = "retry_scheduled"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    DUPLICATE_IGNORED = "duplicate_ignored"
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeProcessingEvent:
+    """Sanitized append-only fact about one asynchronous processing delivery."""
+
+    id: UUID
+    corpus_id: UUID
+    version_id: UUID
+    delivery_id: str
+    attempt: int
+    event_type: KnowledgeProcessingEventType
+    retryable: bool
+    failure_code: str | None
+    occurred_at: datetime
+
+
 @dataclass(frozen=True, slots=True)
 class KnowledgeRevisionActivation:
     """Safe provenance for one append-only corpus activation event."""

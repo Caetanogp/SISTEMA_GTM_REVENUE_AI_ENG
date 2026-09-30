@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from uuid import UUID
+from datetime import datetime
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from revops.application.dto import (
     CorpusRevision,
     KnowledgeAdminContext,
     KnowledgeChunkEmbedding,
     KnowledgeDocumentVersion,
+    KnowledgeProcessingEvent,
+    KnowledgeProcessingEventType,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import (
     Clock,
     EmbeddingProvider,
+    EmbeddingProviderError,
     KnowledgeJobDispatcher,
     KnowledgeUnitOfWork,
     KnowledgeUnitOfWorkFactory,
@@ -31,6 +35,50 @@ EMBEDDING_BATCH_SIZE = 64
 
 class KnowledgeLifecycleError(RuntimeError):
     """Safe application-level error for a rejected lifecycle operation."""
+
+
+class KnowledgeProcessingError(KnowledgeLifecycleError):
+    """Safe processing failure carrying only a bounded code and retry classification."""
+
+    def __init__(self, failure_code: str, *, retryable: bool) -> None:
+        self.failure_code = failure_code[:128]
+        self.retryable = retryable
+        super().__init__(self.failure_code)
+
+
+def _processing_event_id(
+    corpus_id: UUID,
+    version_id: UUID,
+    delivery_id: str,
+    attempt: int,
+    event_type: KnowledgeProcessingEventType,
+) -> UUID:
+    identity = f"{corpus_id}:{version_id}:{delivery_id}:{attempt}:{event_type.value}"
+    return uuid5(NAMESPACE_URL, f"revops:knowledge-processing:{identity}")
+
+
+def _event(
+    *,
+    corpus_id: UUID,
+    version_id: UUID,
+    delivery_id: str,
+    attempt: int,
+    event_type: KnowledgeProcessingEventType,
+    occurred_at: datetime,
+    failure_code: str | None = None,
+    retryable: bool = False,
+) -> KnowledgeProcessingEvent:
+    return KnowledgeProcessingEvent(
+        id=_processing_event_id(corpus_id, version_id, delivery_id, attempt, event_type),
+        corpus_id=corpus_id,
+        version_id=version_id,
+        delivery_id=delivery_id[:128],
+        attempt=attempt,
+        event_type=event_type,
+        retryable=retryable,
+        failure_code=failure_code[:128] if failure_code else None,
+        occurred_at=occurred_at,
+    )
 
 
 async def _organization_corpus(uow: KnowledgeUnitOfWork, context: KnowledgeAdminContext) -> UUID:
@@ -105,18 +153,28 @@ class ConfirmKnowledgeDocument:
     async def execute(
         self, *, context: KnowledgeAdminContext, version_id: UUID
     ) -> KnowledgeDocumentVersion:
+        dispatch = False
         async with self.uow_factory() as uow:
             corpus_id, version = await _version_for_context(uow, context, version_id)
-            if version.status is not KnowledgeVersionStatus.DRAFT:
+            if version.status is KnowledgeVersionStatus.DRAFT:
+                _transition(version, KnowledgeVersionStatus.CONFIRMED)
+                confirmed = await uow.documents.transition_status(
+                    corpus_id=corpus_id,
+                    version_id=version.id,
+                    status=KnowledgeVersionStatus.CONFIRMED,
+                )
+                await uow.commit()
+                dispatch = True
+            elif version.status in {
+                KnowledgeVersionStatus.CONFIRMED,
+                KnowledgeVersionStatus.PROCESSING,
+            }:
+                confirmed = version
+                dispatch = True
+            else:
                 return version
-            _transition(version, KnowledgeVersionStatus.CONFIRMED)
-            confirmed = await uow.documents.transition_status(
-                corpus_id=corpus_id,
-                version_id=version.id,
-                status=KnowledgeVersionStatus.CONFIRMED,
-            )
-            await uow.commit()
-        await self.dispatcher.publish(corpus_id=corpus_id, version_id=version_id)
+        if dispatch:
+            await self.dispatcher.publish(corpus_id=corpus_id, version_id=version_id)
         return confirmed
 
 
@@ -127,11 +185,30 @@ class ProcessKnowledgeDocument:
     clock: Clock
 
     async def execute(
-        self, *, context: KnowledgeAdminContext, version_id: UUID
+        self, *, corpus_id: UUID, version_id: UUID, delivery_id: str, attempt: int
     ) -> KnowledgeDocumentVersion:
+        if not delivery_id.strip() or attempt < 1:
+            raise KnowledgeProcessingError("invalid_delivery_metadata", retryable=False)
         async with self.uow_factory() as uow:
-            corpus_id, version = await _version_for_context(uow, context, version_id)
-            if version.status is KnowledgeVersionStatus.READY:
+            version = await uow.documents.get_version_for_update(corpus_id, version_id)
+            if version is None:
+                raise KnowledgeProcessingError("knowledge_version_not_found", retryable=False)
+            if version.status in {
+                KnowledgeVersionStatus.READY,
+                KnowledgeVersionStatus.FAILED,
+                KnowledgeVersionStatus.RETIRED,
+            }:
+                await uow.processing_events.append(
+                    _event(
+                        corpus_id=corpus_id,
+                        version_id=version_id,
+                        delivery_id=delivery_id,
+                        attempt=attempt,
+                        event_type=KnowledgeProcessingEventType.DUPLICATE_IGNORED,
+                        occurred_at=self.clock.now(),
+                    )
+                )
+                await uow.commit()
                 return version
             if version.status is KnowledgeVersionStatus.CONFIRMED:
                 _transition(version, KnowledgeVersionStatus.PROCESSING)
@@ -140,25 +217,57 @@ class ProcessKnowledgeDocument:
                     version_id=version.id,
                     status=KnowledgeVersionStatus.PROCESSING,
                 )
-                await uow.commit()
             elif version.status is not KnowledgeVersionStatus.PROCESSING:
-                raise KnowledgeLifecycleError("knowledge version is not processable")
-            else:
-                await uow.commit()
+                raise KnowledgeProcessingError("knowledge_version_not_processable", retryable=False)
+            await uow.processing_events.append(
+                _event(
+                    corpus_id=corpus_id,
+                    version_id=version_id,
+                    delivery_id=delivery_id,
+                    attempt=attempt,
+                    event_type=KnowledgeProcessingEventType.STARTED,
+                    occurred_at=self.clock.now(),
+                )
+            )
+            await uow.commit()
 
         try:
             chunks = chunk_content(version.document.content)
             vectors: list[tuple[float, ...]] = []
+            embedding_model: str | None = None
+            embedding_dimension: int | None = None
             for start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
                 batch = chunks[start : start + EMBEDDING_BATCH_SIZE]
-                embedded = await self.embeddings.embed(tuple(chunk.text for chunk in batch))
+                try:
+                    embedded = await self.embeddings.embed(tuple(chunk.text for chunk in batch))
+                except EmbeddingProviderError:
+                    raise
+                except Exception as exc:
+                    raise KnowledgeProcessingError(
+                        "embedding_provider_error", retryable=False
+                    ) from exc
+                if embedding_model is None:
+                    embedding_model = embedded.model
+                    embedding_dimension = embedded.dimension
+                if (
+                    embedded.model != embedding_model
+                    or embedded.dimension != embedding_dimension
+                    or embedded.dimension <= 0
+                ):
+                    raise KnowledgeProcessingError(
+                        "embedding_metadata_inconsistent", retryable=False
+                    )
                 if embedded.vectors and embedded.dimension != len(embedded.vectors[0]):
-                    raise KnowledgeLifecycleError("embedding dimension metadata is inconsistent")
+                    raise KnowledgeProcessingError(
+                        "embedding_dimension_inconsistent", retryable=False
+                    )
                 if len(embedded.vectors) != len(batch):
-                    raise KnowledgeLifecycleError("embedding provider returned an invalid batch")
+                    raise KnowledgeProcessingError("embedding_batch_invalid", retryable=False)
                 vectors.extend(embedded.vectors)
             if len(vectors) != len(chunks):
-                raise KnowledgeLifecycleError("embedding provider returned incomplete vectors")
+                raise KnowledgeProcessingError("embedding_batch_incomplete", retryable=False)
+            if embedding_model is None or embedding_dimension is None:
+                raise KnowledgeProcessingError("embedding_batch_empty", retryable=False)
             prepared = tuple(
                 KnowledgeChunkEmbedding(
                     ordinal=chunk.ordinal,
@@ -168,55 +277,126 @@ class ProcessKnowledgeDocument:
                 )
                 for chunk, vector in zip(chunks, vectors, strict=True)
             )
-        except Exception as exc:
-            await self._mark_failed(context, version_id, type(exc).__name__)
-            raise
+        except EmbeddingProviderError as exc:
+            raise KnowledgeProcessingError(exc.failure_code, retryable=exc.retryable) from exc
 
         async with self.uow_factory() as uow:
-            corpus_id, current = await _version_for_context(uow, context, version_id)
-            if current.status is not KnowledgeVersionStatus.PROCESSING:
-                raise KnowledgeLifecycleError("knowledge version changed during processing")
-            _transition(current, KnowledgeVersionStatus.READY)
-            await uow.documents.transition_status(
-                corpus_id=corpus_id,
-                version_id=version_id,
-                status=KnowledgeVersionStatus.READY,
-            )
-            try:
-                await uow.revisions.publish(
-                    corpus_id=corpus_id,
-                    version_id=version_id,
-                    chunks=prepared,
-                    activated_by=context.actor_id,
-                    created_at=self.clock.now(),
+            current = await uow.documents.get_version_for_update(corpus_id, version_id)
+            if current is None:
+                raise KnowledgeProcessingError("knowledge_version_not_found", retryable=False)
+            if current.status is KnowledgeVersionStatus.READY:
+                await uow.processing_events.append(
+                    _event(
+                        corpus_id=corpus_id,
+                        version_id=version_id,
+                        delivery_id=delivery_id,
+                        attempt=attempt,
+                        event_type=KnowledgeProcessingEventType.DUPLICATE_IGNORED,
+                        occurred_at=self.clock.now(),
+                    )
                 )
                 await uow.commit()
-            except Exception as exc:
-                await uow.rollback()
-                await self._mark_failed(context, version_id, type(exc).__name__)
-                raise
-        return await self._get_version(context, version_id)
+                return current
+            if current.status is not KnowledgeVersionStatus.PROCESSING:
+                raise KnowledgeProcessingError("processing_state_changed", retryable=False)
+            ready = await uow.documents.mark_ready(
+                corpus_id=corpus_id,
+                version_id=version_id,
+                embedding_model=embedding_model,
+                embedding_dimension=embedding_dimension,
+            )
+            await uow.revisions.publish(
+                corpus_id=corpus_id,
+                version_id=version_id,
+                chunks=prepared,
+                activated_by=current.requested_by,
+                created_at=self.clock.now(),
+            )
+            await uow.processing_events.append(
+                _event(
+                    corpus_id=corpus_id,
+                    version_id=version_id,
+                    delivery_id=delivery_id,
+                    attempt=attempt,
+                    event_type=KnowledgeProcessingEventType.SUCCEEDED,
+                    occurred_at=self.clock.now(),
+                )
+            )
+            await uow.commit()
+            return ready
 
-    async def _get_version(
-        self, context: KnowledgeAdminContext, version_id: UUID
+
+@dataclass(frozen=True, slots=True)
+class RecordKnowledgeProcessingFailure:
+    uow_factory: KnowledgeUnitOfWorkFactory
+    clock: Clock
+
+    async def execute(
+        self,
+        *,
+        corpus_id: UUID,
+        version_id: UUID,
+        delivery_id: str,
+        attempt: int,
+        failure_code: str,
+        retryable: bool,
+        terminal: bool,
     ) -> KnowledgeDocumentVersion:
         async with self.uow_factory() as uow:
-            _, version = await _version_for_context(uow, context, version_id)
-            return version
-
-    async def _mark_failed(
-        self, context: KnowledgeAdminContext, version_id: UUID, failure_code: str
-    ) -> None:
-        async with self.uow_factory() as uow:
-            corpus_id, version = await _version_for_context(uow, context, version_id)
-            if version.status is KnowledgeVersionStatus.PROCESSING:
+            version = await uow.documents.get_version_for_update(corpus_id, version_id)
+            if version is None:
+                raise KnowledgeProcessingError("knowledge_version_not_found", retryable=False)
+            if version.status in {
+                KnowledgeVersionStatus.READY,
+                KnowledgeVersionStatus.FAILED,
+                KnowledgeVersionStatus.RETIRED,
+            }:
+                await uow.processing_events.append(
+                    _event(
+                        corpus_id=corpus_id,
+                        version_id=version_id,
+                        delivery_id=delivery_id,
+                        attempt=attempt,
+                        event_type=KnowledgeProcessingEventType.DUPLICATE_IGNORED,
+                        occurred_at=self.clock.now(),
+                        failure_code=failure_code,
+                        retryable=retryable,
+                    )
+                )
+                await uow.commit()
+                return version
+            if terminal and version.status is KnowledgeVersionStatus.CONFIRMED:
+                _transition(version, KnowledgeVersionStatus.PROCESSING)
                 await uow.documents.transition_status(
                     corpus_id=corpus_id,
                     version_id=version_id,
-                    status=KnowledgeVersionStatus.FAILED,
-                    failure_code=failure_code[:128],
+                    status=KnowledgeVersionStatus.PROCESSING,
                 )
-                await uow.commit()
+            event_type = KnowledgeProcessingEventType.RETRY_SCHEDULED
+            if terminal:
+                if version.status is KnowledgeVersionStatus.PROCESSING:
+                    _transition(version, KnowledgeVersionStatus.FAILED)
+                    version = await uow.documents.transition_status(
+                        corpus_id=corpus_id,
+                        version_id=version_id,
+                        status=KnowledgeVersionStatus.FAILED,
+                        failure_code=failure_code,
+                    )
+                event_type = KnowledgeProcessingEventType.FAILED
+            await uow.processing_events.append(
+                _event(
+                    corpus_id=corpus_id,
+                    version_id=version_id,
+                    delivery_id=delivery_id,
+                    attempt=attempt,
+                    event_type=event_type,
+                    occurred_at=self.clock.now(),
+                    failure_code=failure_code,
+                    retryable=retryable,
+                )
+            )
+            await uow.commit()
+            return version
 
 
 @dataclass(frozen=True, slots=True)

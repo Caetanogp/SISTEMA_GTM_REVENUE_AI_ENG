@@ -86,6 +86,17 @@ def test_knowledge_versions_are_idempotent_and_revisions_are_append_only() -> No
     assert all(column.onupdate is None for column in activations.columns)
 
 
+def test_knowledge_processing_events_are_append_only_and_idempotent() -> None:
+    events = Base.metadata.tables["knowledge_processing_events"]
+    assert all(column.onupdate is None for column in events.columns)
+    assert "uq_knowledge_processing_events_identity" in {
+        constraint.name
+        for constraint in events.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert "ix_knowledge_processing_events_history" in {index.name for index in events.indexes}
+
+
 def test_agent_actions_run_id_is_not_nullable() -> None:
     run_id_column = Base.metadata.tables["agent_actions"].columns["run_id"]
     assert run_id_column.nullable is False

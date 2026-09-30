@@ -28,6 +28,7 @@ from revops.application.dto import (
     KnowledgeChunkEmbedding,
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
+    KnowledgeProcessingEvent,
     KnowledgeRevisionActivation,
     LLMFailureKind,
     LLMGatewayHealth,
@@ -544,6 +545,10 @@ class KnowledgeDocumentRepository(Protocol):
         self, corpus_id: UUID, version_id: UUID
     ) -> KnowledgeDocumentVersion | None: ...
 
+    async def get_version_for_update(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None: ...
+
     async def get_by_idempotency_key(
         self, corpus_id: UUID, idempotency_key: str
     ) -> KnowledgeDocumentVersion | None: ...
@@ -567,6 +572,15 @@ class KnowledgeDocumentRepository(Protocol):
         failure_code: str | None = None,
     ) -> KnowledgeDocumentVersion: ...
 
+    async def mark_ready(
+        self,
+        *,
+        corpus_id: UUID,
+        version_id: UUID,
+        embedding_model: str,
+        embedding_dimension: int,
+    ) -> KnowledgeDocumentVersion: ...
+
     async def list_versions(
         self, corpus_id: UUID, *, offset: int, limit: int
     ) -> Sequence[KnowledgeDocumentVersion]: ...
@@ -586,6 +600,15 @@ class EmbeddingProvider(Protocol):
     """Bounded vector generation; adapters never choose a fallback provider."""
 
     async def embed(self, texts: Sequence[str]) -> EmbeddingBatch: ...
+
+
+class EmbeddingProviderError(RuntimeError):
+    """Sanitized provider failure classified at the application boundary."""
+
+    def __init__(self, failure_code: str, *, retryable: bool) -> None:
+        self.failure_code = failure_code
+        self.retryable = retryable
+        super().__init__(failure_code)
 
 
 @runtime_checkable
@@ -620,6 +643,13 @@ class CorpusRevisionRepository(Protocol):
 
 
 @runtime_checkable
+class KnowledgeProcessingEventRepository(Protocol):
+    """Append-only, replay-idempotent journal for worker processing facts."""
+
+    async def append(self, event: KnowledgeProcessingEvent) -> None: ...
+
+
+@runtime_checkable
 class KnowledgeJobDispatcher(Protocol):
     """At-least-once dispatch boundary invoked only after confirmation commits."""
 
@@ -633,6 +663,7 @@ class KnowledgeUnitOfWork(Protocol):
     documents: KnowledgeDocumentRepository
     corpora: KnowledgeCorpusRepository
     revisions: CorpusRevisionRepository
+    processing_events: KnowledgeProcessingEventRepository
 
     async def __aenter__(self) -> KnowledgeUnitOfWork: ...
 

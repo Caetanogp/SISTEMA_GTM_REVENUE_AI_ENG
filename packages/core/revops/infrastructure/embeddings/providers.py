@@ -12,20 +12,13 @@ from typing import Any
 import httpx
 
 from revops.application.dto import EmbeddingBatch
+from revops.application.ports import EmbeddingProviderError
 
 MAX_BATCH_SIZE = 64
 DEFAULT_DIMENSION = 1536
 DEFAULT_MODEL = "text-embedding-3-small"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 MAX_RETRIES = 2
-
-
-class EmbeddingProviderError(RuntimeError):
-    """Sanitized provider failure; raw response bodies never cross this boundary."""
-
-    def __init__(self, message: str, *, retryable: bool) -> None:
-        super().__init__(message)
-        self.retryable = retryable
 
 
 def _validate_batch(texts: Sequence[str]) -> None:
@@ -116,22 +109,18 @@ class OpenAIEmbeddingProvider:
                 )
             except httpx.RequestError as exc:
                 if attempt >= self._max_retries:
-                    raise EmbeddingProviderError(
-                        "OpenAI embedding request failed", retryable=True
-                    ) from exc
+                    raise EmbeddingProviderError("embedding_unavailable", retryable=True) from exc
                 await asyncio.sleep(0.1 * (2**attempt))
                 continue
             if not response.is_error:
                 payload = response.json()
                 if not isinstance(payload, dict):
-                    raise EmbeddingProviderError(
-                        "OpenAI returned an invalid embedding payload", retryable=False
-                    )
+                    raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
                 return payload
             failure = self._classify(response)
             if not failure.retryable or attempt >= self._max_retries:
                 raise EmbeddingProviderError(
-                    f"OpenAI embedding request failed with status {failure.status_code}",
+                    "embedding_unavailable" if failure.retryable else "embedding_rejected",
                     retryable=failure.retryable,
                 )
             await asyncio.sleep(0.1 * (2**attempt))
@@ -142,36 +131,24 @@ class OpenAIEmbeddingProvider:
         payload = await self._request(texts)
         raw_data = payload.get("data")
         if not isinstance(raw_data, list) or len(raw_data) != len(texts):
-            raise EmbeddingProviderError(
-                "OpenAI returned an invalid embedding count", retryable=False
-            )
+            raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
         ordered: list[tuple[float, ...] | None] = [None] * len(texts)
         for item in raw_data:
             if not isinstance(item, dict) or not isinstance(item.get("index"), int):
-                raise EmbeddingProviderError(
-                    "OpenAI returned an invalid embedding item", retryable=False
-                )
+                raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
             index = item["index"]
             vector = item.get("embedding")
             if index < 0 or index >= len(texts) or not isinstance(vector, list):
-                raise EmbeddingProviderError(
-                    "OpenAI returned an invalid embedding item", retryable=False
-                )
+                raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
             if len(vector) != self.dimension or not all(
                 isinstance(value, int | float) for value in vector
             ):
-                raise EmbeddingProviderError(
-                    "OpenAI returned an invalid embedding dimension", retryable=False
-                )
+                raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
             if ordered[index] is not None:
-                raise EmbeddingProviderError(
-                    "OpenAI returned duplicate embedding indexes", retryable=False
-                )
+                raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
             ordered[index] = tuple(float(value) for value in vector)
         if any(vector is None for vector in ordered):
-            raise EmbeddingProviderError(
-                "OpenAI returned incomplete embedding indexes", retryable=False
-            )
+            raise EmbeddingProviderError("embedding_invalid_response", retryable=False)
         return EmbeddingBatch(
             model=self.model,
             dimension=self.dimension,

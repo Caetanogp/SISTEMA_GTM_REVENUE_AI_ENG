@@ -19,6 +19,7 @@ from revops.application.dto import (
     KnowledgeChunkEmbedding,
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
+    KnowledgeProcessingEvent,
     KnowledgeRevisionActivation,
 )
 from revops.domain.entities.knowledge import (
@@ -43,6 +44,9 @@ from revops.infrastructure.persistence.models import (
 )
 from revops.infrastructure.persistence.models import (
     KnowledgeDocumentVersion as KnowledgeDocumentVersionModel,
+)
+from revops.infrastructure.persistence.models import (
+    KnowledgeProcessingEvent as KnowledgeProcessingEventModel,
 )
 from revops.infrastructure.persistence.models import (
     KnowledgeRevision as KnowledgeRevisionModel,
@@ -103,18 +107,21 @@ class SqlAlchemyKnowledgeDocumentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def _row(self, corpus_id: UUID, version_id: UUID) -> KnowledgeDocumentVersionModel | None:
-        return (
-            await self._session.execute(
-                select(KnowledgeDocumentVersionModel)
-                .join(KnowledgeDocumentModel)
-                .where(
-                    KnowledgeDocumentVersionModel.corpus_id == corpus_id,
-                    KnowledgeDocumentVersionModel.id == version_id,
-                    KnowledgeDocumentModel.corpus_id == corpus_id,
-                )
+    async def _row(
+        self, corpus_id: UUID, version_id: UUID, *, for_update: bool = False
+    ) -> KnowledgeDocumentVersionModel | None:
+        query = (
+            select(KnowledgeDocumentVersionModel)
+            .join(KnowledgeDocumentModel)
+            .where(
+                KnowledgeDocumentVersionModel.corpus_id == corpus_id,
+                KnowledgeDocumentVersionModel.id == version_id,
+                KnowledgeDocumentModel.corpus_id == corpus_id,
             )
-        ).scalar_one_or_none()
+        )
+        if for_update:
+            query = query.with_for_update()
+        return (await self._session.execute(query)).scalar_one_or_none()
 
     async def _to_version(self, row: KnowledgeDocumentVersionModel) -> KnowledgeDocumentVersion:
         key = await self._session.scalar(
@@ -131,6 +138,12 @@ class SqlAlchemyKnowledgeDocumentRepository:
         self, corpus_id: UUID, version_id: UUID
     ) -> KnowledgeDocumentVersion | None:
         row = await self._row(corpus_id, version_id)
+        return None if row is None else await self._to_version(row)
+
+    async def get_version_for_update(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None:
+        row = await self._row(corpus_id, version_id, for_update=True)
         return None if row is None else await self._to_version(row)
 
     async def get_by_idempotency_key(
@@ -214,6 +227,24 @@ class SqlAlchemyKnowledgeDocumentRepository:
         await self._session.flush()
         return await self._to_version(row)
 
+    async def mark_ready(
+        self,
+        *,
+        corpus_id: UUID,
+        version_id: UUID,
+        embedding_model: str,
+        embedding_dimension: int,
+    ) -> KnowledgeDocumentVersion:
+        row = await self._row(corpus_id, version_id, for_update=True)
+        if row is None:
+            raise LookupError("knowledge version not found in corpus")
+        row.status = KnowledgeVersionStatus.READY.value
+        row.embedding_model = embedding_model
+        row.embedding_dimension = embedding_dimension
+        row.failure_code = None
+        await self._session.flush()
+        return await self._to_version(row)
+
     async def list_versions(
         self, corpus_id: UUID, *, offset: int, limit: int
     ) -> Sequence[KnowledgeDocumentVersion]:
@@ -263,6 +294,27 @@ class SqlAlchemyKnowledgeCorpusRepository:
         if row is None:
             raise LookupError("organization knowledge corpus not found")
         return _corpus(row)
+
+
+class SqlAlchemyKnowledgeProcessingEventRepository:
+    """Persist sanitized processing facts without update or delete operations."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def append(self, event: KnowledgeProcessingEvent) -> None:
+        statement = insert(KnowledgeProcessingEventModel).values(
+            id=event.id,
+            corpus_id=event.corpus_id,
+            version_id=event.version_id,
+            delivery_id=event.delivery_id,
+            attempt=event.attempt,
+            event_type=event.event_type.value,
+            retryable=event.retryable,
+            failure_code=event.failure_code,
+            occurred_at=event.occurred_at,
+        )
+        await self._session.execute(statement.on_conflict_do_nothing(index_elements=["id"]))
 
 
 class SqlAlchemyCorpusRevisionRepository:

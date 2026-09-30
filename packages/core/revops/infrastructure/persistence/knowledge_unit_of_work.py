@@ -10,12 +10,14 @@ from revops.application.ports import (
     CorpusRevisionRepository,
     KnowledgeCorpusRepository,
     KnowledgeDocumentRepository,
+    KnowledgeProcessingEventRepository,
     KnowledgeUnitOfWork,
 )
 from revops.infrastructure.persistence.knowledge_repositories import (
     SqlAlchemyCorpusRevisionRepository,
     SqlAlchemyKnowledgeCorpusRepository,
     SqlAlchemyKnowledgeDocumentRepository,
+    SqlAlchemyKnowledgeProcessingEventRepository,
 )
 
 
@@ -25,6 +27,7 @@ class SqlAlchemyKnowledgeUnitOfWork:
     documents: KnowledgeDocumentRepository
     corpora: KnowledgeCorpusRepository
     revisions: CorpusRevisionRepository
+    processing_events: KnowledgeProcessingEventRepository
 
     def __init__(self, session: AsyncSession, *, close_on_exit: bool = False) -> None:
         self._session = session
@@ -32,6 +35,7 @@ class SqlAlchemyKnowledgeUnitOfWork:
         self.documents = SqlAlchemyKnowledgeDocumentRepository(session)
         self.corpora = SqlAlchemyKnowledgeCorpusRepository(session)
         self.revisions = SqlAlchemyCorpusRevisionRepository(session)
+        self.processing_events = SqlAlchemyKnowledgeProcessingEventRepository(session)
 
     async def __aenter__(self) -> KnowledgeUnitOfWork:
         return self
