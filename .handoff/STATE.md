@@ -211,6 +211,7 @@ Item 3 declares scope ('packages/core/revops/infrastructure/', 'alembic/', 'test
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
 ## Autonomous loop HALT (2026-09-28T17:05:33+00:00)
 
 Item 4 declares scope ('packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['scripts/start_codex_loop.ps1']. Revert the out-of-scope changes or stop and ask.
@@ -298,5 +299,30 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-09-30T19:08:52+00:00)
 
 Item 8 declares scope ('apps/api/', 'packages/core/revops/application/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0014-knowledge-admin-api-contract.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-30T19:48:38+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture escalation may not authorize 'pyproject.toml'
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Item 9 architecture decision (2026-09-30)
+
+The Item 9 pilot reached `HUMAN_REQUIRED` because the bounded architecture plan listed
+`pyproject.toml`, which the autonomous architecture policy cannot authorize. The approved contract
+does not require a build-metadata change: platform seed data will be immutable Python constants in
+the existing setuptools-discovered package under
+`packages/core/revops/infrastructure/knowledge_seed/`. ADR-0015 records the trust boundary,
+deployment actor attribution, revision/idempotency rules, and rejection of runtime files, URLs,
+sentinel tenants, and `pyproject.toml` changes.
+
+Next: rerun the Item 9 pilot from the clean committed design baseline. Do not launch the long loop
+until the pilot produces a real Item 9 commit and a green gate.
+
+## Autonomous loop HALT (2026-09-30T19:53:36+00:00)
+
+Item 9 declares scope ('apps/', 'packages/core/revops/infrastructure/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0015-platform-seed-loading-and-attribution.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

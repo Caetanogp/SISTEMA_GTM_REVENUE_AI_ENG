@@ -112,3 +112,12 @@ before any merge into `develop`.
   encode ownership semantics inconsistently across documents, versions, revisions, and queries.
 - Reusing `agent_actions` for worker audit is rejected because knowledge processing is not an agent
   run. Status plus logs alone is rejected because it cannot provide append-only attempt history.
+
+## Platform seed decision
+
+The platform seed is a deployment-controlled, one-shot composition root. Its manifest and UTF-8
+content are immutable Python constants in
+`packages/core/revops/infrastructure/knowledge_seed/`, not runtime files or URLs. This keeps the
+trusted source inside the existing setuptools-discovered packages without changing `pyproject.toml`
+or adding a package-data rule. The source is validated with the existing standard-library,
+domain, and application contracts before any database or broker side effect. See ADR-0015.
