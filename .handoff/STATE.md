@@ -238,6 +238,17 @@ Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infra
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
 
+## Item 7 bounded pilot HALT (2026-09-30)
+
+The one-turn Item 7 pilot started from a clean checkout. The executor returned
+`architecture_required`: worker retry and audit behavior is not sufficiently resolved by the
+declared scope. The supervisor launched bounded architecture retries, but they did not return a
+structured result within the operational monitoring window, so the supervisor was stopped with
+Ctrl+C. No implementation diff, child checkout artifact, or repository artifact was left behind;
+the only existing Codex processes after stopping were unrelated long-lived processes from before
+this pilot. Do not launch the long loop until the Item 7 architecture decision and supervisor
+completion behavior are resolved.
+
 ## Autonomous loop HALT (2026-09-28T18:02:16+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. HALT: Item 5 declares scope ('packages/core/revops/infrastructure/', 'tests/unit/infrastructure/'), but changes touch files outside it: ['tests/integration/test_knowledge_repositories.py']. Revert the out-of-scope changes or stop and ask.
