@@ -34,9 +34,6 @@ content was approved, published, or retired.
   corpus revisions.
 - Offline deterministic fake embeddings and an opt-in live OpenAI adapter using
   `text-embedding-3-small` with 1536 dimensions.
-- Versioned JSON admin API under `/v1/knowledge` with tenant-scoped list/detail access,
-  explicit confirmation and retirement, and historical revision activation. The exact public
-  contract is recorded in ADR-0014.
 - Admin authorization, idempotency, limits, audit events, security tests, and offline contract
   evaluation.
 
@@ -74,16 +71,6 @@ content was approved, published, or retired.
     responses; unauthorized, cross-tenant, injection-shaped, and secret-bearing inputs are tested.
 12. The offline `rag_ingestion_contract` evaluation passes at 100%; live embedding smoke testing
     is optional, explicitly cost-confirmed, and excluded from CI.
-
-### Admin API contract
-
-The API exposes `POST /v1/knowledge/versions`, `GET /v1/knowledge/versions`,
-`GET /v1/knowledge/versions/{version_id}`, `POST /v1/knowledge/versions/{version_id}/confirm`,
-`POST /v1/knowledge/versions/{version_id}/retire`, and
-`POST /v1/knowledge/revisions/{revision_id}/activate`. All routes require an administrator
-Bearer token and derive tenant scope from its organization claim. Create and historical activation
-require the `Idempotency-Key` header. List responses contain metadata only. The status-code and
-replay contract is defined in ADR-0014.
 
 ## Tools and risk
 

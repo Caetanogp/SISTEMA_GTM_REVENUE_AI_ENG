@@ -284,3 +284,9 @@ The loop stopped itself. Do not restart it against the same queue item without a
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. human_required: implementar Item 8 exigiria inventar um contrato público HTTP para criação, confirmação, inspeção, listagem, retirada e ativação de versões de conhecimento. A especificação define as capacidades, mas não define URLs, payloads/respostas, códigos HTTP nem quais mutações além de submit/activate exigem Idempotency-Key. Pela regra solicitada, isso requer decisão humana antes de editar qualquer arquivo.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-09-30T19:08:52+00:00)
+
+Item 8 declares scope ('apps/api/', 'packages/core/revops/application/', 'tests/integration/'), but changes touch files outside it: ['docs/decisions/ADR-0014-knowledge-admin-api-contract.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', 'docs/specs/SPEC-007-rag-ingestion/spec.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
