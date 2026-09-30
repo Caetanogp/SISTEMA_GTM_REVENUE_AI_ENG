@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-09-30T01:35:00-03:00
+updated_at: 2026-09-30T02:05:00-03:00
 branch: feature/SPEC-007-rag-ingestion
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 8 API contract approved; implementation ready"
-status: ready_for_item_8
+phase: "SPEC-007 Item 8 implementation complete; gate verification pending"
+status: ready_for_gate
 ---
 
 # Current state
@@ -51,6 +51,10 @@ The Item 8 public Admin API contract is approved and recorded in ADR-0014. It fi
 `/v1/knowledge` routes, administrator bearer authentication, token-derived tenant isolation,
 metadata-only list responses, status mappings, and `Idempotency-Key` requirements for create and
 historical activation. The executor may implement this contract without further product design.
+
+Item 8 implementation is complete and committed as `93d22b8`. The API composition root wires
+tenant-scoped application use cases, metadata-only list responses, detail content responses,
+idempotency replay/conflict handling, lifecycle mappings, and cross-tenant authorization tests.
 
 ## Done
 
@@ -102,11 +106,14 @@ historical activation. The executor may implement this contract without further 
 - The autonomous gate passed Item 7 on 2026-09-30 with Ruff, mypy, lint-imports, pytest, and
   `check_agent_docs` all green. It selected Item 8, which remains unticked and requires API and
   tenant-isolation design review before implementation.
+- Item 8 evidence passed on a clean PostgreSQL database: full unit suite (`380 passed`), full
+  integration suite (`41 passed`), `mypy .`, Ruff, format, lint-imports, `check_agent_docs`, and
+  `python -m alembic check`. The integration database reached head `f0a1b2c3d4e5`.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` to verify Item 7 and advance to Item 8 if green.
-2. Run a bounded Item 8 pilot against the approved ADR-0014 contract.
+1. Run `python scripts/autonomous_gate.py` to verify Item 8 and advance to Item 9 if green.
+2. Run a bounded Item 9 pilot; platform seed mutation boundaries may require a new design decision.
 3. If the pilot returns a real commit and gate evidence, launch the long loop for the remaining
    queue; stop on any new `HUMAN_REQUIRED` rather than inferring product scope.
 
