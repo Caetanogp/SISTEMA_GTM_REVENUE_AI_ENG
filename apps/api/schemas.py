@@ -8,6 +8,7 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from revops.domain.entities.knowledge import KnowledgeCategory, KnowledgeFormat, KnowledgeLanguage
 
 
 class CreateTaskDraftRequest(BaseModel):
@@ -195,3 +196,41 @@ class DeduplicationHistoryResponse(BaseModel):
     reason_codes: tuple[str, ...]
     actor_id: UUID
     occurred_at: datetime
+
+
+class KnowledgeVersionCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_key: str = Field(min_length=1, max_length=200)
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    content: str = Field(min_length=1)
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+
+class KnowledgeVersionMetadataResponse(BaseModel):
+    id: UUID
+    document_id: UUID
+    document_key: str
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    status: str
+    created_at: datetime
+    embedding_model: str | None = None
+    embedding_dimension: int | None = None
+    failure_code: str | None = None
+
+
+class KnowledgeVersionResponse(KnowledgeVersionMetadataResponse):
+    content: str
+    metadata: dict[str, str | int | float | bool | None]
+
+
+class KnowledgeRevisionResponse(BaseModel):
+    id: UUID
+    version_id: UUID
+    manifest_hash: str
+    activated_by: UUID
+    created_at: datetime

@@ -127,14 +127,14 @@ async def test_worker_publishes_ready_version_and_ignores_replay(
         first = await processor.process(
             corpus_id=corpus_id,
             version_id=version_id,
-            delivery_id="delivery-worker-1",
+            delivery_id=f"delivery-worker-1-{version_id}",
             attempt=1,
             terminal_attempt=False,
         )
         replay = await processor.process(
             corpus_id=corpus_id,
             version_id=version_id,
-            delivery_id="delivery-worker-1",
+            delivery_id=f"delivery-worker-1-{version_id}",
             attempt=1,
             terminal_attempt=False,
         )
@@ -197,14 +197,14 @@ async def test_worker_records_retry_then_terminal_failure_without_head(
         retry = await processor.process(
             corpus_id=corpus_id,
             version_id=version_id,
-            delivery_id="delivery-worker-2",
+            delivery_id=f"delivery-worker-2-{version_id}",
             attempt=1,
             terminal_attempt=False,
         )
         terminal = await processor.process(
             corpus_id=corpus_id,
             version_id=version_id,
-            delivery_id="delivery-worker-2",
+            delivery_id=f"delivery-worker-2-{version_id}",
             attempt=2,
             terminal_attempt=True,
         )

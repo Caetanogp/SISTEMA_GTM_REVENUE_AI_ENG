@@ -38,12 +38,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["version_id"], ["knowledge_document_versions.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            "corpus_id",
-            "version_id",
             "delivery_id",
             "attempt",
             "event_type",
-            name="uq_knowledge_processing_events_identity",
+            name="uq_knowledge_processing_events_delivery",
         ),
     )
     op.create_index(

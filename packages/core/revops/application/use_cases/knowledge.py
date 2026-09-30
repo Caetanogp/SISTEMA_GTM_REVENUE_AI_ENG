@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -29,12 +29,21 @@ from revops.domain.entities.knowledge import (
     KnowledgeVersionStatus,
     chunk_content,
 )
+from revops.domain.errors import InvalidTransitionError
 
 EMBEDDING_BATCH_SIZE = 64
 
 
 class KnowledgeLifecycleError(RuntimeError):
     """Safe application-level error for a rejected lifecycle operation."""
+
+
+class KnowledgeNotFoundError(KnowledgeLifecycleError):
+    """A tenant-scoped resource was not found."""
+
+
+class KnowledgeConflictError(KnowledgeLifecycleError):
+    """A request conflicts with idempotency or lifecycle state."""
 
 
 class KnowledgeProcessingError(KnowledgeLifecycleError):
@@ -82,12 +91,15 @@ def _event(
 
 
 async def _organization_corpus(uow: KnowledgeUnitOfWork, context: KnowledgeAdminContext) -> UUID:
-    corpus = await uow.corpora.get_organization(context.organization_id)
+    try:
+        corpus = await uow.corpora.get_organization(context.organization_id)
+    except LookupError as exc:
+        raise KnowledgeNotFoundError("organization knowledge corpus was not found") from exc
     if (
         corpus.scope is not KnowledgeScope.ORGANIZATION
         or corpus.organization_id != context.organization_id
     ):
-        raise KnowledgeLifecycleError("organization corpus ownership is invalid")
+        raise KnowledgeConflictError("organization corpus ownership is invalid")
     return corpus.id
 
 
@@ -97,24 +109,27 @@ async def _version_for_context(
     corpus_id = await _organization_corpus(uow, context)
     version = await uow.documents.get_version(corpus_id, version_id)
     if version is None:
-        raise KnowledgeLifecycleError("knowledge version was not found")
+        raise KnowledgeNotFoundError("knowledge version was not found")
     return corpus_id, version
 
 
 def _transition(version: KnowledgeDocumentVersion, target: KnowledgeVersionStatus) -> None:
     state = KnowledgeVersionState(version.status)
-    if target is KnowledgeVersionStatus.CONFIRMED:
-        state.confirm()
-    elif target is KnowledgeVersionStatus.PROCESSING:
-        state.begin_processing()
-    elif target is KnowledgeVersionStatus.READY:
-        state.mark_ready()
-    elif target is KnowledgeVersionStatus.FAILED:
-        state.mark_failed()
-    elif target is KnowledgeVersionStatus.RETIRED:
-        state.retire()
-    else:
-        raise KnowledgeLifecycleError("unsupported lifecycle transition")
+    try:
+        if target is KnowledgeVersionStatus.CONFIRMED:
+            state.confirm()
+        elif target is KnowledgeVersionStatus.PROCESSING:
+            state.begin_processing()
+        elif target is KnowledgeVersionStatus.READY:
+            state.mark_ready()
+        elif target is KnowledgeVersionStatus.FAILED:
+            state.mark_failed()
+        elif target is KnowledgeVersionStatus.RETIRED:
+            state.retire()
+        else:
+            raise KnowledgeConflictError("unsupported lifecycle transition")
+    except InvalidTransitionError as exc:
+        raise KnowledgeConflictError(str(exc)) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,15 +148,52 @@ class SubmitKnowledgeDocument:
             raise KnowledgeLifecycleError("Idempotency-Key is required")
         async with self.uow_factory() as uow:
             corpus_id = await _organization_corpus(uow, context)
-            version = await uow.documents.reserve_draft(
-                corpus_id=corpus_id,
-                requested_by=context.actor_id,
-                document=args.to_domain(),
-                idempotency_key=idempotency_key,
-                created_at=self.clock.now(),
-            )
+            document = args.to_domain()
+            existing = await uow.documents.get_by_idempotency_key(corpus_id, idempotency_key)
+            if existing is not None and existing.document != document:
+                raise KnowledgeConflictError(
+                    "knowledge idempotency key conflicts with document payload"
+                )
+            try:
+                version = await uow.documents.reserve_draft(
+                    corpus_id=corpus_id,
+                    requested_by=context.actor_id,
+                    document=document,
+                    idempotency_key=idempotency_key,
+                    created_at=self.clock.now(),
+                )
+            except ValueError as exc:
+                raise KnowledgeConflictError(str(exc)) from exc
             await uow.commit()
+            return replace(version, replayed=existing is not None)
+
+
+@dataclass(frozen=True, slots=True)
+class GetKnowledgeVersion:
+    """Read one organization-owned version without exposing another tenant's data."""
+
+    uow_factory: KnowledgeUnitOfWorkFactory
+
+    async def execute(
+        self, *, context: KnowledgeAdminContext, version_id: UUID
+    ) -> KnowledgeDocumentVersion:
+        async with self.uow_factory() as uow:
+            _, version = await _version_for_context(uow, context, version_id)
             return version
+
+
+@dataclass(frozen=True, slots=True)
+class ListKnowledgeVersions:
+    """Read a bounded page of organization-owned version metadata."""
+
+    uow_factory: KnowledgeUnitOfWorkFactory
+
+    async def execute(
+        self, *, context: KnowledgeAdminContext, offset: int, limit: int
+    ) -> tuple[KnowledgeDocumentVersion, ...]:
+        async with self.uow_factory() as uow:
+            corpus_id = await _organization_corpus(uow, context)
+            return tuple(await uow.documents.list_versions(corpus_id, offset=offset, limit=limit))
 
 
 @dataclass(frozen=True, slots=True)
@@ -434,12 +486,17 @@ class ActivateKnowledgeRevision:
             raise KnowledgeLifecycleError("Idempotency-Key is required")
         async with self.uow_factory() as uow:
             corpus_id = await _organization_corpus(uow, context)
-            revision = await uow.revisions.activate(
-                corpus_id=corpus_id,
-                revision_id=revision_id,
-                activated_by=context.actor_id,
-                idempotency_key=idempotency_key,
-                created_at=self.clock.now(),
-            )
+            try:
+                revision = await uow.revisions.activate(
+                    corpus_id=corpus_id,
+                    revision_id=revision_id,
+                    activated_by=context.actor_id,
+                    idempotency_key=idempotency_key,
+                    created_at=self.clock.now(),
+                )
+            except LookupError as exc:
+                raise KnowledgeNotFoundError("knowledge revision was not found") from exc
+            except ValueError as exc:
+                raise KnowledgeConflictError(str(exc)) from exc
             await uow.commit()
             return revision

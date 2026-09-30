@@ -522,6 +522,7 @@ class KnowledgeDocumentVersion:
     embedding_model: str | None = None
     embedding_dimension: int | None = None
     failure_code: str | None = None
+    replayed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
