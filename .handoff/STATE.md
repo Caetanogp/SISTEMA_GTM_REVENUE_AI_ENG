@@ -329,6 +329,17 @@ The loop stopped itself. Do not restart it against the same queue item without a
 
 ## Autonomous loop HALT (2026-09-30T20:10:11+00:00)
 
+## Item 9 seed approval (2026-09-30)
+
+The user approved the initial two-document platform manifest recorded in ADR-0015: the product
+overview and the human-approval outreach policy, both sourced from the project guide PDF. Their
+normalized content hashes are recorded there. The reviewer findings were added to the plan: persisted
+monotonic seed revisions, scope/actor enforcement, pre-UoW chunk validation, concurrency locking,
+and composition-root settings isolation.
+
+Next: rerun the Item 9 pilot. The long loop remains prohibited until this pilot produces a real Item 9
+implementation commit and a green gate.
+
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. É necessária aprovação humana do manifesto canônico completo — conteúdo, chaves, categorias, metadados, revisões e hashes. Criar esses valores durante a implementação inventaria conteúdo de produto fora da spec aprovada.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

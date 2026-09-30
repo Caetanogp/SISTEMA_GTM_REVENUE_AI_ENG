@@ -121,3 +121,16 @@ content are immutable Python constants in
 trusted source inside the existing setuptools-discovered packages without changing `pyproject.toml`
 or adding a package-data rule. The source is validated with the existing standard-library,
 domain, and application contracts before any database or broker side effect. See ADR-0015.
+
+The reviewed implementation must also:
+
+- persist a positive seed revision on each platform version and reject a changed payload when the
+  requested revision is not greater than the stored revision;
+- enforce platform-versus-organization actor attribution in application adapters and integration
+  tests, in addition to the XOR attribution checks;
+- validate the complete normalized content with `chunk_content` for every manifest entry before
+  opening the unit of work;
+- serialize platform corpus creation and seed reservations with a database transaction lock so
+  concurrent runs converge on the same idempotent result;
+- compose database and broker settings without importing `apps.api` or `apps.worker`; and
+- use the two-document approved manifest in ADR-0015 as the initial canonical source.
