@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import datetime
+from typing import Final
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from revops.application.dto import (
@@ -13,6 +14,7 @@ from revops.application.dto import (
     KnowledgeDocumentVersion,
     KnowledgeProcessingEvent,
     KnowledgeProcessingEventType,
+    PlatformSeedDocument,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import (
@@ -24,6 +26,7 @@ from revops.application.ports import (
     KnowledgeUnitOfWorkFactory,
 )
 from revops.domain.entities.knowledge import (
+    KnowledgeChunk,
     KnowledgeScope,
     KnowledgeVersionState,
     KnowledgeVersionStatus,
@@ -32,6 +35,8 @@ from revops.domain.entities.knowledge import (
 from revops.domain.errors import InvalidTransitionError
 
 EMBEDDING_BATCH_SIZE = 64
+PLATFORM_SEED_ACTOR_ID = UUID("928f8683-f542-550e-a13c-8e770ef19a57")
+PLATFORM_SEED_MAX_REVISION: Final = 2_147_483_647
 
 
 class KnowledgeLifecycleError(RuntimeError):
@@ -53,6 +58,36 @@ class KnowledgeProcessingError(KnowledgeLifecycleError):
         self.failure_code = failure_code[:128]
         self.retryable = retryable
         super().__init__(self.failure_code)
+
+
+def validate_platform_seed_manifest(
+    manifest: tuple[PlatformSeedDocument, ...],
+) -> tuple[tuple[PlatformSeedDocument, tuple[KnowledgeChunk, ...]], ...]:
+    """Validate all trusted entries before a seed loader opens a transaction.
+
+    The seed source is code-reviewed, but this boundary still makes malformed edits fail before
+    any database reservation or broker dispatch.  Chunking is intentionally performed here so
+    the full source, rather than only a worker delivery, is subject to ingestion limits.
+    """
+    if not manifest:
+        raise KnowledgeConflictError("platform_seed_manifest_empty")
+    validated: list[tuple[PlatformSeedDocument, tuple[KnowledgeChunk, ...]]] = []
+    seen: set[str] = set()
+    for item in sorted(manifest, key=lambda candidate: candidate.document_key):
+        if item.document_key in seen:
+            raise KnowledgeConflictError("platform_seed_duplicate_document_key")
+        seen.add(item.document_key)
+        if (
+            not isinstance(item.revision, int)
+            or isinstance(item.revision, bool)
+            or not 0 < item.revision <= PLATFORM_SEED_MAX_REVISION
+        ):
+            raise KnowledgeConflictError("platform_seed_revision_invalid")
+        document = item.to_domain()
+        if document.content_hash != item.content_hash:
+            raise KnowledgeConflictError("platform_seed_content_hash_mismatch")
+        validated.append((item, chunk_content(document.content)))
+    return tuple(validated)
 
 
 def _processing_event_id(

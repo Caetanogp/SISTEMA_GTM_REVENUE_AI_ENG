@@ -446,6 +446,31 @@ class SubmitKnowledgeDocumentArgs(BaseModel):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PlatformSeedDocument:
+    """Trusted, reviewed platform content supplied only by the deployment composition root."""
+
+    document_key: str
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    content: str
+    metadata: dict[str, str | int | float | bool | None]
+    revision: int
+    content_hash: str
+
+    def to_domain(self) -> KnowledgeDocument:
+        return KnowledgeDocument(
+            document_key=self.document_key,
+            category=self.category,
+            language=self.language,
+            format=self.format,
+            scope=KnowledgeScope.PLATFORM,
+            content=self.content,
+            metadata=self.metadata,
+        )
+
+
 class KnowledgeAdminContext(BaseModel):
     """Authenticated tenant identity accepted by knowledge lifecycle use cases."""
 

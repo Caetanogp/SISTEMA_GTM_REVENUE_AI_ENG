@@ -17,18 +17,21 @@ from revops.application.dto import (
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
     KnowledgeProcessingEvent,
+    PlatformSeedDocument,
     SubmitKnowledgeDocumentArgs,
 )
 from revops.application.ports import KnowledgeUnitOfWork
 from revops.application.use_cases.knowledge import (
     ActivateKnowledgeRevision,
     ConfirmKnowledgeDocument,
+    KnowledgeConflictError,
     KnowledgeLifecycleError,
     KnowledgeProcessingError,
     ProcessKnowledgeDocument,
     RecordKnowledgeProcessingFailure,
     RetireKnowledgeVersion,
     SubmitKnowledgeDocument,
+    validate_platform_seed_manifest,
 )
 from revops.domain.entities.knowledge import (
     KnowledgeCategory,
@@ -36,11 +39,37 @@ from revops.domain.entities.knowledge import (
     KnowledgeLanguage,
     KnowledgeScope,
     KnowledgeVersionStatus,
+    stable_hash,
 )
 
 ACTOR_ID = UUID("00000000-0000-0000-0000-000000000001")
 ORGANIZATION_ID = UUID("00000000-0000-0000-0000-000000000002")
 CORPUS_ID = UUID("00000000-0000-0000-0000-000000000003")
+
+
+def test_platform_seed_validation_is_deterministic_and_prevents_invalid_payloads() -> None:
+    content = "# Trusted\n\nApproved platform content."
+    document = PlatformSeedDocument(
+        document_key="product/platform-overview",
+        category=KnowledgeCategory.PRODUCT,
+        language=KnowledgeLanguage.PORTUGUESE,
+        format=KnowledgeFormat.MARKDOWN,
+        content=content,
+        metadata={"approval_status": "approved"},
+        revision=1,
+        content_hash=stable_hash(content),
+    )
+
+    validated = validate_platform_seed_manifest((document,))
+
+    assert validated[0][0] == document
+    assert validated[0][1][0].text == content
+    with pytest.raises(KnowledgeConflictError, match="content_hash_mismatch"):
+        validate_platform_seed_manifest((replace(document, content_hash="0" * 64),))
+    with pytest.raises(KnowledgeConflictError, match="duplicate_document_key"):
+        validate_platform_seed_manifest((document, document))
+    with pytest.raises(KnowledgeConflictError, match="revision_invalid"):
+        validate_platform_seed_manifest((replace(document, revision=2_147_483_648),))
 
 
 class _Clock:
