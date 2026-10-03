@@ -92,8 +92,11 @@ def _version(row: KnowledgeDocumentVersionModel, document_key: str) -> Knowledge
 
 
 def _revision(row: KnowledgeRevisionModel) -> CorpusRevision:
+    effective_actor = row.activated_by or row.activated_by_system
+    if effective_actor is None:
+        raise LookupError("knowledge revision actor is missing")
     return CorpusRevision(
-        row.id, row.corpus_id, row.version_id, row.manifest_hash, row.activated_by, row.created_at
+        row.id, row.corpus_id, row.version_id, row.manifest_hash, effective_actor, row.created_at
     )
 
 
@@ -427,15 +430,35 @@ class SqlAlchemyCorpusRevisionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def _lock_corpus(self, corpus_id: UUID) -> None:
-        if (
+    async def _lock_corpus(self, corpus_id: UUID) -> KnowledgeCorpusModel:
+        corpus = (
             await self._session.execute(
                 select(KnowledgeCorpusModel)
                 .where(KnowledgeCorpusModel.id == corpus_id)
                 .with_for_update()
             )
-        ).scalar_one_or_none() is None:
+        ).scalar_one_or_none()
+        if corpus is None:
             raise LookupError("knowledge corpus not found")
+        return corpus
+
+    @staticmethod
+    def _activation_actor(
+        corpus: KnowledgeCorpusModel, actor: UUID
+    ) -> dict[str, UUID | str | None]:
+        if corpus.scope == KnowledgeScope.PLATFORM.value:
+            return {
+                "scope": corpus.scope,
+                "organization_id": None,
+                "activated_by": None,
+                "activated_by_system": actor,
+            }
+        return {
+            "scope": corpus.scope,
+            "organization_id": corpus.organization_id,
+            "activated_by": actor,
+            "activated_by_system": None,
+        }
 
     async def _entries(self, revision_id: UUID, corpus_id: UUID) -> dict[str, UUID]:
         rows = (
@@ -453,27 +476,31 @@ class SqlAlchemyCorpusRevisionRepository:
         return {row.document_key: row.version_id for row in rows}
 
     async def _revision_for_entries(
-        self, corpus_id: UUID, entries: dict[str, UUID], actor: UUID, created_at: datetime
+        self,
+        corpus: KnowledgeCorpusModel,
+        entries: dict[str, UUID],
+        actor: UUID,
+        created_at: datetime,
     ) -> KnowledgeRevisionModel:
         digest = _manifest(entries)
         revision = (
             await self._session.execute(
                 select(KnowledgeRevisionModel).where(
-                    KnowledgeRevisionModel.corpus_id == corpus_id,
+                    KnowledgeRevisionModel.corpus_id == corpus.id,
                     KnowledgeRevisionModel.manifest_hash == digest,
                 )
             )
         ).scalar_one_or_none()
         if revision is not None:
-            if await self._entries(revision.id, corpus_id) != entries:
+            if await self._entries(revision.id, corpus.id) != entries:
                 raise ValueError("knowledge manifest hash collision or corrupted entries")
             return revision
         revision = KnowledgeRevisionModel(
             id=uuid4(),
-            corpus_id=corpus_id,
+            corpus_id=corpus.id,
             version_id=entries[sorted(entries)[0]],
             manifest_hash=digest,
-            activated_by=actor,
+            **self._activation_actor(corpus, actor),
             created_at=created_at,
         )
         self._session.add(revision)
@@ -482,7 +509,7 @@ class SqlAlchemyCorpusRevisionRepository:
             [
                 KnowledgeRevisionEntryModel(
                     id=uuid4(),
-                    corpus_id=corpus_id,
+                    corpus_id=corpus.id,
                     revision_id=revision.id,
                     document_key=key,
                     version_id=version_id,
@@ -503,7 +530,7 @@ class SqlAlchemyCorpusRevisionRepository:
         idempotency_key: str,
         action: KnowledgeActivationAction,
     ) -> CorpusRevision:
-        await self._lock_corpus(corpus_id)
+        corpus = await self._lock_corpus(corpus_id)
         version = (
             await self._session.execute(
                 select(KnowledgeDocumentVersionModel, KnowledgeDocumentModel.document_key)
@@ -544,7 +571,7 @@ class SqlAlchemyCorpusRevisionRepository:
         ).scalar_one_or_none()
         entries = {} if head is None else await self._entries(head.revision_id, corpus_id)
         entries[key] = version_row.id
-        revision = await self._revision_for_entries(corpus_id, entries, actor, created_at)
+        revision = await self._revision_for_entries(corpus, entries, actor, created_at)
         self._session.add(
             KnowledgeRevisionActivationModel(
                 id=uuid4(),
@@ -552,7 +579,7 @@ class SqlAlchemyCorpusRevisionRepository:
                 revision_id=revision.id,
                 target_version_id=version_id,
                 action=action.value,
-                activated_by=actor,
+                **self._activation_actor(corpus, actor),
                 idempotency_key=idempotency_key,
                 created_at=created_at,
             )

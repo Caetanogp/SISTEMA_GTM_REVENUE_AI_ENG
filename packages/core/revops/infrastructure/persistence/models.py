@@ -128,11 +128,15 @@ class KnowledgeDocumentVersion(Base):
             "corpus_id", "idempotency_key", name="uq_knowledge_versions_corpus_idempotency"
         ),
         UniqueConstraint("document_id", "id", name="uq_knowledge_versions_document_id"),
+        UniqueConstraint(
+            "document_id", "seed_revision", name="uq_knowledge_versions_document_seed_revision"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     document_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
     corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
     requested_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
     requested_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
     seed_revision: Mapped[int | None] = mapped_column(Integer, default=None)
@@ -193,7 +197,10 @@ class KnowledgeRevision(Base):
         ForeignKey("knowledge_document_versions.id"), index=True
     )
     manifest_hash: Mapped[str] = mapped_column(String(64))
-    activated_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    scope: Mapped[str] = mapped_column(String(32))
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    activated_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    activated_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
     created_at: Mapped[datetime]
 
 
@@ -247,7 +254,10 @@ class KnowledgeRevisionActivation(Base):
         ForeignKey("knowledge_document_versions.id"), index=True
     )
     action: Mapped[str] = mapped_column(String(32))
-    activated_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    scope: Mapped[str] = mapped_column(String(32))
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    activated_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    activated_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime]
 

@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 9 platform seed composition and persistence adapters in progress"
-status: item_9_platform_seed_increment_uncommitted
+phase: "Item 9 platform seed attribution migration and integration evidence in progress"
+status: item_9_platform_seed_migration_increment_uncommitted
 ---
 
 # Current state
@@ -65,13 +65,18 @@ expected and is not completion evidence.
   platform-corpus reservation adapters. Focused tests pass (`11 passed`); Ruff, format check,
   and mypy on the changed paths pass on 2026-10-03. The additive migration and integration tests
   are still required before task 12 can be ticked.
+- Uncommitted Item 9 migration `a2b3c4d5e6f7_add_platform_seed_attribution.py` adds system
+  attribution, seed revision uniqueness, corpus projections, compatibility projection trigger,
+  and the conditional downgrade block. `python -m alembic upgrade head`, downgrade to
+  `f0a1b2c3d4e5`, and upgrade to head all passed on 2026-10-03 before any platform seed data.
+  Focused unit tests pass (`25 passed`); Ruff, format check, and mypy pass on its changed paths.
 
 ## Next
 
-1. Add the approved additive attribution migration and remaining SQL constraints for platform
-   versions, revisions, and activations; prove conditional downgrade in an isolated schema.
-2. Add `tests/integration/test_platform_seed.py` for concurrency, publication/recovery,
+1. Add `tests/integration/test_platform_seed.py` for concurrency, publication/recovery,
    attribution, tenant isolation, and sanitized CLI output.
+2. Add the remaining ADR-0015 database-level composite ownership and append-only proofs, then
+   prove conditional downgrade after seed data in an isolated schema.
 3. Run the Item 9 quality gate and tick task 12 only after the observed green gate.
 
 ## Gotchas
