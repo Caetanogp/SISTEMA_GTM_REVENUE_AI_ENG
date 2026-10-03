@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 9 application orchestration in progress"
-status: item_9_application_orchestration_uncommitted
+phase: "Item 9 platform seed composition and persistence adapters in progress"
+status: item_9_platform_seed_increment_uncommitted
 ---
 
 # Current state
@@ -61,13 +61,18 @@ expected and is not completion evidence.
 - The recovery pilot's parent commit is `a52006c` (`chore(autonomy): record executor increment`);
   the child returned `continue`, the parent commit succeeded, and the post-commit gate returned
   exit 1 only for missing `apps/platform_seed.py` and `tests/integration/test_platform_seed.py`.
+- Uncommitted Item 9 work adds `apps/platform_seed.py` and its unit tests plus the matching
+  platform-corpus reservation adapters. Focused tests pass (`11 passed`); Ruff, format check,
+  and mypy on the changed paths pass on 2026-10-03. The additive migration and integration tests
+  are still required before task 12 can be ticked.
 
 ## Next
 
-1. Continue the approved Item 9 implementation; the parent supervisor commit path is now proven.
-2. Require integration, security, and full gate evidence before ticking the Item 9 checkbox.
-3. Launch the long loop only after the complete Item 9 pilot reaches a real item gate pass, not
-   merely because the commit-boundary pilot succeeded.
+1. Add the approved additive attribution migration and remaining SQL constraints for platform
+   versions, revisions, and activations; prove conditional downgrade in an isolated schema.
+2. Add `tests/integration/test_platform_seed.py` for concurrency, publication/recovery,
+   attribution, tenant isolation, and sanitized CLI output.
+3. Run the Item 9 quality gate and tick task 12 only after the observed green gate.
 
 ## Gotchas
 
@@ -81,10 +86,10 @@ expected and is not completion evidence.
 
 ## Resume
 
-Use the existing local integration database revops_item8b after confirming it exists.
-Set DATABASE_URL to its documented local development URL and KNOWLEDGE_EMBEDDING_PROVIDER=fake.
-Run powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 1
--ChildTimeoutSeconds 1800. Observe all pilot phases and keep artifacts outside the checkout.
+Run `pytest tests/unit/apps/test_platform_seed.py tests/unit/application/use_cases/test_knowledge.py -q`,
+then Ruff and mypy on the changed Item 9 paths. Use the existing local integration database
+`revops_item8b` with `KNOWLEDGE_EMBEDDING_PROVIDER=fake` only for isolated integration evidence;
+do not tick the task before `python scripts/autonomous_gate.py` is green.
 
 ## Open questions
 

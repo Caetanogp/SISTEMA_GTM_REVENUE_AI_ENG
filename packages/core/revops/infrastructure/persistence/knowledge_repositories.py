@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,11 +64,14 @@ def _corpus(row: KnowledgeCorpusModel) -> KnowledgeCorpus:
 
 
 def _version(row: KnowledgeDocumentVersionModel, document_key: str) -> KnowledgeDocumentVersion:
+    effective_actor = row.requested_by or row.requested_by_system
+    if effective_actor is None:
+        raise LookupError("knowledge version actor is missing")
     return KnowledgeDocumentVersion(
         id=row.id,
         document_id=row.document_id,
         corpus_id=row.corpus_id,
-        requested_by=row.requested_by,
+        requested_by=effective_actor,
         document=KnowledgeDocument(
             document_key=document_key,
             category=KnowledgeCategory(row.category),
@@ -84,6 +87,7 @@ def _version(row: KnowledgeDocumentVersionModel, document_key: str) -> Knowledge
         embedding_model=row.embedding_model,
         embedding_dimension=row.embedding_dimension,
         failure_code=row.failure_code,
+        seed_revision=row.seed_revision,
     )
 
 
@@ -110,6 +114,16 @@ class SqlAlchemyKnowledgeDocumentRepository:
     async def _row(
         self, corpus_id: UUID, version_id: UUID, *, for_update: bool = False
     ) -> KnowledgeDocumentVersionModel | None:
+        if for_update:
+            corpus = (
+                await self._session.execute(
+                    select(KnowledgeCorpusModel)
+                    .where(KnowledgeCorpusModel.id == corpus_id)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if corpus is None:
+                return None
         query = (
             select(KnowledgeDocumentVersionModel)
             .join(KnowledgeDocumentModel)
@@ -211,6 +225,77 @@ class SqlAlchemyKnowledgeDocumentRepository:
         await self._session.flush()
         return _version(row, document.document_key)
 
+    async def get_latest_seed_version(
+        self, corpus_id: UUID, document_key: str
+    ) -> KnowledgeDocumentVersion | None:
+        row = (
+            await self._session.execute(
+                select(KnowledgeDocumentVersionModel)
+                .join(KnowledgeDocumentModel)
+                .where(
+                    KnowledgeDocumentVersionModel.corpus_id == corpus_id,
+                    KnowledgeDocumentModel.corpus_id == corpus_id,
+                    KnowledgeDocumentModel.document_key == document_key,
+                    KnowledgeDocumentVersionModel.seed_revision.is_not(None),
+                )
+                .order_by(KnowledgeDocumentVersionModel.seed_revision.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return None if row is None else await self._to_version(row)
+
+    async def reserve_platform_draft(
+        self,
+        *,
+        corpus_id: UUID,
+        requested_by_system: UUID,
+        document: KnowledgeDocument,
+        seed_revision: int,
+        idempotency_key: str,
+        created_at: datetime,
+    ) -> KnowledgeDocumentVersion:
+        if document.scope is not KnowledgeScope.PLATFORM:
+            raise ValueError("platform seed document must have platform scope")
+        document_row = (
+            await self._session.execute(
+                select(KnowledgeDocumentModel).where(
+                    KnowledgeDocumentModel.corpus_id == corpus_id,
+                    KnowledgeDocumentModel.document_key == document.document_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if document_row is None:
+            document_row = KnowledgeDocumentModel(
+                id=uuid4(),
+                corpus_id=corpus_id,
+                document_key=document.document_key,
+                created_at=created_at,
+            )
+            self._session.add(document_row)
+            await self._session.flush()
+        row = KnowledgeDocumentVersionModel(
+            id=uuid4(),
+            document_id=document_row.id,
+            corpus_id=corpus_id,
+            requested_by=None,
+            requested_by_system=requested_by_system,
+            category=document.category.value,
+            language=document.language.value,
+            format=document.format.value,
+            scope=document.scope.value,
+            content=document.content,
+            metadata_=dict(document.metadata),
+            content_hash=document.content_hash,
+            status=KnowledgeVersionStatus.DRAFT.value,
+            idempotency_key=idempotency_key,
+            seed_revision=seed_revision,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return _version(row, document.document_key)
+
     async def transition_status(
         self,
         *,
@@ -280,6 +365,27 @@ class SqlAlchemyKnowledgeCorpusRepository:
         ).scalar_one_or_none()
         if row is None:
             raise LookupError("platform knowledge corpus not found")
+        return _corpus(row)
+
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
+        """Serialize deployment seed reservations before locking the singleton corpus row."""
+        await self._session.execute(text("SELECT pg_advisory_xact_lock(715_007_009)"))
+        row = (
+            await self._session.execute(
+                select(KnowledgeCorpusModel)
+                .where(KnowledgeCorpusModel.scope == KnowledgeScope.PLATFORM.value)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            row = KnowledgeCorpusModel(
+                id=uuid4(),
+                scope=KnowledgeScope.PLATFORM.value,
+                organization_id=None,
+                created_at=datetime.now(UTC),
+            )
+            self._session.add(row)
+            await self._session.flush()
         return _corpus(row)
 
     async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
