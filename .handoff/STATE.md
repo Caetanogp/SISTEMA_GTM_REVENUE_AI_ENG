@@ -370,3 +370,9 @@ ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explor
 ERROR: You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 8:46 PM.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-03T23:14:00+00:00)
+
+Item 9 declares scope ('apps/platform_seed.py', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/', 'tests/unit/application/', 'tests/unit/infrastructure/', 'tests/unit/apps/', 'tests/integration/', 'docs/decisions/ADR-0015-platform-seed-loading-and-attribution.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', '.handoff/log/2026-10-03-codex-item9-design.md'), but changes touch files outside it: ['.codex/prompts/autonomous-loop.md', 'docs/playbooks/autonomous-loop.md', 'scripts/codex_loop_supervisor.py', 'tests/unit/scripts/test_codex_loop_supervisor.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
