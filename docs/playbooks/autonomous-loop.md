@@ -21,6 +21,12 @@ process rather than the model's own say-so.
    at a time and can escalate bounded technical design. Claude uses `/goal` (or `/loop`) and retains
    its hard Plan Mode stop because it has no equivalent external supervisor in this repository.
 
+The Codex executor does not write Git metadata. The Windows workspace-write sandbox protects `.git`
+even when a child is given an additional writable directory. After each executor turn, the
+supervisor validates changed paths against the queue item's scope, checks the diff, creates the
+commit from the parent process, and only then runs the gate. This keeps the child least-privileged
+without treating a failed child commit as an implementation failure.
+
 ## Codex architecture escalation
 
 The normal Codex executor uses the configured economical model at `medium` reasoning. When it
@@ -143,8 +149,9 @@ handoff evidence.
 - `claude agents` — list running sessions and their status (interactive sessions show
   `busy`/`idle`/`waiting`, not the `background`-job states `--bg` would show).
 - `git log --oneline feature/SPEC-NNN-slug` — the ground truth, straight on the branch from step 2
-  since this runs in the main checkout, no worktree to look under. Small, conventional commits, one
-  per completed queue item, is what a healthy run looks like.
+  since this runs in the main checkout, no worktree to look under. Small, conventional commits
+  created by the supervisor after each validated executor increment are what a healthy run looks
+  like.
 - `SendMessage` (from another session on this machine) can nudge it after a live fix — see
   `.handoff/log/2026-08-28-*-claude.md` for the cross-session-messaging mechanics and the
   `crossSessionInbound` caveat (a message the receiving session doesn't auto-accept just sits held;

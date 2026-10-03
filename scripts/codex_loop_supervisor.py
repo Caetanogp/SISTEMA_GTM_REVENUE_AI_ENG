@@ -407,11 +407,6 @@ def _codex_command(
     # The unattended executor must not wait for approval, but it remains confined to the Codex
     # sandbox selected by project config. Never replace this with the dangerous full-access mode.
     args = [config.codex_command, "--ask-for-approval", "never"]
-    # This flag is global and must precede the subcommand.
-    if not read_only:
-        # Git metadata is outside the writable workspace policy on Windows; grant only .git so the
-        # executor can create its own verified commit without gaining access to unrelated paths.
-        args.extend(("--add-dir", str(config.repo / ".git")))
     if config.use_live_search:
         args.append("--search")
     args.extend(
@@ -528,6 +523,79 @@ def _worktree_is_clean(config: SupervisorConfig, runner: Runner) -> bool:
     return not _git_output(config, runner, "status", "--porcelain")
 
 
+def _working_tree_paths(config: SupervisorConfig, runner: Runner) -> tuple[str, ...]:
+    """Return tracked and untracked paths changed by the executor since its last commit."""
+    tracked = _git_output(config, runner, "diff", "--name-only").splitlines()
+    untracked = _git_output(
+        config, runner, "ls-files", "--others", "--exclude-standard"
+    ).splitlines()
+    paths = {path.strip().replace("\\", "/") for path in (*tracked, *untracked) if path.strip()}
+    return tuple(sorted(paths))
+
+
+def _executor_scope_paths(
+    config: SupervisorConfig,
+    runner: Runner,
+    active: ActiveItem,
+    authorization_path: Path | None,
+) -> tuple[str, ...]:
+    items = autonomous_gate.parse_queue()
+    item = next((candidate for candidate in items if candidate.number == active.number), None)
+    if item is None:
+        raise SupervisorError(f"Active queue item {active.number} is missing")
+    allowed = list(item.scope)
+    if authorization_path is not None:
+        branch = _git_output(config, runner, "rev-parse", "--abbrev-ref", "HEAD")
+        try:
+            authorization = autonomous_gate.ScopeAuthorization.load(
+                authorization_path,
+                branch=branch,
+                item_number=active.number,
+                baseline_sha=active.baseline_sha,
+            )
+        except ValueError as exc:
+            raise SupervisorError(f"Invalid executor scope authorization: {exc}") from exc
+        allowed.extend(authorization.allowed_paths)
+    allowed.extend(
+        (
+            ".handoff/STATE.md",
+            active.tasks_file.relative_to(config.repo).as_posix(),
+        )
+    )
+    return tuple(dict.fromkeys(allowed))
+
+
+def _commit_executor_changes(
+    config: SupervisorConfig,
+    runner: Runner,
+    active: ActiveItem,
+    authorization_path: Path | None,
+) -> bool:
+    """Validate and commit executor changes from the supervisor, outside the child sandbox."""
+    paths = _working_tree_paths(config, runner)
+    if not paths:
+        return False
+    allowed = _executor_scope_paths(config, runner, active, authorization_path)
+    offenders = [
+        path
+        for path in paths
+        if not any(autonomous_gate.path_is_within(path, scope) for scope in allowed)
+    ]
+    if offenders:
+        raise SupervisorError(
+            f"Executor changes outside Item {active.number} scope cannot be committed: {offenders}"
+        )
+    diff_check = runner(("git", "diff", "--check"), config.repo, None, None, 60)
+    if diff_check.returncode != 0:
+        raise SupervisorError(f"Executor diff check failed: {diff_check.stderr.strip()}")
+    _git_output(config, runner, "add", "--", *paths)
+    cached_check = runner(("git", "diff", "--cached", "--check"), config.repo, None, None, 60)
+    if cached_check.returncode != 0:
+        raise SupervisorError(f"Staged executor diff check failed: {cached_check.stderr.strip()}")
+    _git_output(config, runner, "commit", "-m", "chore(autonomy): record executor increment")
+    return True
+
+
 def _capture_control_snapshot(config: SupervisorConfig) -> dict[str, str]:
     snapshot: dict[str, str] = {}
     for relative_path in CONTROL_PLANE_PATHS:
@@ -633,8 +701,9 @@ security relaxation, external actions, or any decision without a dominant safe r
 When returning `architecture_required` or `human_required`, do not edit any file, including
 `.handoff/STATE.md`; the supervisor records the escalation only after the worktree remains clean.
 
-Otherwise implement and verify this one item, make small conventional commits, tick only its mapped
-checkboxes after evidence exists, update .handoff/STATE.md, and run the autonomous gate. Return
+Otherwise implement and verify this one item, leave the worktree changes for the supervisor to
+commit, tick only its mapped checkboxes after evidence exists, update .handoff/STATE.md, and run
+the autonomous gate. Return
 `complete` only if the gate exits 0; otherwise return `continue` after making concrete progress.
 Every final response must match the provided JSON schema and contain no text outside that object.
 {approved}
@@ -937,6 +1006,8 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
             )
             continue
 
+        _commit_executor_changes(config, runner, active, authorization_path)
+        _verify_control_snapshot(config, control_snapshot)
         tasks_done, _ = autonomous_gate.completed_task_count(active.tasks_file)
         next_item = autonomous_gate.item_for_done_count(autonomous_gate.parse_queue(), tasks_done)
         if next_item is None or next_item.number != active.number:

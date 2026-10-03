@@ -144,17 +144,15 @@ def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_pa
 
     assert 'model_reasoning_effort="medium"' in command
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
-    assert command[:6] == [
+    assert command[:4] == [
         "codex-test",
         "--ask-for-approval",
         "never",
-        "--add-dir",
-        str(tmp_path / ".git"),
         "exec",
     ]
     assert "--ask-for-approval" in command
     assert "--approve-for-me" not in command
-    assert command[command.index("--add-dir") + 1] == str(tmp_path / ".git")
+    assert "--add-dir" not in command
     assert "--sandbox" not in command
 
 
@@ -170,15 +168,13 @@ def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:
         read_only=False,
     )
 
-    assert command[:6] == [
+    assert command[:5] == [
         "codex-test",
         "--ask-for-approval",
         "never",
-        "--add-dir",
-        str(tmp_path / ".git"),
         "--search",
+        "exec",
     ]
-    assert command[6] == "exec"
 
 
 def test_default_runner_sends_prompts_as_utf8(
@@ -478,6 +474,7 @@ def _prepare_supervisor_state(
     monkeypatch.setattr(supervisor, "_worktree_is_clean", lambda *_args: True)
     monkeypatch.setattr(supervisor, "_capture_control_snapshot", lambda *_args: {})
     monkeypatch.setattr(supervisor, "_verify_control_snapshot", lambda *_args: None)
+    monkeypatch.setattr(supervisor, "_commit_executor_changes", lambda *_args: False)
     artifact_dir = tmp_path / "supervisor-artifacts"
     artifact_dir.mkdir()
     monkeypatch.setattr(supervisor, "_create_artifact_dir", lambda *_args: artifact_dir)
@@ -487,6 +484,44 @@ def _prepare_supervisor_state(
     monkeypatch.setattr(autonomous_gate, "parse_queue", lambda: [item])
     monkeypatch.setattr(autonomous_gate, "item_for_done_count", lambda _items, _done: item)
     return active
+
+
+def test_supervisor_commits_only_authorized_executor_changes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    active = _active(tmp_path)
+    monkeypatch.setattr(supervisor, "_working_tree_paths", lambda *_args: ("apps/api/main.py",))
+    monkeypatch.setattr(supervisor, "_executor_scope_paths", lambda *_args: ("apps/api/",))
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(
+        args: Sequence[str],
+        _cwd: Path,
+        _input: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        calls.append(tuple(args))
+        return supervisor.ProcessResult(0, "ok")
+
+    assert supervisor._commit_executor_changes(_config(tmp_path), fake_git, active, None)
+    assert ("git", "add", "--", "apps/api/main.py") in calls
+    assert ("git", "commit", "-m", "chore(autonomy): record executor increment") in calls
+
+
+def test_supervisor_rejects_executor_changes_outside_item_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    active = _active(tmp_path)
+    monkeypatch.setattr(
+        supervisor, "_working_tree_paths", lambda *_args: ("scripts/autonomous_gate.py",)
+    )
+    monkeypatch.setattr(supervisor, "_executor_scope_paths", lambda *_args: ("apps/api/",))
+
+    with pytest.raises(supervisor.SupervisorError, match="outside Item 7 scope"):
+        supervisor._commit_executor_changes(
+            _config(tmp_path), lambda *_args: supervisor.ProcessResult(0), active, None
+        )
 
 
 def test_supervisor_completes_after_normal_executor_progress(
