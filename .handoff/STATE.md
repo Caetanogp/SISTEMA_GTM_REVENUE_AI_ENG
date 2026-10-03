@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 9 application manifest validation in progress"
-status: item_9_partial_progress_committed
+phase: "Item 9 canonical seed source in progress"
+status: item_9_partial_progress_uncommitted
 ---
 
 # Current state
@@ -49,12 +49,16 @@ supervisor commits child changes before the gate runs.
   93d22b8; fresh Item 9 runtime/migration verification has not run yet.
 - The application manifest increment is committed as `4c8487c`; focused application validation
   passes (`6 passed`), and the post-recovery gate exits 1 only for missing Item 9 evidence paths.
+- The uncommitted canonical seed source is present at
+  `packages/core/revops/infrastructure/knowledge_seed/manifest.py`; `pytest
+  tests/unit/infrastructure/knowledge_seed/test_manifest.py tests/unit/application/use_cases/test_knowledge.py -q`
+  passed (`7 passed`), as did focused Ruff and mypy checks on 2026-10-03.
 
 ## Next
 
-1. Run the one-turn real pilot to prove that the parent supervisor creates the executor commit.
-2. Continue the approved Item 9 implementation and require migration, integration, security, and
-   full gate evidence before ticking the remaining task checkboxes.
+1. Commit the validated canonical seed-source increment through the parent supervisor flow.
+2. Continue the approved Item 9 implementation with persistence migration and platform attribution.
+3. Require integration, security, and full gate evidence before ticking the Item 9 checkbox.
 
 ## Gotchas
 
