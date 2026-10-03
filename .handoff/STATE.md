@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Supervisor recovery baseline before Item 9 implementation"
-status: supervisor_recovery_pending_rollover
+phase: "Item 9 application manifest validation in progress"
+status: item_9_partial_progress_committed
 ---
 
 # Current state
@@ -18,9 +18,9 @@ Complete PDF-aligned knowledge ingestion and verify the remaining SPEC-007 queue
 The user approved the complete Item 9 design on 2026-10-03, including conditional downgrade
 blocking after seed data and waiting for a pending revision before accepting its successor.
 ADR-0015 and the active plan contain the exact database, locking, recovery, and CLI contracts.
-Only documentation/control preparation is in progress; no Item 9 runtime implementation exists.
-This recovery branch intentionally places the supervisor commit before Item 9 implementation so
-the existing 11-task baseline can be rolled over without mixing application and control changes.
+The supervisor recovery baseline is complete. The first Item 9 application increment is committed
+after that baseline, and the ordinary gate exits 1 only because the required runtime evidence paths
+are not implemented yet.
 The original `feature/SPEC-007-rag-ingestion` branch remains preserved separately.
 
 The two approved seed documents and hashes are in ADR-0015. Its execution contract defines
@@ -32,7 +32,8 @@ after any platform version or system attribution, as explicitly approved by the 
 The prior full handoff, including its uncommitted supervisor halt, is preserved in
 .handoff/log/2026-10-03-codex-item9-design.md. The last pilot stopped without implementation
 after reviewer feedback and a Codex usage-limit failure; its design feedback is now resolved.
-No new pilot has been launched in this session yet.
+A real short pilot is now authorized for this recovery branch; it must prove that the parent
+supervisor commits child changes before the gate runs.
 
 ## Done
 
@@ -40,18 +41,20 @@ No new pilot has been launched in this session yet.
 - python scripts/check_agent_docs.py passed on 2026-10-03.
 - Formal baseline rollover observed: 1517dd0f6a85 -> 06dcca56dc96 for the exact four approved
   preparation paths, with 11 task checkboxes; the rollover command exited 0.
+- Recovery baseline rollover observed: 06dcca56dc96 -> fbf9cf4dab0e for five exact supervisor
+  control paths; the rollover command exited 0.
 - Docker Desktop started; docker info returned Engine 27.5.1 and docker compose up -d exited 0,
   starting revops-postgres and revops-redis.
 - Prior implementation/evidence is recorded in SPEC-007 tasks.md, including Item 8 commit
   93d22b8; fresh Item 9 runtime/migration verification has not run yet.
+- The application manifest increment is committed as `4c8487c`; focused application validation
+  passes (`6 passed`), and the post-recovery gate exits 1 only for missing Item 9 evidence paths.
 
 ## Next
 
-1. Create the exact external rollover authorization from baseline `06dcca56dc96` to the current
-   supervisor commit `4eeb873`; its changed paths must contain only supervisor-control files.
-2. Run the rollover command and confirm the ordinary gate remains at Item 9 with exit 1.
-3. Reapply the approved Item 9 application and handoff commits after the rollover, then run a
-   one-turn pilot to prove that the parent supervisor creates the executor commit.
+1. Run the one-turn real pilot to prove that the parent supervisor creates the executor commit.
+2. Continue the approved Item 9 implementation and require migration, integration, security, and
+   full gate evidence before ticking the remaining task checkboxes.
 
 ## Gotchas
 
