@@ -4,7 +4,7 @@ updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
 phase: "Item 9 canonical seed source in progress"
-status: item_9_partial_progress_uncommitted
+status: item_9_partial_progress_committed
 ---
 
 # Current state
@@ -21,7 +21,9 @@ ADR-0015 and the active plan contain the exact database, locking, recovery, and 
 The supervisor recovery baseline is complete. The first Item 9 application increment is committed
 after that baseline, and the ordinary gate exits 1 only because the required runtime evidence paths
 are not implemented yet.
-The original `feature/SPEC-007-rag-ingestion` branch remains preserved separately.
+The original `feature/SPEC-007-rag-ingestion` branch remains preserved separately. The one-turn
+pilot confirmed that the executor can leave changes uncommitted and the parent supervisor creates
+the commit before invoking the gate; no `.git/index.lock` error occurred.
 
 The two approved seed documents and hashes are in ADR-0015. Its execution contract defines
 deployment actor attribution, SQL ownership enforcement, corpus-before-version platform locks,
@@ -32,8 +34,8 @@ after any platform version or system attribution, as explicitly approved by the 
 The prior full handoff, including its uncommitted supervisor halt, is preserved in
 .handoff/log/2026-10-03-codex-item9-design.md. The last pilot stopped without implementation
 after reviewer feedback and a Codex usage-limit failure; its design feedback is now resolved.
-A real short pilot is now authorized for this recovery branch; it must prove that the parent
-supervisor commits child changes before the gate runs.
+The recovery pilot completed its intended commit-boundary proof; the `MaxTurns=1` stop was
+expected and is not completion evidence.
 
 ## Done
 
@@ -53,12 +55,16 @@ supervisor commits child changes before the gate runs.
   `packages/core/revops/infrastructure/knowledge_seed/manifest.py`; `pytest
   tests/unit/infrastructure/knowledge_seed/test_manifest.py tests/unit/application/use_cases/test_knowledge.py -q`
   passed (`7 passed`), as did focused Ruff and mypy checks on 2026-10-03.
+- The recovery pilot's parent commit is `a52006c` (`chore(autonomy): record executor increment`);
+  the child returned `continue`, the parent commit succeeded, and the post-commit gate returned
+  exit 1 only for missing `apps/platform_seed.py` and `tests/integration/test_platform_seed.py`.
 
 ## Next
 
-1. Commit the validated canonical seed-source increment through the parent supervisor flow.
-2. Continue the approved Item 9 implementation with persistence migration and platform attribution.
-3. Require integration, security, and full gate evidence before ticking the Item 9 checkbox.
+1. Continue the approved Item 9 implementation; the parent supervisor commit path is now proven.
+2. Require integration, security, and full gate evidence before ticking the Item 9 checkbox.
+3. Launch the long loop only after the complete Item 9 pilot reaches a real item gate pass, not
+   merely because the commit-boundary pilot succeeded.
 
 ## Gotchas
 
@@ -257,5 +263,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-03T23:14:00+00:00)
 
 Item 9 declares scope ('apps/platform_seed.py', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/', 'tests/unit/application/', 'tests/unit/infrastructure/', 'tests/unit/apps/', 'tests/integration/', 'docs/decisions/ADR-0015-platform-seed-loading-and-attribution.md', 'docs/specs/SPEC-007-rag-ingestion/plan.md', '.handoff/log/2026-10-03-codex-item9-design.md'), but changes touch files outside it: ['.codex/prompts/autonomous-loop.md', 'docs/playbooks/autonomous-loop.md', 'scripts/codex_loop_supervisor.py', 'tests/unit/scripts/test_codex_loop_supervisor.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-03T23:18:31+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Supervisor reached its maximum of 1 Codex turns
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
