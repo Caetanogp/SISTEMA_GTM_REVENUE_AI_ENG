@@ -124,6 +124,19 @@ class KnowledgeDocumentVersion(Base):
 
     __tablename__ = "knowledge_document_versions"
     __table_args__ = (
+        CheckConstraint(
+            "(requested_by IS NOT NULL AND requested_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(requested_by IS NULL AND requested_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_document_versions_actor_projection",
+        ),
+        CheckConstraint(
+            "(scope = 'platform' AND seed_revision IS NOT NULL AND seed_revision > 0) "
+            "OR (scope = 'organization' AND seed_revision IS NULL)",
+            name="ck_knowledge_document_versions_seed_revision",
+        ),
         UniqueConstraint(
             "corpus_id", "idempotency_key", name="uq_knowledge_versions_corpus_idempotency"
         ),
@@ -131,6 +144,7 @@ class KnowledgeDocumentVersion(Base):
         UniqueConstraint(
             "document_id", "seed_revision", name="uq_knowledge_versions_document_seed_revision"
         ),
+        Index("ix_knowledge_versions_seed_revision", "seed_revision"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -188,7 +202,17 @@ class KnowledgeRevision(Base):
 
     __tablename__ = "knowledge_revisions"
     __table_args__ = (
+        CheckConstraint(
+            "(activated_by IS NOT NULL AND activated_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(activated_by IS NULL AND activated_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_revisions_actor_projection",
+        ),
+        CheckConstraint("TRUE", name="ck_knowledge_revisions_seed_revision"),
         UniqueConstraint("corpus_id", "manifest_hash", name="uq_knowledge_revisions_manifest"),
+        Index("ix_knowledge_revisions_scope_organization", "scope", "organization_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -238,9 +262,19 @@ class KnowledgeRevisionActivation(Base):
             "action IN ('publication', 'historical_activation')",
             name="ck_knowledge_revision_activations_action",
         ),
+        CheckConstraint(
+            "(activated_by IS NOT NULL AND activated_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(activated_by IS NULL AND activated_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_revision_activations_actor_projection",
+        ),
+        CheckConstraint("TRUE", name="ck_knowledge_revision_activations_seed_revision"),
         UniqueConstraint(
             "corpus_id", "idempotency_key", name="uq_knowledge_revision_activation_idempotency"
         ),
+        Index("ix_knowledge_revision_activations_scope_organization", "scope", "organization_id"),
         Index("ix_knowledge_revision_activations_corpus_id", "corpus_id"),
         Index("ix_knowledge_revision_activations_revision_id", "revision_id"),
         Index("ix_knowledge_revision_activations_target_version_id", "target_version_id"),

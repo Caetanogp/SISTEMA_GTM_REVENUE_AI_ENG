@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 9 platform seed attribution migration and integration evidence in progress"
-status: item_9_platform_seed_migration_increment_uncommitted
+phase: "Item 9 platform seed implementation evidence complete; autonomous gate pending"
+status: item_9_platform_seed_uncommitted
 ---
 
 # Current state
@@ -73,11 +73,8 @@ expected and is not completion evidence.
 
 ## Next
 
-1. Add `tests/integration/test_platform_seed.py` for concurrency, publication/recovery,
-   attribution, tenant isolation, and sanitized CLI output.
-2. Add the remaining ADR-0015 database-level composite ownership and append-only proofs, then
-   prove conditional downgrade after seed data in an isolated schema.
-3. Run the Item 9 quality gate and tick task 12 only after the observed green gate.
+1. Run `python scripts/autonomous_gate.py` after the supervisor commits this Item 9 increment.
+2. Continue only with Item 10 after the gate recognizes the committed Item 9 evidence.
 
 ## Gotchas
 
@@ -282,5 +279,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-03T23:18:31+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Supervisor reached its maximum of 1 Codex turns
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-03T23:57:27+00:00)
+
+Item 10 declares scope ('tests/integration/', 'tests/adversarial/'), but changes touch files outside it: ['packages/core/revops/infrastructure/persistence/knowledge_repositories.py', 'packages/core/revops/infrastructure/persistence/migrations/versions/b3c4d5e6f7a8_complete_platform_seed_attribution.py', 'packages/core/revops/infrastructure/persistence/models.py']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

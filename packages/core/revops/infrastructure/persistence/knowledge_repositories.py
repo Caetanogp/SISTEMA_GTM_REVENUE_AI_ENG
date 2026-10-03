@@ -672,7 +672,7 @@ class SqlAlchemyCorpusRevisionRepository:
         idempotency_key: str,
         created_at: datetime,
     ) -> CorpusRevision:
-        await self._lock_corpus(corpus_id)
+        corpus = await self._lock_corpus(corpus_id)
         revision = (
             await self._session.execute(
                 select(KnowledgeRevisionModel).where(
@@ -702,7 +702,7 @@ class SqlAlchemyCorpusRevisionRepository:
                 revision_id=revision.id,
                 target_version_id=revision.version_id,
                 action=KnowledgeActivationAction.HISTORICAL_ACTIVATION.value,
-                activated_by=activated_by,
+                **self._activation_actor(corpus, activated_by),
                 idempotency_key=idempotency_key,
                 created_at=created_at,
             )
@@ -738,16 +738,21 @@ class SqlAlchemyCorpusRevisionRepository:
             .scalars()
             .all()
         )
-        return tuple(
-            KnowledgeRevisionActivation(
-                row.id,
-                row.corpus_id,
-                row.revision_id,
-                row.target_version_id,
-                KnowledgeActivationAction(row.action),
-                row.activated_by,
-                row.idempotency_key,
-                row.created_at,
+        history: list[KnowledgeRevisionActivation] = []
+        for row in rows:
+            actor = row.activated_by or row.activated_by_system
+            if actor is None:
+                raise LookupError("knowledge revision activation actor is missing")
+            history.append(
+                KnowledgeRevisionActivation(
+                    row.id,
+                    row.corpus_id,
+                    row.revision_id,
+                    row.target_version_id,
+                    KnowledgeActivationAction(row.action),
+                    actor,
+                    row.idempotency_key,
+                    row.created_at,
+                )
             )
-            for row in rows
-        )
+        return tuple(history)
