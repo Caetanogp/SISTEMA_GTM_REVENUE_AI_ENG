@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
@@ -88,6 +89,113 @@ def validate_platform_seed_manifest(
             raise KnowledgeConflictError("platform_seed_content_hash_mismatch")
         validated.append((item, chunk_content(document.content)))
     return tuple(validated)
+
+
+def _platform_seed_idempotency_key(document_key: str, revision: int) -> str:
+    """Return the approved bounded key without placing document content in persistence."""
+    document_hash = hashlib.sha256(document_key.encode("utf-8")).hexdigest()
+    return f"platform-seed:v1:{document_hash}:{revision}"
+
+
+def _same_platform_seed_payload(
+    version: KnowledgeDocumentVersion, item: PlatformSeedDocument
+) -> bool:
+    """Compare every immutable seed field, never merely its content hash."""
+    return (
+        version.seed_revision == item.revision
+        and version.document == item.to_domain()
+        and version.document.scope is KnowledgeScope.PLATFORM
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformSeedResult:
+    """Safe deployment result: counts and identifiers only, never source content."""
+
+    corpus_id: UUID
+    reserved_version_ids: tuple[UUID, ...]
+    redispatched_version_ids: tuple[UUID, ...]
+    ready_version_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SeedPlatformKnowledge:
+    """Stage approved platform seed versions atomically and dispatch only after commit."""
+
+    uow_factory: KnowledgeUnitOfWorkFactory
+    dispatcher: KnowledgeJobDispatcher
+    clock: Clock
+
+    async def execute(self, *, manifest: tuple[PlatformSeedDocument, ...]) -> PlatformSeedResult:
+        validated = validate_platform_seed_manifest(manifest)
+        dispatch_ids: list[UUID] = []
+        reserved_ids: list[UUID] = []
+        ready_ids: list[UUID] = []
+        async with self.uow_factory() as uow:
+            corpus = await uow.corpora.get_or_create_platform_for_update()
+            if corpus.scope is not KnowledgeScope.PLATFORM or corpus.organization_id is not None:
+                raise KnowledgeConflictError("platform_corpus_ownership_invalid")
+            for item, _ in validated:
+                latest = await uow.documents.get_latest_seed_version(corpus.id, item.document_key)
+                if latest is not None:
+                    if latest.seed_revision is None:
+                        raise KnowledgeConflictError("platform_seed_revision_missing")
+                    if item.revision < latest.seed_revision:
+                        raise KnowledgeConflictError("platform_seed_revision_conflict")
+                    if item.revision == latest.seed_revision:
+                        if not _same_platform_seed_payload(latest, item):
+                            raise KnowledgeConflictError("platform_seed_payload_conflict")
+                        if latest.status is KnowledgeVersionStatus.DRAFT:
+                            _transition(latest, KnowledgeVersionStatus.CONFIRMED)
+                            latest = await uow.documents.transition_status(
+                                corpus_id=corpus.id,
+                                version_id=latest.id,
+                                status=KnowledgeVersionStatus.CONFIRMED,
+                            )
+                            dispatch_ids.append(latest.id)
+                        elif latest.status in {
+                            KnowledgeVersionStatus.CONFIRMED,
+                            KnowledgeVersionStatus.PROCESSING,
+                        }:
+                            dispatch_ids.append(latest.id)
+                        elif latest.status is KnowledgeVersionStatus.READY:
+                            ready_ids.append(latest.id)
+                        else:
+                            raise KnowledgeConflictError("platform_seed_revision_terminal")
+                        continue
+                    if latest.status not in {
+                        KnowledgeVersionStatus.READY,
+                        KnowledgeVersionStatus.FAILED,
+                        KnowledgeVersionStatus.RETIRED,
+                    }:
+                        raise KnowledgeConflictError("seed_revision_in_progress")
+                version = await uow.documents.reserve_platform_draft(
+                    corpus_id=corpus.id,
+                    requested_by_system=PLATFORM_SEED_ACTOR_ID,
+                    document=item.to_domain(),
+                    seed_revision=item.revision,
+                    idempotency_key=_platform_seed_idempotency_key(
+                        item.document_key, item.revision
+                    ),
+                    created_at=self.clock.now(),
+                )
+                _transition(version, KnowledgeVersionStatus.CONFIRMED)
+                confirmed = await uow.documents.transition_status(
+                    corpus_id=corpus.id,
+                    version_id=version.id,
+                    status=KnowledgeVersionStatus.CONFIRMED,
+                )
+                reserved_ids.append(confirmed.id)
+                dispatch_ids.append(confirmed.id)
+            await uow.commit()
+        for version_id in dispatch_ids:
+            await self.dispatcher.publish(corpus_id=corpus.id, version_id=version_id)
+        return PlatformSeedResult(
+            corpus_id=corpus.id,
+            reserved_version_ids=tuple(reserved_ids),
+            redispatched_version_ids=tuple(dispatch_ids),
+            ready_version_ids=tuple(ready_ids),
+        )
 
 
 def _processing_event_id(

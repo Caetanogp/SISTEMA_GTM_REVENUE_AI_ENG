@@ -547,6 +547,7 @@ class KnowledgeDocumentVersion:
     embedding_model: str | None = None
     embedding_dimension: int | None = None
     failure_code: str | None = None
+    seed_revision: int | None = None
     replayed: bool = False
 
 

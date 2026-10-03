@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 9 canonical seed source in progress"
-status: item_9_partial_progress_committed
+phase: "Item 9 application orchestration in progress"
+status: item_9_application_orchestration_uncommitted
 ---
 
 # Current state
@@ -51,10 +51,13 @@ expected and is not completion evidence.
   93d22b8; fresh Item 9 runtime/migration verification has not run yet.
 - The application manifest increment is committed as `4c8487c`; focused application validation
   passes (`6 passed`), and the post-recovery gate exits 1 only for missing Item 9 evidence paths.
-- The uncommitted canonical seed source is present at
-  `packages/core/revops/infrastructure/knowledge_seed/manifest.py`; `pytest
-  tests/unit/infrastructure/knowledge_seed/test_manifest.py tests/unit/application/use_cases/test_knowledge.py -q`
-  passed (`7 passed`), as did focused Ruff and mypy checks on 2026-10-03.
+- The canonical seed source is committed in `4c8487c` at
+  `packages/core/revops/infrastructure/knowledge_seed/manifest.py`.
+- Uncommitted Item 9 application orchestration adds platform draft reservation/replay and
+  post-commit dispatch at `packages/core/revops/application/use_cases/knowledge.py`; focused
+  unit tests pass (`9 passed`), Ruff passes, and mypy reports no issues on 2026-10-03. The gate
+  still exits 1 because `apps/platform_seed.py` and `tests/integration/test_platform_seed.py` do
+  not exist yet.
 - The recovery pilot's parent commit is `a52006c` (`chore(autonomy): record executor increment`);
   the child returned `continue`, the parent commit succeeded, and the post-commit gate returned
   exit 1 only for missing `apps/platform_seed.py` and `tests/integration/test_platform_seed.py`.

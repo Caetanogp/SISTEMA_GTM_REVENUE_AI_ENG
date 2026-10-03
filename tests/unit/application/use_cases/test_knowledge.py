@@ -30,6 +30,7 @@ from revops.application.use_cases.knowledge import (
     ProcessKnowledgeDocument,
     RecordKnowledgeProcessingFailure,
     RetireKnowledgeVersion,
+    SeedPlatformKnowledge,
     SubmitKnowledgeDocument,
     validate_platform_seed_manifest,
 )
@@ -123,6 +124,43 @@ class _Documents:
         self.versions[version.id] = version
         return version
 
+    async def get_latest_seed_version(self, corpus_id, document_key):
+        candidates = [
+            version
+            for version in self.versions.values()
+            if version.corpus_id == corpus_id
+            and version.document.document_key == document_key
+            and version.seed_revision is not None
+        ]
+        return max(candidates, key=lambda version: version.seed_revision or 0, default=None)
+
+    async def reserve_platform_draft(
+        self,
+        *,
+        corpus_id,
+        requested_by_system,
+        document,
+        seed_revision,
+        idempotency_key,
+        created_at,
+    ):
+        existing = await self.get_by_idempotency_key(corpus_id, idempotency_key)
+        if existing is not None:
+            return existing
+        version = KnowledgeDocumentVersion(
+            id=uuid4(),
+            document_id=uuid4(),
+            corpus_id=corpus_id,
+            requested_by=requested_by_system,
+            document=document,
+            status=KnowledgeVersionStatus.DRAFT,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+            seed_revision=seed_revision,
+        )
+        self.versions[version.id] = version
+        return version
+
     async def transition_status(self, *, corpus_id, version_id, status, failure_code=None):
         version = await self.get_version(corpus_id, version_id)
         assert version is not None
@@ -152,6 +190,9 @@ class _Documents:
 class _Corpora:
     async def get_platform(self):
         raise NotImplementedError
+
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
+        return KnowledgeCorpus(CORPUS_ID, KnowledgeScope.PLATFORM)
 
     async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
         return KnowledgeCorpus(CORPUS_ID, KnowledgeScope.ORGANIZATION, organization_id)
@@ -260,6 +301,58 @@ async def _submit(factory: _Factory) -> KnowledgeDocumentVersion:
     return await SubmitKnowledgeDocument(factory, _Clock()).execute(
         context=_context(), args=_args(), idempotency_key="draft-1"
     )
+
+
+def _platform_seed(revision: int = 1) -> PlatformSeedDocument:
+    content = "# Trusted\n\nApproved platform content."
+    return PlatformSeedDocument(
+        document_key="product/platform-overview",
+        category=KnowledgeCategory.PRODUCT,
+        language=KnowledgeLanguage.PORTUGUESE,
+        format=KnowledgeFormat.MARKDOWN,
+        content=content,
+        metadata={"approval_status": "approved"},
+        revision=revision,
+        content_hash=stable_hash(content),
+    )
+
+
+@pytest.mark.asyncio
+async def test_platform_seed_stages_before_dispatch_and_replays_confirmed_versions() -> None:
+    factory = _Factory()
+    dispatcher = _Dispatcher()
+    seed = SeedPlatformKnowledge(factory, dispatcher, _Clock())
+
+    first = await seed.execute(manifest=(_platform_seed(),))
+    stored = factory.documents.versions[first.reserved_version_ids[0]]
+    replay = await seed.execute(manifest=(_platform_seed(),))
+
+    assert stored.status is KnowledgeVersionStatus.CONFIRMED
+    assert first.reserved_version_ids == (stored.id,)
+    assert replay.reserved_version_ids == ()
+    assert replay.redispatched_version_ids == (stored.id,)
+    assert dispatcher.calls == [(CORPUS_ID, stored.id), (CORPUS_ID, stored.id)]
+
+
+@pytest.mark.asyncio
+async def test_platform_seed_rejects_changed_equal_revision_and_waits_for_pending_revision() -> (
+    None
+):
+    factory = _Factory()
+    seed = SeedPlatformKnowledge(factory, _Dispatcher(), _Clock())
+    first = await seed.execute(manifest=(_platform_seed(),))
+    stored = factory.documents.versions[first.reserved_version_ids[0]]
+
+    changed = replace(_platform_seed(), content="# Changed", content_hash=stable_hash("# Changed"))
+    with pytest.raises(KnowledgeConflictError, match="payload_conflict"):
+        await seed.execute(manifest=(changed,))
+    with pytest.raises(KnowledgeConflictError, match="seed_revision_in_progress"):
+        await seed.execute(manifest=(_platform_seed(revision=2),))
+
+    factory.documents.versions[stored.id] = replace(stored, status=KnowledgeVersionStatus.READY)
+    result = await seed.execute(manifest=(_platform_seed(revision=2),))
+
+    assert len(result.reserved_version_ids) == 1
 
 
 @pytest.mark.asyncio

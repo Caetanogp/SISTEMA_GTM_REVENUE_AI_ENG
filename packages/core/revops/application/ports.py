@@ -563,6 +563,21 @@ class KnowledgeDocumentRepository(Protocol):
         created_at: datetime,
     ) -> KnowledgeDocumentVersion: ...
 
+    async def get_latest_seed_version(
+        self, corpus_id: UUID, document_key: str
+    ) -> KnowledgeDocumentVersion | None: ...
+
+    async def reserve_platform_draft(
+        self,
+        *,
+        corpus_id: UUID,
+        requested_by_system: UUID,
+        document: KnowledgeDocument,
+        seed_revision: int,
+        idempotency_key: str,
+        created_at: datetime,
+    ) -> KnowledgeDocumentVersion: ...
+
     async def transition_status(
         self,
         *,
@@ -591,6 +606,8 @@ class KnowledgeCorpusRepository(Protocol):
     """Resolves deployment-owned platform and organization corpus identities."""
 
     async def get_platform(self) -> KnowledgeCorpus: ...
+
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus: ...
 
     async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus: ...
 
