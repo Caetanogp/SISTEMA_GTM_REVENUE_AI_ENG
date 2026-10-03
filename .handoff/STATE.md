@@ -1,10 +1,10 @@
 ---
 agent: codex
 updated_at: 2026-10-03
-branch: feature/SPEC-007-rag-ingestion
+branch: feature/SPEC-007-rag-ingestion-supervisor-recovery
 spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 Item 9 approved design; preparing real pilot"
-status: preparing_item_9_pilot
+phase: "Supervisor recovery baseline before Item 9 implementation"
+status: supervisor_recovery_pending_rollover
 ---
 
 # Current state
@@ -20,7 +20,9 @@ The user approved the complete Item 9 design on 2026-10-03, including conditiona
 blocking after seed data and waiting for a pending revision before accepting its successor.
 ADR-0015 and the active plan contain the exact database, locking, recovery, and CLI contracts.
 Only documentation/control preparation is in progress; no Item 9 runtime implementation exists.
-The history below is retained until it is archived after the formal baseline rollover.
+This recovery branch intentionally places the supervisor commit before Item 9 implementation so
+the existing 11-task baseline can be rolled over without mixing application and control changes.
+The original `feature/SPEC-007-rag-ingestion` branch remains preserved separately.
 
 The platform-content ownership decision is resolved. The approved design uses explicit
 `KnowledgeCorpus` identities: one deployment-owned platform corpus and one uniquely owned corpus
@@ -121,10 +123,11 @@ idempotency replay/conflict handling, lifecycle mappings, and cross-tenant autho
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` to verify Item 8 and advance to Item 9 if green.
-2. Run a bounded Item 9 pilot; platform seed mutation boundaries may require a new design decision.
-3. If the pilot returns a real commit and gate evidence, launch the long loop for the remaining
-   queue; stop on any new `HUMAN_REQUIRED` rather than inferring product scope.
+1. Create the exact external rollover authorization from baseline `06dcca56dc96` to the current
+   supervisor commit `4eeb873`; its changed paths must contain only supervisor-control files.
+2. Run the rollover command and confirm the ordinary gate remains at Item 9 with exit 1.
+3. Reapply the approved Item 9 application and handoff commits after the rollover, then run a
+   one-turn pilot to prove that the parent supervisor creates the executor commit.
 
 ## Gotchas
 
