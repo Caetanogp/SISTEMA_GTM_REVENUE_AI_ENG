@@ -72,11 +72,13 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 ## Item 9 - Platform seed
 
-- **Scope:** `apps/`, `packages/core/revops/infrastructure/`, `tests/integration/`
-- **Requires:** Items 6-8
+- **Scope:** `apps/platform_seed.py`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/`, `tests/unit/application/`, `tests/unit/infrastructure/`, `tests/unit/apps/`, `tests/integration/`, `docs/decisions/ADR-0015-platform-seed-loading-and-attribution.md`, `docs/specs/SPEC-007-rag-ingestion/plan.md`, `.handoff/log/2026-10-03-codex-item9-design.md`
+- **Requires:** Items 6-8; implementation evidence in `apps/platform_seed.py`, `packages/core/revops/infrastructure/knowledge_seed/`, `tests/integration/test_platform_seed.py`
 - **Closes:** task 12
-- **What:** load trusted shared seed content without exposing platform mutation.
-- **Done when:** seed and tenant override tests pass.
+- **What:** implement the approved ADR-0015 seed contract, deployment attribution, conditional
+  downgrade, serialized revision updates, and recovery without exposing platform mutation.
+- **Done when:** application, concurrency, SQL attribution, migration, worker, tenant override,
+  and sanitized CLI tests pass; observe the Item 9 gate before ticking its task.
 
 ## Item 10 - Integration and adversarial coverage
 

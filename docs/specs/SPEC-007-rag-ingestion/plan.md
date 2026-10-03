@@ -41,7 +41,9 @@ scope/owner invariant in the database and application authorization. Use separat
 and immutable versions. Store normalized content hash, source,
 metadata, embedding model/dimension, processing status, idempotency key, and timestamps. Store
 chunk ordinal, text/hash, structured metadata, and vector. Corpus heads point to active revisions;
-revisions store an immutable manifest/hash. Migrations are additive and downgrade-safe.
+revisions store an immutable manifest/hash. Migrations are additive. The platform-attribution
+migration permits downgrade before seed data exists and blocks it atomically afterward, under
+the user-approved compatibility exception in ADR-0015.
 
 Each revision is a complete immutable corpus snapshot. Its membership is stored as one
 `document_key -> version_id` entry per logical document, and its manifest hash is SHA-256 over a
@@ -134,3 +136,61 @@ The reviewed implementation must also:
   concurrent runs converge on the same idempotent result;
 - compose database and broker settings without importing `apps.api` or `apps.worker`; and
 - use the two-document approved manifest in ADR-0015 as the initial canonical source.
+
+### Approved Item 9 execution contract (2026-10-03)
+
+Implement `SeedPlatformKnowledge` in application, internal seed input/result DTOs, and narrow
+repository ports for platform corpus creation/locking, latest seed revision lookup, and platform
+draft reservation. Keep tenant reservation organization-only and keep the public Admin API schema
+unchanged. Version DTOs retain an effective actor UUID and add optional `seed_revision`; adapters
+read the effective actor from the appropriate user or system column.
+
+Validate the complete manifest, strict positive integer revisions, normalized hashes, duplicate
+keys, full document payload, and `chunk_content` limits before constructing a UoW. Stage the whole
+manifest atomically, in document-key order. Idempotency keys are
+`platform-seed:v1:<sha256(document_key UTF-8)>:<revision>` and remain within the existing 128-character
+limit; revisions use the positive PostgreSQL Integer range. Compare content, category, language,
+format, scope, and all metadata, not just the content hash.
+
+Compare each requested revision with the maximum persisted revision, including failed and retired
+versions. Lower revisions conflict. Equal revisions require identical payloads: confirm drafts,
+redispatch confirmed/processing versions after commit, skip ready versions, and reject failed or
+retired replays. Greater revisions create a new immutable version only after the previous version
+is ready, failed, or retired. A greater revision while draft/confirmed/processing returns the safe
+`seed_revision_in_progress` conflict; rerun after processing finishes. No manifest omission retires
+or deletes a document. All entries are committed before any dispatch; partial broker failure leaves
+confirmed versions recoverable by rerunning the same command.
+
+Acquire a fixed-key PostgreSQL advisory transaction lock for seed loaders, then create/read and
+lock the singleton platform corpus. Platform worker version locking must acquire the corpus row
+before the version row; use the same corpus -> version order throughout platform processing and
+publication. Do not change the organization corpus locking contract. Hold no database locks during
+embedding or broker calls. Test seed/seed and seed/worker concurrency with independent sessions.
+
+The additive persistence migration and exact attribution constraints are defined in ADR-0015.
+Existing actor UUIDs and content are preserved. Backfill only new integrity projections; reject
+inconsistent existing records. Upgrade -> downgrade -> upgrade must preserve real tenant records
+before seeds; downgrade after any platform version or system attribution must fail before DDL and
+leave both data and Alembic version unchanged. Run migration/concurrency tests in an owned isolated
+schema using the existing supplied-connection and version-table-schema migration support; avoid
+persisting platform seeds in the shared integration schema.
+
+Compose `apps.platform_seed` with its own minimal environment settings and the existing session
+factory, UoW, clock, Celery factory, and dispatcher. Match worker settings aliases/defaults, including
+Redis broker database 1 and result backend database 2. Use the Windows-compatible selector runner.
+The command accepts no runtime manifest, content path/URL, tenant, or actor override. Emit only safe
+counts/identifiers and bounded static error codes; dispose resources on failure. Test raw injected
+exceptions carrying a credential, URL, and document content against both stdout and stderr.
+
+Tests must prove all validation/idempotency/lifecycle cases above, commit-before-dispatch, partial
+dispatch recovery, database-level actor/corpus/organization enforcement, immutable history, fake
+worker publication, same-key tenant isolation, tenant API rejection, and safe CLI output. Run the
+full applicable verify-before-done commands, including gitleaks, and collect file:line evidence.
+
+Prepare the ADR/plan/queue/state commit first. Apply the formal external baseline rollover with
+the exact branch, previous/target SHA, sorted diff, and 11 completed task checkboxes. Archive the
+original handoff at the Item 9 authorized log path only after rollover, then keep STATE.md concise.
+Run one real executor turn with `-MaxTurns 1 -ChildTimeoutSeconds 1800`. Require an observed Item 9
+gate before its checkbox, real implementation commits, and an independently verified gate selecting
+Item 10 afterward. A stop solely at the intentional turn cap is expected, not proof of completion;
+reconcile and commit that handoff before starting the `-MaxTurns 100` loop for Items 10-12.
