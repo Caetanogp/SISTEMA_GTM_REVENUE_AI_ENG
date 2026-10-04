@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-final-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 11 eval and smoke documentation completed; autonomous gate remains red outside item scope"
-status: item_11_evals_documented_gate_blocked
+phase: "Item 12 closeout verification blocked by external ACLs"
+status: item_12_closeout_blocked_environment
 ---
 
 # Current state
@@ -15,59 +15,50 @@ Complete PDF-aligned knowledge ingestion and verify the remaining SPEC-007 queue
 
 ## Now
 
-Item 11's committed offline contract eval and optional cost-confirmed live smoke documentation
-were re-verified. The ordinary autonomous gate is not green because its repository-wide pytest
-command has 50 existing errors in supervisor/PDF-traceability unit tests; this executor did not
-modify those out-of-scope paths.
+Item 12 corrected SPEC-007 PDF traceability, but its checkbox remains unticked because the
+autonomous gate exits 1 before the unit/architecture suite can create its external pytest temp
+directory.
 
 ## Done
 
-- Item 11 implementation is committed at `b5211ce` and supplies
-  `rag_ingestion_contract`, its deterministic seven-case dataset, a fixed 1.00 gate requirement,
-  and a live embedding smoke command protected by `--confirm-cost`.
-- `python -m evals.run --suite rag_ingestion_contract` passed at `1.00` (`7/7`) and
-  `python -m evals.gate` passed all offline suites on 2026-10-03.
-- `python scripts/autonomous_gate.py` exited 1 on 2026-10-03: Ruff, mypy, lint-imports, and
-  agent-doc checks passed; the gate's `pytest tests/unit tests/architecture -q` has 50
-  pre-existing errors in `tests/unit/scripts/test_codex_loop_supervisor.py` and
-  `tests/unit/scripts/test_pdf_traceability.py`.
+- Updated SPEC-007 PDF traceability for persisted versioned documents/chunks, versioned corpus
+  ingestion, and the remaining SPEC-008 retrieval gaps — `docs/requirements/PDF_TRACEABILITY.md:27`,
+  `:54`, and `:62`; `python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20).
+- Closeout quality evidence: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, and
+  `python scripts/check_agent_docs.py` passed; `pytest tests/integration -q` passed (45 passed);
+  `pytest tests/adversarial -q` passed (13 passed); `python -m evals.run --suite all` passed at
+  1.00 for tool selection (14/14), lead scoring (15/15), LLM gateway (6/6), and RAG ingestion
+  (7/7).
+- Security review found no SPEC-007 code finding: adversarial coverage passed. Supplemental
+  automation is environment-blocked: Gitleaks reports no leaks but cannot read
+  `.pytest_cache/autonomous-loop`; Semgrep is not provisioned; pip-audit cannot reach PyPI; and
+  Bandit reports four pre-existing low-severity `assert` findings in
+  `packages/core/revops/application/use_cases/ingestion.py:115,116,389,390`.
 
 ## Next
 
-1. Supervisor commits this Item 11 task and handoff evidence increment.
-2. Resolve the 50 out-of-scope supervisor/PDF-traceability unit-test errors through the authorized
-   supervisor workflow before expecting the autonomous gate to advance.
+1. Restore access to `%LOCALAPPDATA%\Temp\pytest-of-Caetanogp123` and
+   `.pytest_cache/autonomous-loop` outside this executor, without weakening or bypassing checks.
+2. Provision Semgrep and network access for pip-audit if a complete supplemental security review is
+   required, then rerun those commands.
+3. Rerun `python scripts/autonomous_gate.py`; only after exit 0 tick task 15 and update this state
+   with the final gate evidence for the supervisor commit.
 
 ## Gotchas
 
-- The live smoke is optional, excluded from CI, requires explicit `--confirm-cost`, and never
-  prints keys, document text, vectors, raw responses, or provider error bodies.
-- Corpus identity is the tenant authorization boundary; retrieval and grounded generation remain
-  SPEC-008.
+- `pytest tests/unit tests/architecture -q` currently reports 341 passed and 50 errors, all caused
+  by `PermissionError` creating `%LOCALAPPDATA%\Temp\pytest-of-Caetanogp123`.
+- `python scripts/autonomous_gate.py` was observed exiting 1 on Item 12; its state counter is 4/5.
+  Do not repeatedly rerun it before resolving the external ACL condition or it will halt.
+- No cleanup was attempted: deleting inaccessible cache/temp artifacts is outside the requested
+  scope and requires explicit authorization.
 
 ## Resume
 
-After the supervisor commits this increment, resolve the existing gate failures only through an
-authorized workflow; do not rerun the live smoke without explicit cost confirmation.
+```powershell
+python scripts/autonomous_gate.py
+```
 
 ## Open questions
 
-- None for Item 11.
-
-## Autonomous loop HALT (2026-10-04T00:16:05+00:00)
-
-Item 11 declares scope ('evals/', 'scripts/', 'docs/'), but changes touch files outside it: ['.pytest-rag-temp/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T00:16:38+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. The focused pytest run created an out-of-scope temporary artifact with an access-denied ACL. The autonomous gate halted, and the repository rules prohibit me from using a destructive cleanup command without explicit authorization.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T00:42:48+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+- Who can restore the external Temp/cache ACLs and provision the unavailable security scanner?
