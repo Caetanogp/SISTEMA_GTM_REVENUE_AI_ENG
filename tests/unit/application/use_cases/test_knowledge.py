@@ -1,0 +1,450 @@
+"""Unit tests for the knowledge lifecycle application orchestration."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import replace
+from datetime import UTC, datetime
+from types import TracebackType
+from typing import cast
+from uuid import UUID, uuid4
+
+import pytest
+from revops.application.dto import (
+    CorpusRevision,
+    EmbeddingBatch,
+    KnowledgeAdminContext,
+    KnowledgeCorpus,
+    KnowledgeDocumentVersion,
+    KnowledgeProcessingEvent,
+    PlatformSeedDocument,
+    SubmitKnowledgeDocumentArgs,
+)
+from revops.application.ports import KnowledgeUnitOfWork
+from revops.application.use_cases.knowledge import (
+    ActivateKnowledgeRevision,
+    ConfirmKnowledgeDocument,
+    KnowledgeConflictError,
+    KnowledgeLifecycleError,
+    KnowledgeProcessingError,
+    ProcessKnowledgeDocument,
+    RecordKnowledgeProcessingFailure,
+    RetireKnowledgeVersion,
+    SeedPlatformKnowledge,
+    SubmitKnowledgeDocument,
+    validate_platform_seed_manifest,
+)
+from revops.domain.entities.knowledge import (
+    KnowledgeCategory,
+    KnowledgeFormat,
+    KnowledgeLanguage,
+    KnowledgeScope,
+    KnowledgeVersionStatus,
+    stable_hash,
+)
+
+ACTOR_ID = UUID("00000000-0000-0000-0000-000000000001")
+ORGANIZATION_ID = UUID("00000000-0000-0000-0000-000000000002")
+CORPUS_ID = UUID("00000000-0000-0000-0000-000000000003")
+
+
+def test_platform_seed_validation_is_deterministic_and_prevents_invalid_payloads() -> None:
+    content = "# Trusted\n\nApproved platform content."
+    document = PlatformSeedDocument(
+        document_key="product/platform-overview",
+        category=KnowledgeCategory.PRODUCT,
+        language=KnowledgeLanguage.PORTUGUESE,
+        format=KnowledgeFormat.MARKDOWN,
+        content=content,
+        metadata={"approval_status": "approved"},
+        revision=1,
+        content_hash=stable_hash(content),
+    )
+
+    validated = validate_platform_seed_manifest((document,))
+
+    assert validated[0][0] == document
+    assert validated[0][1][0].text == content
+    with pytest.raises(KnowledgeConflictError, match="content_hash_mismatch"):
+        validate_platform_seed_manifest((replace(document, content_hash="0" * 64),))
+    with pytest.raises(KnowledgeConflictError, match="duplicate_document_key"):
+        validate_platform_seed_manifest((document, document))
+    with pytest.raises(KnowledgeConflictError, match="revision_invalid"):
+        validate_platform_seed_manifest((replace(document, revision=2_147_483_648),))
+
+
+class _Clock:
+    def now(self) -> datetime:
+        return datetime(2026, 9, 29, tzinfo=UTC)
+
+
+class _Documents:
+    def __init__(self) -> None:
+        self.versions: dict[UUID, KnowledgeDocumentVersion] = {}
+
+    async def get_version(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None:
+        version = self.versions.get(version_id)
+        return version if version is not None and version.corpus_id == corpus_id else None
+
+    async def get_version_for_update(
+        self, corpus_id: UUID, version_id: UUID
+    ) -> KnowledgeDocumentVersion | None:
+        return await self.get_version(corpus_id, version_id)
+
+    async def get_by_idempotency_key(
+        self, corpus_id: UUID, idempotency_key: str
+    ) -> KnowledgeDocumentVersion | None:
+        return next(
+            (
+                version
+                for version in self.versions.values()
+                if version.corpus_id == corpus_id and version.idempotency_key == idempotency_key
+            ),
+            None,
+        )
+
+    async def reserve_draft(
+        self, *, corpus_id, requested_by, document, idempotency_key, created_at
+    ):
+        existing = await self.get_by_idempotency_key(corpus_id, idempotency_key)
+        if existing is not None:
+            return existing
+        version = KnowledgeDocumentVersion(
+            id=uuid4(),
+            document_id=uuid4(),
+            corpus_id=corpus_id,
+            requested_by=requested_by,
+            document=document,
+            status=KnowledgeVersionStatus.DRAFT,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+        )
+        self.versions[version.id] = version
+        return version
+
+    async def get_latest_seed_version(self, corpus_id, document_key):
+        candidates = [
+            version
+            for version in self.versions.values()
+            if version.corpus_id == corpus_id
+            and version.document.document_key == document_key
+            and version.seed_revision is not None
+        ]
+        return max(candidates, key=lambda version: version.seed_revision or 0, default=None)
+
+    async def reserve_platform_draft(
+        self,
+        *,
+        corpus_id,
+        requested_by_system,
+        document,
+        seed_revision,
+        idempotency_key,
+        created_at,
+    ):
+        existing = await self.get_by_idempotency_key(corpus_id, idempotency_key)
+        if existing is not None:
+            return existing
+        version = KnowledgeDocumentVersion(
+            id=uuid4(),
+            document_id=uuid4(),
+            corpus_id=corpus_id,
+            requested_by=requested_by_system,
+            document=document,
+            status=KnowledgeVersionStatus.DRAFT,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+            seed_revision=seed_revision,
+        )
+        self.versions[version.id] = version
+        return version
+
+    async def transition_status(self, *, corpus_id, version_id, status, failure_code=None):
+        version = await self.get_version(corpus_id, version_id)
+        assert version is not None
+        updated = replace(version, status=status, failure_code=failure_code)
+        self.versions[version_id] = updated
+        return updated
+
+    async def mark_ready(self, *, corpus_id, version_id, embedding_model, embedding_dimension):
+        version = await self.get_version(corpus_id, version_id)
+        assert version is not None
+        updated = replace(
+            version,
+            status=KnowledgeVersionStatus.READY,
+            embedding_model=embedding_model,
+            embedding_dimension=embedding_dimension,
+            failure_code=None,
+        )
+        self.versions[version_id] = updated
+        return updated
+
+    async def list_versions(self, corpus_id, *, offset, limit):
+        return tuple(
+            version for version in self.versions.values() if version.corpus_id == corpus_id
+        )[offset : offset + limit]
+
+
+class _Corpora:
+    async def get_platform(self):
+        raise NotImplementedError
+
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
+        return KnowledgeCorpus(CORPUS_ID, KnowledgeScope.PLATFORM)
+
+    async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
+        return KnowledgeCorpus(CORPUS_ID, KnowledgeScope.ORGANIZATION, organization_id)
+
+
+class _Revisions:
+    def __init__(self) -> None:
+        self.published: list[tuple[UUID, tuple[object, ...]]] = []
+        self.activated: list[UUID] = []
+
+    async def publish(self, *, corpus_id, version_id, chunks, activated_by, created_at):
+        self.published.append((version_id, tuple(chunks)))
+        return CorpusRevision(uuid4(), corpus_id, version_id, "hash", activated_by, created_at)
+
+    async def get_active(self, corpus_id):
+        return None
+
+    async def activate(self, *, corpus_id, revision_id, activated_by, idempotency_key, created_at):
+        self.activated.append(revision_id)
+        return CorpusRevision(uuid4(), corpus_id, uuid4(), "hash", activated_by, created_at)
+
+    async def list_activation_history(self, corpus_id, *, offset, limit):
+        return ()
+
+
+class _ProcessingEvents:
+    def __init__(self) -> None:
+        self.events: list[KnowledgeProcessingEvent] = []
+
+    async def append(self, event: KnowledgeProcessingEvent) -> None:
+        self.events.append(event)
+
+
+class _Dispatcher:
+    def __init__(self) -> None:
+        self.calls: list[tuple[UUID, UUID]] = []
+
+    async def publish(self, *, corpus_id: UUID, version_id: UUID) -> None:
+        self.calls.append((corpus_id, version_id))
+
+
+class _Embeddings:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[tuple[str, ...]] = []
+
+    async def embed(self, texts: Sequence[str]) -> EmbeddingBatch:
+        self.calls.append(tuple(texts))
+        if self.fail:
+            raise RuntimeError("provider unavailable")
+        return EmbeddingBatch("fake", 2, tuple((1.0, 0.0) for _ in texts))
+
+
+class _Uow:
+    def __init__(self, documents: _Documents, revisions: _Revisions) -> None:
+        self.documents = documents
+        self.corpora = _Corpora()
+        self.revisions = revisions
+        self.processing_events = _ProcessingEvents()
+
+    async def __aenter__(self) -> _Uow:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        return None
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
+class _Factory:
+    def __init__(self) -> None:
+        self.documents = _Documents()
+        self.revisions = _Revisions()
+        self.processing_events = _ProcessingEvents()
+
+    def __call__(self) -> KnowledgeUnitOfWork:
+        uow = _Uow(self.documents, self.revisions)
+        uow.processing_events = self.processing_events
+        return cast(KnowledgeUnitOfWork, uow)
+
+
+def _context() -> KnowledgeAdminContext:
+    return KnowledgeAdminContext(actor_id=ACTOR_ID, organization_id=ORGANIZATION_ID, role="admin")
+
+
+def _args(content: str = "# Product\n\nApproved content") -> SubmitKnowledgeDocumentArgs:
+    return SubmitKnowledgeDocumentArgs(
+        document_key="product/overview",
+        category=KnowledgeCategory.PRODUCT,
+        language=KnowledgeLanguage.ENGLISH,
+        format=KnowledgeFormat.MARKDOWN,
+        content=content,
+    )
+
+
+async def _submit(factory: _Factory) -> KnowledgeDocumentVersion:
+    return await SubmitKnowledgeDocument(factory, _Clock()).execute(
+        context=_context(), args=_args(), idempotency_key="draft-1"
+    )
+
+
+def _platform_seed(revision: int = 1) -> PlatformSeedDocument:
+    content = "# Trusted\n\nApproved platform content."
+    return PlatformSeedDocument(
+        document_key="product/platform-overview",
+        category=KnowledgeCategory.PRODUCT,
+        language=KnowledgeLanguage.PORTUGUESE,
+        format=KnowledgeFormat.MARKDOWN,
+        content=content,
+        metadata={"approval_status": "approved"},
+        revision=revision,
+        content_hash=stable_hash(content),
+    )
+
+
+@pytest.mark.asyncio
+async def test_platform_seed_stages_before_dispatch_and_replays_confirmed_versions() -> None:
+    factory = _Factory()
+    dispatcher = _Dispatcher()
+    seed = SeedPlatformKnowledge(factory, dispatcher, _Clock())
+
+    first = await seed.execute(manifest=(_platform_seed(),))
+    stored = factory.documents.versions[first.reserved_version_ids[0]]
+    replay = await seed.execute(manifest=(_platform_seed(),))
+
+    assert stored.status is KnowledgeVersionStatus.CONFIRMED
+    assert first.reserved_version_ids == (stored.id,)
+    assert replay.reserved_version_ids == ()
+    assert replay.redispatched_version_ids == (stored.id,)
+    assert dispatcher.calls == [(CORPUS_ID, stored.id), (CORPUS_ID, stored.id)]
+
+
+@pytest.mark.asyncio
+async def test_platform_seed_rejects_changed_equal_revision_and_waits_for_pending_revision() -> (
+    None
+):
+    factory = _Factory()
+    seed = SeedPlatformKnowledge(factory, _Dispatcher(), _Clock())
+    first = await seed.execute(manifest=(_platform_seed(),))
+    stored = factory.documents.versions[first.reserved_version_ids[0]]
+
+    changed = replace(_platform_seed(), content="# Changed", content_hash=stable_hash("# Changed"))
+    with pytest.raises(KnowledgeConflictError, match="payload_conflict"):
+        await seed.execute(manifest=(changed,))
+    with pytest.raises(KnowledgeConflictError, match="seed_revision_in_progress"):
+        await seed.execute(manifest=(_platform_seed(revision=2),))
+
+    factory.documents.versions[stored.id] = replace(stored, status=KnowledgeVersionStatus.READY)
+    result = await seed.execute(manifest=(_platform_seed(revision=2),))
+
+    assert len(result.reserved_version_ids) == 1
+
+
+@pytest.mark.asyncio
+async def test_confirmation_commits_then_dispatches_and_replays() -> None:
+    factory = _Factory()
+    dispatcher = _Dispatcher()
+    version = await _submit(factory)
+    confirm = ConfirmKnowledgeDocument(factory, dispatcher, _Clock())
+
+    confirmed = await confirm.execute(context=_context(), version_id=version.id)
+    replay = await confirm.execute(context=_context(), version_id=version.id)
+
+    assert confirmed.status is KnowledgeVersionStatus.CONFIRMED
+    assert replay.status is KnowledgeVersionStatus.CONFIRMED
+    assert dispatcher.calls == [(CORPUS_ID, version.id), (CORPUS_ID, version.id)]
+
+
+@pytest.mark.asyncio
+async def test_processing_embeds_in_batches_and_publishes_only_after_ready() -> None:
+    factory = _Factory()
+    version = await _submit(factory)
+    await ConfirmKnowledgeDocument(factory, _Dispatcher(), _Clock()).execute(
+        context=_context(), version_id=version.id
+    )
+    embeddings = _Embeddings()
+
+    result = await ProcessKnowledgeDocument(factory, embeddings, _Clock()).execute(
+        corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
+    )
+
+    assert result.status is KnowledgeVersionStatus.READY
+    assert result.embedding_model == "fake"
+    assert result.embedding_dimension == 2
+    assert embeddings.calls == [("# Product\n\nApproved content",)]
+    assert len(factory.revisions.published) == 1
+
+
+@pytest.mark.asyncio
+async def test_processing_failure_marks_version_failed_and_does_not_publish() -> None:
+    factory = _Factory()
+    version = await _submit(factory)
+    await ConfirmKnowledgeDocument(factory, _Dispatcher(), _Clock()).execute(
+        context=_context(), version_id=version.id
+    )
+
+    with pytest.raises(KnowledgeProcessingError, match="embedding_provider_error"):
+        await ProcessKnowledgeDocument(factory, _Embeddings(fail=True), _Clock()).execute(
+            corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
+        )
+
+    assert factory.documents.versions[version.id].status is KnowledgeVersionStatus.PROCESSING
+    assert factory.revisions.published == []
+    failed = await RecordKnowledgeProcessingFailure(factory, _Clock()).execute(
+        corpus_id=CORPUS_ID,
+        version_id=version.id,
+        delivery_id="delivery-1",
+        attempt=1,
+        failure_code="embedding_provider_error",
+        retryable=False,
+        terminal=True,
+    )
+    assert failed.status is KnowledgeVersionStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_retirement_and_historical_activation_are_admin_operations() -> None:
+    factory = _Factory()
+    version = await _submit(factory)
+    await ConfirmKnowledgeDocument(factory, _Dispatcher(), _Clock()).execute(
+        context=_context(), version_id=version.id
+    )
+    await ProcessKnowledgeDocument(factory, _Embeddings(), _Clock()).execute(
+        corpus_id=CORPUS_ID, version_id=version.id, delivery_id="delivery-1", attempt=1
+    )
+
+    retired = await RetireKnowledgeVersion(factory).execute(
+        context=_context(), version_id=version.id
+    )
+    revision_id = uuid4()
+    await ActivateKnowledgeRevision(factory, _Clock()).execute(
+        context=_context(), revision_id=revision_id, idempotency_key="activate-1"
+    )
+
+    assert retired.status is KnowledgeVersionStatus.RETIRED
+    assert factory.revisions.activated == [revision_id]
+
+
+@pytest.mark.asyncio
+async def test_required_idempotency_key_is_rejected_before_repository_call() -> None:
+    factory = _Factory()
+
+    with pytest.raises(KnowledgeLifecycleError, match="Idempotency-Key"):
+        await SubmitKnowledgeDocument(factory, _Clock()).execute(
+            context=_context(), args=_args(), idempotency_key=" "
+        )

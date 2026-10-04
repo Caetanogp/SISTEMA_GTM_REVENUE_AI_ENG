@@ -16,6 +16,7 @@ from .routes.agent_runs import router as agent_runs_router
 from .routes.deduplication import router as deduplication_router
 from .routes.health import router as health_router
 from .routes.ingestion import router as ingestion_router
+from .routes.knowledge import router as knowledge_router
 from .settings import ApiSettings
 
 
@@ -51,6 +52,7 @@ def create_app(
     app.state.llm_gateway = llm_gateway or default_llm_gateway(app.state.settings)
     app.include_router(agent_runs_router)
     app.include_router(ingestion_router)
+    app.include_router(knowledge_router)
     app.include_router(deduplication_router)
     app.include_router(health_router)
     return app

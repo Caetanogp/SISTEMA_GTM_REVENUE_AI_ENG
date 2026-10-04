@@ -24,6 +24,14 @@ from revops.application.use_cases.ingestion import (
     ListIngestionItems,
     StageIngestion,
 )
+from revops.application.use_cases.knowledge import (
+    ActivateKnowledgeRevision,
+    ConfirmKnowledgeDocument,
+    GetKnowledgeVersion,
+    ListKnowledgeVersions,
+    RetireKnowledgeVersion,
+    SubmitKnowledgeDocument,
+)
 from revops.infrastructure.agent.checkpointer import open_checkpointer
 from revops.infrastructure.agent.graph import build_agent_graph
 from revops.infrastructure.agent.nodes import AgentGraphDependencies, UnitOfWorkScope
@@ -33,6 +41,7 @@ from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from revops.infrastructure.queue import (
     CeleryDeduplicationDispatcher,
     CeleryIngestionDispatcher,
+    CeleryKnowledgeDispatcher,
     create_celery_app,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -99,6 +108,30 @@ def deduplication_services(
         MergeDeduplicationCandidate(uow_factory),
         RevertDeduplicationMerge(uow_factory),
         ListDeduplicationHistory(uow_factory),
+    )
+
+
+def knowledge_services(
+    *, uow_factory: Any, settings: ApiSettings
+) -> tuple[
+    SubmitKnowledgeDocument,
+    ConfirmKnowledgeDocument,
+    GetKnowledgeVersion,
+    ListKnowledgeVersions,
+    RetireKnowledgeVersion,
+    ActivateKnowledgeRevision,
+]:
+    clock: Clock = UtcClock()
+    dispatcher = CeleryKnowledgeDispatcher(
+        create_celery_app(broker_url=settings.broker_url, result_backend=settings.result_backend)
+    )
+    return (
+        SubmitKnowledgeDocument(uow_factory, clock),
+        ConfirmKnowledgeDocument(uow_factory, dispatcher, clock),
+        GetKnowledgeVersion(uow_factory),
+        ListKnowledgeVersions(uow_factory),
+        RetireKnowledgeVersion(uow_factory),
+        ActivateKnowledgeRevision(uow_factory, clock),
     )
 
 

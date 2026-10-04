@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 from uuid import UUID
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -74,6 +75,270 @@ class User(Base):
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     email: Mapped[str] = mapped_column(String(320))
     role: Mapped[str] = mapped_column(String(64))
+
+
+class KnowledgeCorpus(Base):
+    """Explicit platform or organization owner for knowledge records."""
+
+    __tablename__ = "knowledge_corpora"
+    __table_args__ = (
+        CheckConstraint("scope IN ('platform', 'organization')", name="ck_knowledge_corpora_scope"),
+        CheckConstraint(
+            "(scope = 'platform' AND organization_id IS NULL) OR "
+            "(scope = 'organization' AND organization_id IS NOT NULL)",
+            name="ck_knowledge_corpora_scope_owner",
+        ),
+        UniqueConstraint("organization_id", name="uq_knowledge_corpora_organization"),
+        Index(
+            "uq_knowledge_corpora_platform",
+            "scope",
+            unique=True,
+            postgresql_where=text("scope = 'platform'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(32), nullable=False)
+    organization_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("organizations.id"), default=None, index=True
+    )
+    created_at: Mapped[datetime]
+
+
+class KnowledgeDocument(Base):
+    """Logical document identity within one explicit corpus."""
+
+    __tablename__ = "knowledge_documents"
+    __table_args__ = (
+        UniqueConstraint("corpus_id", "document_key", name="uq_knowledge_documents_key"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    document_key: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime]
+
+
+class KnowledgeDocumentVersion(Base):
+    """Immutable normalized content version and its processing lifecycle."""
+
+    __tablename__ = "knowledge_document_versions"
+    __table_args__ = (
+        CheckConstraint(
+            "(requested_by IS NOT NULL AND requested_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(requested_by IS NULL AND requested_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_document_versions_actor_projection",
+        ),
+        CheckConstraint(
+            "(scope = 'platform' AND seed_revision IS NOT NULL AND seed_revision > 0) "
+            "OR (scope = 'organization' AND seed_revision IS NULL)",
+            name="ck_knowledge_document_versions_seed_revision",
+        ),
+        UniqueConstraint(
+            "corpus_id", "idempotency_key", name="uq_knowledge_versions_corpus_idempotency"
+        ),
+        UniqueConstraint("document_id", "id", name="uq_knowledge_versions_document_id"),
+        UniqueConstraint(
+            "document_id", "seed_revision", name="uq_knowledge_versions_document_seed_revision"
+        ),
+        Index("ix_knowledge_versions_seed_revision", "seed_revision"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    requested_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    requested_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    seed_revision: Mapped[int | None] = mapped_column(Integer, default=None)
+    category: Mapped[str] = mapped_column(String(64))
+    language: Mapped[str] = mapped_column(String(8))
+    format: Mapped[str] = mapped_column(String(16))
+    scope: Mapped[str] = mapped_column(String(32))
+    content: Mapped[str] = mapped_column(String(1_048_576))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    embedding_model: Mapped[str | None] = mapped_column(String(128), default=None)
+    embedding_dimension: Mapped[int | None] = mapped_column(Integer, default=None)
+    failure_code: Mapped[str | None] = mapped_column(String(128), default=None)
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class KnowledgeChunk(Base):
+    """Immutable chunk and embedding produced from one document version."""
+
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        UniqueConstraint("version_id", "ordinal", name="uq_knowledge_chunks_version_ordinal"),
+        Index("ix_knowledge_chunks_corpus_id", "corpus_id"),
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(String(3_000))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    metadata_: Mapped[dict[str, object]] = mapped_column("metadata", JSONB)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536))
+
+
+class KnowledgeRevision(Base):
+    """Append-only publication manifest for a corpus."""
+
+    __tablename__ = "knowledge_revisions"
+    __table_args__ = (
+        CheckConstraint(
+            "(activated_by IS NOT NULL AND activated_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(activated_by IS NULL AND activated_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_revisions_actor_projection",
+        ),
+        CheckConstraint("TRUE", name="ck_knowledge_revisions_seed_revision"),
+        UniqueConstraint("corpus_id", "manifest_hash", name="uq_knowledge_revisions_manifest"),
+        Index("ix_knowledge_revisions_scope_organization", "scope", "organization_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    manifest_hash: Mapped[str] = mapped_column(String(64))
+    scope: Mapped[str] = mapped_column(String(32))
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    activated_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    activated_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    created_at: Mapped[datetime]
+
+
+class KnowledgeRevisionEntry(Base):
+    """One immutable document version in a complete corpus snapshot."""
+
+    __tablename__ = "knowledge_revision_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "revision_id", "document_key", name="uq_knowledge_revision_entry_document"
+        ),
+        UniqueConstraint(
+            "revision_id", "document_key", "version_id", name="uq_knowledge_revision_entry_version"
+        ),
+        Index("ix_knowledge_revision_entries_corpus", "corpus_id"),
+        Index("ix_knowledge_revision_entries_revision_id", "revision_id"),
+        Index("ix_knowledge_revision_entries_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"))
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), index=True)
+    document_key: Mapped[str] = mapped_column(String(200))
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+
+
+class KnowledgeRevisionActivation(Base):
+    """Append-only provenance for one publication or historical activation."""
+
+    __tablename__ = "knowledge_revision_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('publication', 'historical_activation')",
+            name="ck_knowledge_revision_activations_action",
+        ),
+        CheckConstraint(
+            "(activated_by IS NOT NULL AND activated_by_system IS NULL "
+            "AND scope = 'organization' AND organization_id IS NOT NULL) OR "
+            "(activated_by IS NULL AND activated_by_system = "
+            "'928f8683-f542-550e-a13c-8e770ef19a57'::uuid "
+            "AND scope = 'platform' AND organization_id IS NULL)",
+            name="ck_knowledge_revision_activations_actor_projection",
+        ),
+        CheckConstraint("TRUE", name="ck_knowledge_revision_activations_seed_revision"),
+        UniqueConstraint(
+            "corpus_id", "idempotency_key", name="uq_knowledge_revision_activation_idempotency"
+        ),
+        Index("ix_knowledge_revision_activations_scope_organization", "scope", "organization_id"),
+        Index("ix_knowledge_revision_activations_corpus_id", "corpus_id"),
+        Index("ix_knowledge_revision_activations_revision_id", "revision_id"),
+        Index("ix_knowledge_revision_activations_target_version_id", "target_version_id"),
+        Index("ix_knowledge_revision_activations_history", "corpus_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), index=True)
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), index=True)
+    target_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_document_versions.id"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(32))
+    scope: Mapped[str] = mapped_column(String(32))
+    organization_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    activated_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), default=None)
+    activated_by_system: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime]
+
+
+class KnowledgeProcessingEvent(Base):
+    """Append-only, sanitized facts about asynchronous knowledge processing."""
+
+    __tablename__ = "knowledge_processing_events"
+    __table_args__ = (
+        CheckConstraint("attempt >= 1", name="ck_knowledge_processing_events_attempt"),
+        CheckConstraint(
+            "event_type IN ('started', 'retry_scheduled', 'succeeded', 'failed', "
+            "'duplicate_ignored')",
+            name="ck_knowledge_processing_events_type",
+        ),
+        UniqueConstraint(
+            "corpus_id",
+            "version_id",
+            "delivery_id",
+            "attempt",
+            "event_type",
+            name="uq_knowledge_processing_events_identity",
+        ),
+        Index("ix_knowledge_processing_events_corpus", "corpus_id"),
+        Index("ix_knowledge_processing_events_version", "version_id"),
+        Index("ix_knowledge_processing_events_history", "corpus_id", "occurred_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"))
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_document_versions.id"))
+    delivery_id: Mapped[str] = mapped_column(String(128))
+    attempt: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(32))
+    retryable: Mapped[bool] = mapped_column(default=False)
+    failure_code: Mapped[str | None] = mapped_column(String(128), default=None)
+    occurred_at: Mapped[datetime]
+
+
+class KnowledgeCorpusHead(Base):
+    """Current revision pointer; revision rows remain immutable history."""
+
+    __tablename__ = "knowledge_corpus_heads"
+
+    corpus_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_corpora.id"), primary_key=True)
+    revision_id: Mapped[UUID] = mapped_column(ForeignKey("knowledge_revisions.id"), unique=True)
+    updated_at: Mapped[datetime]
 
 
 class Account(Base):

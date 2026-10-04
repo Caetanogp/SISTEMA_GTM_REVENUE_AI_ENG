@@ -11,6 +11,7 @@ from celery import Celery
 
 INGESTION_TASK_NAME = "revops.ingestion.process"
 DEDUPLICATION_SCAN_TASK_NAME = "revops.deduplication.scan"
+KNOWLEDGE_PROCESSING_TASK_NAME = "revops.knowledge.process"
 _PUBLISH_RETRY_POLICY = {
     "max_retries": 3,
     "interval_start": 0.2,
@@ -37,6 +38,7 @@ def create_celery_app(*, broker_url: str, result_backend: str) -> Celery:
         accept_content=["json"],
         task_acks_late=True,
         task_reject_on_worker_lost=True,
+        worker_prefetch_multiplier=1,
         broker_connection_retry_on_startup=True,
         broker_connection_timeout=5,
     )
@@ -77,6 +79,27 @@ class CeleryDeduplicationDispatcher:
             kwargs={
                 "organization_id": str(organization_id),
                 "scan_id": str(scan_id),
+            },
+            retry=True,
+            retry_policy=_PUBLISH_RETRY_POLICY,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CeleryKnowledgeDispatcher:
+    """Publish only tenant-safe knowledge identifiers to the broker."""
+
+    publisher: CeleryPublisher
+
+    async def publish(self, *, corpus_id: UUID, version_id: UUID) -> None:
+        await asyncio.to_thread(self._publish, corpus_id, version_id)
+
+    def _publish(self, corpus_id: UUID, version_id: UUID) -> None:
+        self.publisher.send_task(
+            KNOWLEDGE_PROCESSING_TASK_NAME,
+            kwargs={
+                "corpus_id": str(corpus_id),
+                "version_id": str(version_id),
             },
             retry=True,
             retry_policy=_PUBLISH_RETRY_POLICY,

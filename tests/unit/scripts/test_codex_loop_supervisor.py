@@ -128,9 +128,10 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     assert command[command.index("--ask-for-approval") + 1] == "never"
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
     assert "--approve-for-me" not in command
+    assert "--add-dir" not in command
 
 
-def test_codex_command_uses_auto_review_for_normal_executor(tmp_path: Path) -> None:
+def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_path: Path) -> None:
     config = _config(tmp_path)
     command = supervisor._codex_command(
         config,
@@ -143,7 +144,15 @@ def test_codex_command_uses_auto_review_for_normal_executor(tmp_path: Path) -> N
 
     assert 'model_reasoning_effort="medium"' in command
     assert supervisor.EXTERNAL_TEMP_CONFIG in command
-    assert "--approve-for-me" in command
+    assert command[:4] == [
+        "codex-test",
+        "--ask-for-approval",
+        "never",
+        "exec",
+    ]
+    assert "--ask-for-approval" in command
+    assert "--approve-for-me" not in command
+    assert "--add-dir" not in command
     assert "--sandbox" not in command
 
 
@@ -159,7 +168,13 @@ def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:
         read_only=False,
     )
 
-    assert command[:3] == ["codex-test", "--search", "exec"]
+    assert command[:5] == [
+        "codex-test",
+        "--ask-for-approval",
+        "never",
+        "--search",
+        "exec",
+    ]
 
 
 def test_default_runner_sends_prompts_as_utf8(
@@ -178,6 +193,37 @@ def test_default_runner_sends_prompts_as_utf8(
     supervisor.default_runner(["codex-test"], tmp_path, prompt, None, 60)
 
     assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
+    assert "capture_output" not in captured
+    assert captured["stdout"] is not None
+    assert captured["stderr"] is not None
+
+
+def test_default_runner_returns_redirected_output(tmp_path: Path) -> None:
+    result = supervisor.default_runner(
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('stdout-marker'); print('stderr-marker', file=sys.stderr)",
+        ],
+        tmp_path,
+        None,
+        None,
+        60,
+    )
+
+    assert result.returncode == 0
+    assert "stdout-marker" in result.stdout
+    assert "stderr-marker" in result.stderr
+
+
+def test_executor_prompt_forbids_handoff_edits_before_architecture_escalation(
+    tmp_path: Path,
+) -> None:
+    prompt = supervisor._executor_prompt(_active(tmp_path), None)
+
+    assert "When returning `architecture_required` or `human_required`" in prompt
+    assert "do not edit any file, including" in prompt
 
 
 def test_control_snapshot_detects_modified_or_deleted_controls(tmp_path: Path) -> None:
@@ -208,6 +254,8 @@ def test_invoke_codex_retries_transient_process_failure(
     tmp_path: Path,
 ) -> None:
     attempts = 0
+    captured_env: Mapping[str, str] | None = None
+    captured_timeout = 0
 
     def runner(
         args: Sequence[str],
@@ -216,7 +264,9 @@ def test_invoke_codex_retries_transient_process_failure(
         _env: Mapping[str, str] | None,
         _timeout: int,
     ) -> supervisor.ProcessResult:
-        nonlocal attempts
+        nonlocal attempts, captured_env, captured_timeout
+        captured_env = _env
+        captured_timeout = _timeout
         attempts += 1
         if attempts == 1:
             return supervisor.ProcessResult(1, stderr="503 temporarily unavailable")
@@ -238,6 +288,9 @@ def test_invoke_codex_retries_transient_process_failure(
 
     assert result["status"] == "continue"
     assert attempts == 2
+    assert captured_env is not None
+    assert "PYTEST_ADDOPTS" not in captured_env
+    assert captured_timeout == supervisor.DEFAULT_CHILD_TIMEOUT_SECONDS
 
 
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(
@@ -421,6 +474,7 @@ def _prepare_supervisor_state(
     monkeypatch.setattr(supervisor, "_worktree_is_clean", lambda *_args: True)
     monkeypatch.setattr(supervisor, "_capture_control_snapshot", lambda *_args: {})
     monkeypatch.setattr(supervisor, "_verify_control_snapshot", lambda *_args: None)
+    monkeypatch.setattr(supervisor, "_commit_executor_changes", lambda *_args: False)
     artifact_dir = tmp_path / "supervisor-artifacts"
     artifact_dir.mkdir()
     monkeypatch.setattr(supervisor, "_create_artifact_dir", lambda *_args: artifact_dir)
@@ -430,6 +484,44 @@ def _prepare_supervisor_state(
     monkeypatch.setattr(autonomous_gate, "parse_queue", lambda: [item])
     monkeypatch.setattr(autonomous_gate, "item_for_done_count", lambda _items, _done: item)
     return active
+
+
+def test_supervisor_commits_only_authorized_executor_changes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    active = _active(tmp_path)
+    monkeypatch.setattr(supervisor, "_working_tree_paths", lambda *_args: ("apps/api/main.py",))
+    monkeypatch.setattr(supervisor, "_executor_scope_paths", lambda *_args: ("apps/api/",))
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(
+        args: Sequence[str],
+        _cwd: Path,
+        _input: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        calls.append(tuple(args))
+        return supervisor.ProcessResult(0, "ok")
+
+    assert supervisor._commit_executor_changes(_config(tmp_path), fake_git, active, None)
+    assert ("git", "add", "--", "apps/api/main.py") in calls
+    assert ("git", "commit", "-m", "chore(autonomy): record executor increment") in calls
+
+
+def test_supervisor_rejects_executor_changes_outside_item_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    active = _active(tmp_path)
+    monkeypatch.setattr(
+        supervisor, "_working_tree_paths", lambda *_args: ("scripts/autonomous_gate.py",)
+    )
+    monkeypatch.setattr(supervisor, "_executor_scope_paths", lambda *_args: ("apps/api/",))
+
+    with pytest.raises(supervisor.SupervisorError, match="outside Item 7 scope"):
+        supervisor._commit_executor_changes(
+            _config(tmp_path), lambda *_args: supervisor.ProcessResult(0), active, None
+        )
 
 
 def test_supervisor_completes_after_normal_executor_progress(

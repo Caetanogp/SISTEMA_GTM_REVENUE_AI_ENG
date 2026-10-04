@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_REVISION = "b7c9d1e2f304"
 _ATTRIBUTION_REVISION = "e4f6a8c0d2b5"
-_REPAIR_REVISION = "a1b2c3d4e5f6"
+_PLATFORM_SEED_REVISION = "b3c4d5e6f7a8"
 
 _ORG = "00000000-0000-0000-0000-000000000001"
 _USER = "00000000-0000-0000-0000-000000000002"
@@ -325,7 +325,10 @@ def test_legacy_schema_is_reconciled_without_losing_data(database_url: str) -> N
 
         command.upgrade(config, "head")
 
-        assert _scalar(connection, "SELECT version_num FROM alembic_version") == _REPAIR_REVISION
+        assert (
+            _scalar(connection, "SELECT version_num FROM alembic_version")
+            == _PLATFORM_SEED_REVISION
+        )
         assert _scalar(connection, "SELECT count(*) FROM deduplication_candidates") == 2
         assert _scalar(connection, "SELECT count(*) FROM deduplication_aliases") == 2
         assert _scalar(connection, "SELECT count(*) FROM deduplication_account_candidates") == 1
@@ -377,7 +380,10 @@ def test_current_typed_schema_repair_is_a_data_preserving_no_op(database_url: st
         command.downgrade(config, _ATTRIBUTION_REVISION)
         command.upgrade(config, "head")
 
-        assert _scalar(connection, "SELECT version_num FROM alembic_version") == _REPAIR_REVISION
+        assert (
+            _scalar(connection, "SELECT version_num FROM alembic_version")
+            == _PLATFORM_SEED_REVISION
+        )
         assert _scalar(connection, "SELECT count(*) FROM deduplication_account_candidates") == 1
         assert _scalar(connection, "SELECT count(*) FROM deduplication_account_aliases") == 1
         assert (

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
@@ -27,6 +27,14 @@ from revops.domain.entities.ingestion import (
     EnrichmentOutcome,
     IngestionItemStatus,
     IngestionJobStatus,
+)
+from revops.domain.entities.knowledge import (
+    KnowledgeCategory,
+    KnowledgeDocument,
+    KnowledgeFormat,
+    KnowledgeLanguage,
+    KnowledgeScope,
+    KnowledgeVersionStatus,
 )
 from revops.domain.values.score import ScoreTier
 
@@ -407,3 +415,168 @@ class ProcessIngestionResult:
     job_id: UUID
     status: IngestionJobStatus
     processed_domains: tuple[str, ...]
+
+
+class SubmitKnowledgeDocumentArgs(BaseModel):
+    """Untrusted tenant fields before the authenticated context is injected.
+
+    Tenant callers cannot select scope. The application creates organization-private
+    documents only; platform content is reserved for deployment-controlled seeding.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_key: str = Field(min_length=1, max_length=200)
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    content: str = Field(min_length=1)
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+    def to_domain(self) -> KnowledgeDocument:
+        """Build the pure document after schema validation, before persistence."""
+        return KnowledgeDocument(
+            document_key=self.document_key,
+            category=self.category,
+            language=self.language,
+            format=self.format,
+            scope=KnowledgeScope.ORGANIZATION,
+            content=self.content,
+            metadata=self.metadata,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformSeedDocument:
+    """Trusted, reviewed platform content supplied only by the deployment composition root."""
+
+    document_key: str
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    format: KnowledgeFormat
+    content: str
+    metadata: dict[str, str | int | float | bool | None]
+    revision: int
+    content_hash: str
+
+    def to_domain(self) -> KnowledgeDocument:
+        return KnowledgeDocument(
+            document_key=self.document_key,
+            category=self.category,
+            language=self.language,
+            format=self.format,
+            scope=KnowledgeScope.PLATFORM,
+            content=self.content,
+            metadata=self.metadata,
+        )
+
+
+class KnowledgeAdminContext(BaseModel):
+    """Authenticated tenant identity accepted by knowledge lifecycle use cases."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_id: UUID
+    organization_id: UUID
+    role: Literal["admin"]
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeCorpus:
+    """Explicit owner boundary for platform or organization knowledge."""
+
+    id: UUID
+    scope: KnowledgeScope
+    organization_id: UUID | None = None
+
+
+class KnowledgeActivationAction(StrEnum):
+    PUBLICATION = "publication"
+    HISTORICAL_ACTIVATION = "historical_activation"
+
+
+class KnowledgeProcessingEventType(StrEnum):
+    STARTED = "started"
+    RETRY_SCHEDULED = "retry_scheduled"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    DUPLICATE_IGNORED = "duplicate_ignored"
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeProcessingEvent:
+    """Sanitized append-only fact about one asynchronous processing delivery."""
+
+    id: UUID
+    corpus_id: UUID
+    version_id: UUID
+    delivery_id: str
+    attempt: int
+    event_type: KnowledgeProcessingEventType
+    retryable: bool
+    failure_code: str | None
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeRevisionActivation:
+    """Safe provenance for one append-only corpus activation event."""
+
+    id: UUID
+    corpus_id: UUID
+    revision_id: UUID
+    target_version_id: UUID
+    action: KnowledgeActivationAction
+    activated_by: UUID
+    idempotency_key: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeDocumentVersion:
+    """An immutable content version and its lifecycle state."""
+
+    id: UUID
+    document_id: UUID
+    corpus_id: UUID
+    requested_by: UUID
+    document: KnowledgeDocument
+    status: KnowledgeVersionStatus
+    idempotency_key: str
+    created_at: datetime
+    embedding_model: str | None = None
+    embedding_dimension: int | None = None
+    failure_code: str | None = None
+    seed_revision: int | None = None
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeChunkEmbedding:
+    """One chunk and its vector, retained together until atomic publication."""
+
+    ordinal: int
+    text: str
+    content_hash: str
+    vector: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddingBatch:
+    """Ordered provider output; vectors correspond positionally to submitted texts."""
+
+    model: str
+    dimension: int
+    vectors: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CorpusRevision:
+    """Immutable publication manifest for an organization corpus."""
+
+    id: UUID
+    corpus_id: UUID
+    version_id: UUID
+    manifest_hash: str
+    activated_by: UUID
+    created_at: datetime

@@ -25,6 +25,7 @@ DEFAULT_ARCHITECTURE_MODEL = "gpt-5.6-sol"
 DEFAULT_IMPLEMENTATION_EFFORT = "medium"
 DEFAULT_ARCHITECTURE_EFFORT = "xhigh"
 MAX_ARCHITECTURE_ATTEMPTS = 2
+DEFAULT_CHILD_TIMEOUT_SECONDS = 1_800
 MAX_TEXT_LENGTH = 8_000
 MAX_LIST_ITEMS = 100
 EXTERNAL_TEMP_CONFIG = "sandbox_workspace_write.exclude_tmpdir_env_var=false"
@@ -97,6 +98,7 @@ class SupervisorConfig:
     max_architecture_attempts: int = MAX_ARCHITECTURE_ATTEMPTS
     max_process_retries: int = 2
     retry_delay_seconds: int = 30
+    child_timeout_seconds: int = DEFAULT_CHILD_TIMEOUT_SECONDS
     use_live_search: bool = False
 
 
@@ -263,18 +265,30 @@ def default_runner(
     env: Mapping[str, str] | None,
     timeout: int,
 ) -> ProcessResult:
-    completed = subprocess.run(  # noqa: S603 - argv is constructed, never shell-expanded.
-        list(args),
-        cwd=cwd,
-        input=input_text,
-        env=dict(env) if env is not None else None,
-        capture_output=True,
-        encoding="utf-8",
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
-    return ProcessResult(completed.returncode, completed.stdout, completed.stderr)
+    # Redirect to files instead of PIPE so descendants cannot keep the supervisor waiting for EOF
+    # after the native Codex process has already exited. Temporary files remain outside the repo.
+    with (
+        tempfile.TemporaryFile(mode="w+b") as stdout_file,
+        tempfile.TemporaryFile(mode="w+b") as stderr_file,
+    ):
+        completed = subprocess.run(  # noqa: S603 - argv is constructed, never shell-expanded.
+            list(args),
+            cwd=cwd,
+            input=input_text,
+            env=dict(env) if env is not None else None,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            encoding="utf-8",
+            errors="replace",
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = stdout_file.read().decode("utf-8", errors="replace")
+        stderr = stderr_file.read().decode("utf-8", errors="replace")
+    return ProcessResult(completed.returncode, stdout, stderr)
 
 
 def _object_schema(properties: JsonObject, required: Sequence[str]) -> JsonObject:
@@ -390,10 +404,9 @@ def _codex_command(
     output_path: Path,
     read_only: bool,
 ) -> list[str]:
-    args = [config.codex_command]
-    # These two flags are global CLI options and must precede the subcommand.
-    if read_only:
-        args.extend(("--ask-for-approval", "never"))
+    # The unattended executor must not wait for approval, but it remains confined to the Codex
+    # sandbox selected by project config. Never replace this with the dangerous full-access mode.
+    args = [config.codex_command, "--ask-for-approval", "never"]
     if config.use_live_search:
         args.append("--search")
     args.extend(
@@ -415,8 +428,6 @@ def _codex_command(
     )
     if read_only:
         args.extend(("--sandbox", "read-only"))
-    else:
-        args.append("--approve-for-me")
     args.append("-")
     return args
 
@@ -444,21 +455,16 @@ def _invoke_codex(
         output_path=output_path,
         read_only=read_only,
     )
+    # Preserve native OS TEMP/TMP values. Removing them makes Python on Windows fall back to the
+    # current checkout when it cannot find another valid temp root. Only remove the launcher-
+    # specific pytest override, which could point the child sandbox at a host-style path.
     env = os.environ.copy()
-    pytest_temp = artifact_dir / "pytest"
-    pytest_temp.mkdir(exist_ok=True)
-    env.update(
-        {
-            "TEMP": str(pytest_temp),
-            "TMP": str(pytest_temp),
-            "PYTEST_ADDOPTS": f"--basetemp={pytest_temp}",
-        }
-    )
+    env.pop("PYTEST_ADDOPTS", None)
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
         output_path.unlink(missing_ok=True)
         try:
-            result = runner(command, config.repo, prompt, env, 14_400)
+            result = runner(command, config.repo, prompt, env, config.child_timeout_seconds)
         except subprocess.SubprocessError as exc:
             result = ProcessResult(1, stderr=str(exc))
         (artifact_dir / f"{phase}.attempt-{attempt}.stdout.log").write_text(
@@ -481,7 +487,7 @@ def _invoke_codex(
                 break
         if attempt <= config.max_process_retries:
             delay = config.retry_delay_seconds * attempt
-            print(f"Transient Codex {phase} failure; retrying in {delay} seconds.")
+            print(f"Transient Codex {phase} failure; retrying in {delay} seconds.", flush=True)
             time.sleep(delay)
     raise SupervisorError(last_error)
 
@@ -515,6 +521,79 @@ def _git_output(config: SupervisorConfig, runner: Runner, *args: str) -> str:
 
 def _worktree_is_clean(config: SupervisorConfig, runner: Runner) -> bool:
     return not _git_output(config, runner, "status", "--porcelain")
+
+
+def _working_tree_paths(config: SupervisorConfig, runner: Runner) -> tuple[str, ...]:
+    """Return tracked and untracked paths changed by the executor since its last commit."""
+    tracked = _git_output(config, runner, "diff", "--name-only").splitlines()
+    untracked = _git_output(
+        config, runner, "ls-files", "--others", "--exclude-standard"
+    ).splitlines()
+    paths = {path.strip().replace("\\", "/") for path in (*tracked, *untracked) if path.strip()}
+    return tuple(sorted(paths))
+
+
+def _executor_scope_paths(
+    config: SupervisorConfig,
+    runner: Runner,
+    active: ActiveItem,
+    authorization_path: Path | None,
+) -> tuple[str, ...]:
+    items = autonomous_gate.parse_queue()
+    item = next((candidate for candidate in items if candidate.number == active.number), None)
+    if item is None:
+        raise SupervisorError(f"Active queue item {active.number} is missing")
+    allowed = list(item.scope)
+    if authorization_path is not None:
+        branch = _git_output(config, runner, "rev-parse", "--abbrev-ref", "HEAD")
+        try:
+            authorization = autonomous_gate.ScopeAuthorization.load(
+                authorization_path,
+                branch=branch,
+                item_number=active.number,
+                baseline_sha=active.baseline_sha,
+            )
+        except ValueError as exc:
+            raise SupervisorError(f"Invalid executor scope authorization: {exc}") from exc
+        allowed.extend(authorization.allowed_paths)
+    allowed.extend(
+        (
+            ".handoff/STATE.md",
+            active.tasks_file.relative_to(config.repo).as_posix(),
+        )
+    )
+    return tuple(dict.fromkeys(allowed))
+
+
+def _commit_executor_changes(
+    config: SupervisorConfig,
+    runner: Runner,
+    active: ActiveItem,
+    authorization_path: Path | None,
+) -> bool:
+    """Validate and commit executor changes from the supervisor, outside the child sandbox."""
+    paths = _working_tree_paths(config, runner)
+    if not paths:
+        return False
+    allowed = _executor_scope_paths(config, runner, active, authorization_path)
+    offenders = [
+        path
+        for path in paths
+        if not any(autonomous_gate.path_is_within(path, scope) for scope in allowed)
+    ]
+    if offenders:
+        raise SupervisorError(
+            f"Executor changes outside Item {active.number} scope cannot be committed: {offenders}"
+        )
+    diff_check = runner(("git", "diff", "--check"), config.repo, None, None, 60)
+    if diff_check.returncode != 0:
+        raise SupervisorError(f"Executor diff check failed: {diff_check.stderr.strip()}")
+    _git_output(config, runner, "add", "--", *paths)
+    cached_check = runner(("git", "diff", "--cached", "--check"), config.repo, None, None, 60)
+    if cached_check.returncode != 0:
+        raise SupervisorError(f"Staged executor diff check failed: {cached_check.stderr.strip()}")
+    _git_output(config, runner, "commit", "-m", "chore(autonomy): record executor increment")
+    return True
 
 
 def _capture_control_snapshot(config: SupervisorConfig) -> dict[str, str]:
@@ -619,8 +698,12 @@ and list the additional repository paths that a correct solution would require. 
 `human_required` for product scope, public-contract invention, dependencies, destructive migration,
 security relaxation, external actions, or any decision without a dominant safe recommendation.
 
-Otherwise implement and verify this one item, make small conventional commits, tick only its mapped
-checkboxes after evidence exists, update .handoff/STATE.md, and run the autonomous gate. Return
+When returning `architecture_required` or `human_required`, do not edit any file, including
+`.handoff/STATE.md`; the supervisor records the escalation only after the worktree remains clean.
+
+Otherwise implement and verify this one item, leave the worktree changes for the supervisor to
+commit, tick only its mapped checkboxes after evidence exists, update .handoff/STATE.md, and run
+the autonomous gate. Return
 `complete` only if the gate exits 0; otherwise return `continue` after making concrete progress.
 Every final response must match the provided JSON schema and contain no text outside that object.
 {approved}
@@ -658,9 +741,12 @@ change product scope or public contracts, add a dependency, require destructive 
 security/tenant isolation/audit/PII controls, weaken verification, or require an external action.
 If any of those are necessary, return `human_required` and explain why.
 
-Allowed paths must be narrow repository-relative files or directory prefixes. Include the active
-spec plan and .handoff/STATE.md when a decision must be recorded. Produce implementation-ready
-steps and concrete tests. Set every policy boolean truthfully. Return only the schema-valid object.
+Allowed paths must be narrow repository-relative files or directory prefixes. For additive
+Alembic work, authorize the containing persistence directory rather than listing a
+`migrations/versions` subdirectory; the policy rejects migration subpaths as standalone scopes.
+Include the active spec plan and .handoff/STATE.md when a decision must be recorded. Produce
+implementation-ready steps and concrete tests. Set every policy boolean truthfully. Return only
+the schema-valid object.
 {revision}
 """.strip()
 
@@ -856,7 +942,7 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
     control_snapshot = _capture_control_snapshot(config)
 
     artifact_dir = _create_artifact_dir(config)
-    print(f"Supervisor artifacts: {artifact_dir}")
+    print(f"Supervisor artifacts: {artifact_dir}", flush=True)
     authorization_path: Path | None = None
     approved_plan: ArchitecturePlan | None = None
 
@@ -886,7 +972,10 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
         )
         _verify_control_snapshot(config, control_snapshot)
         outcome = ExecutorOutcome.from_json(raw)
-        print(f"Turn {turn}, Item {active.number}: {outcome.status.value} - {outcome.summary}")
+        print(
+            f"Turn {turn}, Item {active.number}: {outcome.status.value} - {outcome.summary}",
+            flush=True,
+        )
 
         if outcome.status is TurnStatus.HUMAN_REQUIRED:
             raise SupervisorError(outcome.halt_reason or outcome.summary)
@@ -912,10 +1001,13 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
             approved_plan = plan
             print(
                 f"Architecture approved for Item {active.number}: {plan.decision} "
-                f"(plan {plan_sha256[:12]})"
+                f"(plan {plan_sha256[:12]})",
+                flush=True,
             )
             continue
 
+        _commit_executor_changes(config, runner, active, authorization_path)
+        _verify_control_snapshot(config, control_snapshot)
         tasks_done, _ = autonomous_gate.completed_task_count(active.tasks_file)
         next_item = autonomous_gate.item_for_done_count(autonomous_gate.parse_queue(), tasks_done)
         if next_item is None or next_item.number != active.number:
@@ -960,6 +1052,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-architecture-attempts", type=int, default=MAX_ARCHITECTURE_ATTEMPTS)
     parser.add_argument("--max-process-retries", type=int, default=2)
     parser.add_argument("--retry-delay-seconds", type=int, default=30)
+    parser.add_argument("--child-timeout-seconds", type=int, default=DEFAULT_CHILD_TIMEOUT_SECONDS)
     parser.add_argument("--search", action="store_true", dest="use_live_search")
     return parser.parse_args(argv)
 
@@ -971,6 +1064,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         or args.max_architecture_attempts not in {1, 2}
         or args.max_process_retries < 0
         or args.retry_delay_seconds < 0
+        or args.child_timeout_seconds < 1
     ):
         print(
             "invalid turn, architecture-attempt, process-retry, or retry-delay limit",
@@ -988,6 +1082,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_architecture_attempts=args.max_architecture_attempts,
         max_process_retries=args.max_process_retries,
         retry_delay_seconds=args.retry_delay_seconds,
+        child_timeout_seconds=args.child_timeout_seconds,
         use_live_search=args.use_live_search,
     )
     if config.repo != ROOT.resolve():

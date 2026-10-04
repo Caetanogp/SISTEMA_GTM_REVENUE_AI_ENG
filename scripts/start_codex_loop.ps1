@@ -15,6 +15,8 @@ param(
     [int]$MaxProcessRetries = 2,
     [ValidateRange(0, 3600)]
     [int]$RetryDelaySeconds = 30,
+    [ValidateRange(1, 3600)]
+    [int]$ChildTimeoutSeconds = 1800,
     [switch]$UseLiveSearch
 )
 
@@ -54,15 +56,32 @@ if ($branch -in @("main", "develop")) {
     throw "Refusing to launch the Codex autonomous loop on branch '$branch'. Use a feature branch."
 }
 
+$codexCommand = Get-Command codex.exe -ErrorAction SilentlyContinue
+$codexExecutable = if ($null -ne $codexCommand) { $codexCommand.Path } else { $null }
+if ([string]::IsNullOrWhiteSpace($codexExecutable)) {
+    $codexShimCommand = Get-Command codex.cmd -ErrorAction SilentlyContinue
+    $codexShim = if ($null -ne $codexShimCommand) { $codexShimCommand.Path } else { $null }
+    if (-not [string]::IsNullOrWhiteSpace($codexShim)) {
+        $codexPackageRoot = Join-Path (Split-Path -Parent $codexShim) "node_modules\@openai\codex\node_modules"
+        $codexExecutable = Get-ChildItem -LiteralPath $codexPackageRoot -Filter "codex.exe" -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\vendor\*\bin\codex.exe" } |
+            Select-Object -First 1 -ExpandProperty FullName
+    }
+}
+if ([string]::IsNullOrWhiteSpace($codexExecutable)) {
+    throw "Could not locate the native Codex executable (codex.exe)."
+}
+
 $args = @(
     "-m", "scripts.codex_loop_supervisor",
     "--repo", $repo,
-    "--codex-command", "codex.cmd",
+    "--codex-command", $codexExecutable,
     "--implementation-effort", $ReasoningEffort,
     "--architecture-effort", $ArchitectureReasoningEffort,
     "--max-turns", $MaxTurns,
     "--max-process-retries", $MaxProcessRetries,
-    "--retry-delay-seconds", $RetryDelaySeconds
+    "--retry-delay-seconds", $RetryDelaySeconds,
+    "--child-timeout-seconds", $ChildTimeoutSeconds
 )
 
 if ($Model) {
@@ -77,25 +96,9 @@ if ($UseLiveSearch) {
     $args += "--search"
 }
 
-# Keep each loop's pytest files outside the checkout, even when the inherited TEMP points into
-# the repository. The shared .pytest_cache path may be a OneDrive reparse point, and pytest's
-# fallback directory can pollute the checkout during mypy.
-$codexTempRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Codex\Temp"
-$pytestBaseTemp = Join-Path $codexTempRoot ("codex-revops-pytest-{0}" -f $PID)
-New-Item -ItemType Directory -Force -Path $codexTempRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $pytestBaseTemp | Out-Null
-$repoCanonical = (Resolve-Path -LiteralPath $repo).Path.TrimEnd('\')
-$tempCanonical = (Resolve-Path -LiteralPath $pytestBaseTemp).Path.TrimEnd('\')
-if ($tempCanonical.StartsWith("$repoCanonical\", [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Refusing to launch: temporary directory resolved inside repository"
-}
-$tempItem = Get-Item -LiteralPath $pytestBaseTemp -Force
-if (($tempItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw "Refusing to launch: temporary directory is a reparse point"
-}
-$env:TEMP = $pytestBaseTemp
-$env:TMP = $pytestBaseTemp
-$env:PYTEST_ADDOPTS = "--basetemp=$pytestBaseTemp"
+# The supervisor owns temporary-directory selection and validates that its artifact directory is
+# outside the checkout. Do not override TEMP/TMP/PYTEST_ADDOPTS here: Codex child processes can
+# reinterpret host-style Windows paths as relative paths and recreate them inside the repository.
 
 Push-Location $repo
 try {

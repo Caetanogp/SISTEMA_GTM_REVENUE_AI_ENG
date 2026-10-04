@@ -11,10 +11,13 @@ from revops.application.ports import (
     DeduplicationUnitOfWorkFactory,
     IngestionUnitOfWork,
     IngestionUnitOfWorkFactory,
+    KnowledgeUnitOfWork,
+    KnowledgeUnitOfWorkFactory,
     LLMGateway,
 )
 from revops.infrastructure.llm.gateway import build_live_gateway
 from revops.infrastructure.persistence.ingestion_unit_of_work import SqlAlchemyIngestionUnitOfWork
+from revops.infrastructure.persistence.knowledge_unit_of_work import SqlAlchemyKnowledgeUnitOfWork
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -61,6 +64,15 @@ def deduplication_uow_factory(request: Request) -> DeduplicationUnitOfWorkFactor
             DeduplicationUnitOfWork,
             SqlAlchemyDeduplicationUnitOfWork(session_factory(), close_on_exit=True),
         )
+
+    return factory
+
+
+def knowledge_uow_factory(request: Request) -> KnowledgeUnitOfWorkFactory:
+    session_factory = request.app.state.session_factory
+
+    def factory() -> KnowledgeUnitOfWork:
+        return SqlAlchemyKnowledgeUnitOfWork(session_factory(), close_on_exit=True)
 
     return factory
 
