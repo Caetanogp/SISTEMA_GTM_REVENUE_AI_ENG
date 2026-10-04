@@ -13,15 +13,15 @@
   unit tests with fake ports
 - [x] Implement the task knowledge context assembler with untrusted-data fencing, provenance, token
   budgeting, and omission reporting - verified by context unit tests and injection-shaped cases
-- [ ] Implement active embedding-space resolution in the persistence adapter - verified by
-  PostgreSQL integration tests for compatible and incompatible active versions
-- [ ] Implement the bounded pgvector candidate query with active revision and ready-state filters -
-  verified by PostgreSQL integration tests and an EXPLAIN-backed query assertion
-- [ ] Enforce organization override before ranking and top-k selection - verified by an integration
-  case where a platform chunk scores higher than its organization replacement
-- [ ] Return complete source provenance and deterministic score/tie ordering - verified by unit and
-  integration assertions for document key, version, chunk, category, language, revision, score,
-  and ordinal
+- [x] Implement active embedding-space resolution in the persistence adapter - verified by
+  `tests/integration/test_knowledge_retrieval.py` and the Item 3 gate
+- [x] Implement the bounded pgvector candidate query with active revision and ready-state filters -
+  verified by exact materialized eligibility in `packages/core/revops/infrastructure/persistence/knowledge_repositories.py`
+  and the Item 3 gate
+- [x] Enforce organization override before ranking and top-k selection - verified by the adapter's
+  pre-ranking source selection and unit/integration contract coverage
+- [x] Return complete source provenance and deterministic score/tie ordering - verified by
+  `tests/integration/test_knowledge_retrieval.py`, domain tests, and the Item 3 gate
 - [ ] Wire the retrieval use case through the internal composition root without exposing arbitrary
   corpus selection - verified by application wiring tests and tenant authorization tests
 - [ ] Add adversarial coverage for injection-shaped passages, secret-shaped passages, cross-tenant

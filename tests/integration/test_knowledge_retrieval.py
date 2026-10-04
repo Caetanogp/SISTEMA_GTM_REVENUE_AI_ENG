@@ -7,9 +7,19 @@ from datetime import UTC, datetime
 
 import pytest
 from revops.application.dto import KnowledgeChunkEmbedding
+from revops.application.use_cases.knowledge import PLATFORM_SEED_ACTOR_ID
+from revops.domain.entities.knowledge import (
+    KnowledgeCategory,
+    KnowledgeDocument,
+    KnowledgeFormat,
+    KnowledgeLanguage,
+    KnowledgeScope,
+    KnowledgeVersionStatus,
+)
 from revops.domain.values.retrieval import EmbeddingSpace
 from revops.infrastructure.persistence.knowledge_repositories import (
     SqlAlchemyCorpusRevisionRepository,
+    SqlAlchemyKnowledgeCorpusRepository,
     SqlAlchemyKnowledgeDocumentRepository,
     SqlAlchemyKnowledgeRetrievalRepository,
 )
@@ -60,6 +70,53 @@ async def test_retrieval_resolves_or_returns_empty_for_an_unknown_organization(
                 ),
             ),
             activated_by=actor_id,
+            created_at=timestamp,
+        )
+        await session.flush()
+
+        platform_corpus = await SqlAlchemyKnowledgeCorpusRepository(
+            session
+        ).get_or_create_platform_for_update()
+        platform_document = KnowledgeDocument(
+            document_key="product/retrieval",
+            category=KnowledgeCategory.PRODUCT,
+            language=KnowledgeLanguage.ENGLISH,
+            format=KnowledgeFormat.MARKDOWN,
+            scope=KnowledgeScope.PLATFORM,
+            content="Platform retrieval source",
+            metadata={"source": "integration-test"},
+        )
+        platform_documents = SqlAlchemyKnowledgeDocumentRepository(session)
+        platform_version = await platform_documents.reserve_platform_draft(
+            corpus_id=platform_corpus.id,
+            requested_by_system=PLATFORM_SEED_ACTOR_ID,
+            document=platform_document,
+            seed_revision=1,
+            idempotency_key="seed:retrieval",
+            created_at=timestamp,
+        )
+        for status in (KnowledgeVersionStatus.CONFIRMED, KnowledgeVersionStatus.PROCESSING):
+            await platform_documents.transition_status(
+                corpus_id=platform_corpus.id, version_id=platform_version.id, status=status
+            )
+        await platform_documents.mark_ready(
+            corpus_id=platform_corpus.id,
+            version_id=platform_version.id,
+            embedding_model="offline-fake-v1",
+            embedding_dimension=1536,
+        )
+        await SqlAlchemyCorpusRevisionRepository(session).publish(
+            corpus_id=platform_corpus.id,
+            version_id=platform_version.id,
+            chunks=(
+                KnowledgeChunkEmbedding(
+                    ordinal=0,
+                    text="Platform retrieval source",
+                    content_hash="b" * 64,
+                    vector=(1.0, *tuple(0.0 for _ in range(1535))),
+                ),
+            ),
+            activated_by=PLATFORM_SEED_ACTOR_ID,
             created_at=timestamp,
         )
         await session.flush()

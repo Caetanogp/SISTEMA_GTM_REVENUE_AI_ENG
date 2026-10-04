@@ -383,6 +383,40 @@ class SqlAlchemyKnowledgeCorpusRepository:
             raise LookupError("platform knowledge corpus not found")
         return _corpus(row)
 
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
+        """Serialize deployment seed reservations before locking the singleton corpus row."""
+        await self._session.execute(text("SELECT pg_advisory_xact_lock(715_007_009)"))
+        row = (
+            await self._session.execute(
+                select(KnowledgeCorpusModel)
+                .where(KnowledgeCorpusModel.scope == KnowledgeScope.PLATFORM.value)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            row = KnowledgeCorpusModel(
+                id=uuid4(),
+                scope=KnowledgeScope.PLATFORM.value,
+                organization_id=None,
+                created_at=datetime.now(UTC),
+            )
+            self._session.add(row)
+            await self._session.flush()
+        return _corpus(row)
+
+    async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
+        row = (
+            await self._session.execute(
+                select(KnowledgeCorpusModel).where(
+                    KnowledgeCorpusModel.scope == KnowledgeScope.ORGANIZATION.value,
+                    KnowledgeCorpusModel.organization_id == organization_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise LookupError("organization knowledge corpus not found")
+        return _corpus(row)
+
 
 class SqlAlchemyKnowledgeRetrievalRepository:
     """Exact, tenant-scoped retrieval over the active immutable corpus view."""
@@ -604,40 +638,6 @@ class SqlAlchemyKnowledgeRetrievalRepository:
             raise
         except (PolicyViolationError, SQLAlchemyError, ValueError, TypeError, OverflowError):
             raise KnowledgeRetrievalRepositoryError() from None
-
-    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
-        """Serialize deployment seed reservations before locking the singleton corpus row."""
-        await self._session.execute(text("SELECT pg_advisory_xact_lock(715_007_009)"))
-        row = (
-            await self._session.execute(
-                select(KnowledgeCorpusModel)
-                .where(KnowledgeCorpusModel.scope == KnowledgeScope.PLATFORM.value)
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            row = KnowledgeCorpusModel(
-                id=uuid4(),
-                scope=KnowledgeScope.PLATFORM.value,
-                organization_id=None,
-                created_at=datetime.now(UTC),
-            )
-            self._session.add(row)
-            await self._session.flush()
-        return _corpus(row)
-
-    async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
-        row = (
-            await self._session.execute(
-                select(KnowledgeCorpusModel).where(
-                    KnowledgeCorpusModel.scope == KnowledgeScope.ORGANIZATION.value,
-                    KnowledgeCorpusModel.organization_id == organization_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise LookupError("organization knowledge corpus not found")
-        return _corpus(row)
 
 
 class SqlAlchemyKnowledgeProcessingEventRepository:
