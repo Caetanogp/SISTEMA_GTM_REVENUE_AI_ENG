@@ -9,8 +9,10 @@ retrieval repository for candidates that already satisfy active-revision, ready-
 organization-override rules. The repository applies the organization override before vector ranking
 and `top-k` selection.
 
-The first implementation is semantic vector retrieval only. It uses the existing PostgreSQL
-pgvector cosine HNSW index and existing immutable corpus tables. Hybrid search, reranking, and
+The first implementation is semantic vector retrieval only. It uses exact cosine ranking over a
+materialized, already filtered eligible set in PostgreSQL/pgvector and the existing immutable
+corpus tables. The HNSW index is retained for a later evidence-backed optimization; it is not the
+correctness mechanism for this initial multi-tenant contract. Hybrid search, reranking, and
 persistent memory remain later decisions.
 
 ## Layers and responsibilities
@@ -53,9 +55,11 @@ persistent memory remain later decisions.
   remain eligible only when no organization version for that key exists.
 - Order by cosine similarity descending, then `document_key`, version ID, chunk ordinal, and chunk
   ID ascending. Return a normalized similarity score rather than a database-specific distance.
-- Use the existing HNSW vector index and revision/version indexes. Do not add a migration unless an
-  `EXPLAIN`-backed test demonstrates that the existing indexes cannot support the bounded query; a
-  schema change would require revising this plan before implementation.
+- Materialize the eligible source set after active-revision, ready-state, tenant, compatibility,
+  and organization-override filtering, then rank exact cosine distance and apply deterministic
+  top-k ordering. Validate every eligible vector for non-zero integrity before returning results.
+  Do not add a migration; the existing pgvector column and relational indexes are sufficient for
+  this correctness-first contract.
 
 ### Apps and composition roots
 
@@ -166,6 +170,9 @@ optional, explicitly cost-confirmed, and excluded from CI.
 
 - Semantic-only retrieval is chosen to keep the first retrieval contract bounded and measurable;
   lexical hybrid search and reranking need their own quality evidence.
+- Exact ranking is chosen over shared approximate HNSW filtering for the first implementation because
+  eligibility and organization override must be settled before top-k. The index can be benchmarked
+  and introduced later only with measured recall and tenant-filter evidence.
 - A typed compatibility failure is chosen over silently dropping one corpus or comparing vectors
   from different spaces; partial context would be difficult to audit.
 - Existing active revisions are reused instead of adding a mutable retrieval-specific index; this

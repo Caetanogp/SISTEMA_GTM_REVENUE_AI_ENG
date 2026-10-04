@@ -22,6 +22,10 @@ version has the same `document_key` as a platform version, the organization vers
 platform version before vector ranking and result limiting. Each result retains document key,
 document version, chunk identity and ordinal, category, language, active revision, and score.
 
+The initial query materializes this eligible set and ranks exact cosine distance with pgvector.
+The existing HNSW index remains available for a later optimization, but approximate shared-index
+filtering is not the correctness mechanism for this multi-tenant contract.
+
 The result limit is inclusive from 1 through 20. Scores are ordered descending, with ties resolved
 by document key, version ID, chunk ordinal, and chunk ID ascending. Task context fitting uses a
 positive explicit token budget and reports excluded candidates rather than silently losing them.
@@ -30,6 +34,11 @@ Every ready active version must use the query embedding model and dimension. Any
 mismatch returns the typed `embedding_space_incompatible` failure; retrieval must not compare
 vectors from different spaces or return a partial result. The initial implementation supports the
 existing 1536-dimensional vector schema only and introduces no migration.
+
+Query coordinates are validated as non-boolean, finite, and representable in float32 before the
+database call. Zero vectors, null distances, non-finite distances, and corrupt eligible vectors
+fail closed with sanitized typed errors. Provider and SQLAlchemy failures expose fixed error codes
+without causes, SQL, bound values, vectors, or raw responses.
 
 Retrieved passages remain untrusted data. The context assembler labels and fences them with their
 provenance; it never evaluates their text, changes authorization, or alters policy/tool behavior.
@@ -47,6 +56,8 @@ provenance; it never evaluates their text, changes authorization, or alters poli
 
 - Ranking all corpus rows and filtering tenant or override results afterward: this can consume a
   bounded result slot with an ineligible passage.
+- Using a shared approximate HNSW scan as the initial correctness mechanism: filtering after an
+  approximate scan can affect recall and makes tenant/override correctness harder to prove.
 - Returning compatible subsets after a space mismatch: that produces incomplete, non-reproducible
   task context.
 - Adding a retrieval-specific mutable index or migration now: the existing immutable revisions and

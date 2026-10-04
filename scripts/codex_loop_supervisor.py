@@ -58,6 +58,7 @@ _GATE_SPEC.loader.exec_module(autonomous_gate)
 
 class TurnStatus(StrEnum):
     CONTINUE = "continue"
+    READY_FOR_GATE = "ready_for_gate"
     ARCHITECTURE_REQUIRED = "architecture_required"
     HUMAN_REQUIRED = "human_required"
     COMPLETE = "complete"
@@ -100,6 +101,7 @@ class SupervisorConfig:
     retry_delay_seconds: int = 30
     child_timeout_seconds: int = DEFAULT_CHILD_TIMEOUT_SECONDS
     use_live_search: bool = False
+    stop_after_item: int | None = None
 
 
 @dataclass(frozen=True)
@@ -458,7 +460,7 @@ def _invoke_codex(
     # Preserve native OS TEMP/TMP values. Removing them makes Python on Windows fall back to the
     # current checkout when it cannot find another valid temp root. Only remove the launcher-
     # specific pytest override, which could point the child sandbox at a host-style path.
-    env = os.environ.copy()
+    env = _runtime_env(config)
     env.pop("PYTEST_ADDOPTS", None)
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
@@ -646,7 +648,19 @@ def _run_gate(
     command = [sys.executable, "scripts/autonomous_gate.py"]
     if authorization_path is not None:
         command.extend(("--scope-authorization", str(authorization_path)))
-    return runner(command, config.repo, None, None, 1_800)
+    return runner(command, config.repo, None, _runtime_env(config), 1_800)
+
+
+def _runtime_env(config: SupervisorConfig) -> dict[str, str]:
+    """Make every child resolve Python packages from the selected checkout."""
+    env = os.environ.copy()
+    checkout_paths = os.pathsep.join((str(config.repo / "packages" / "core"), str(config.repo)))
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = checkout_paths if not existing else checkout_paths + os.pathsep + existing
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    env.pop("PYTEST_ADDOPTS", None)
+    return env
 
 
 def _active_item(config: SupervisorConfig) -> ActiveItem:
@@ -702,9 +716,11 @@ When returning `architecture_required` or `human_required`, do not edit any file
 `.handoff/STATE.md`; the supervisor records the escalation only after the worktree remains clean.
 
 Otherwise implement and verify this one item, leave the worktree changes for the supervisor to
-commit, tick only its mapped checkboxes after evidence exists, update .handoff/STATE.md, and run
-the autonomous gate. Return
-`complete` only if the gate exits 0; otherwise return `continue` after making concrete progress.
+commit, tick only its mapped checkboxes after evidence exists, and update .handoff/STATE.md. Do not
+run the autonomous gate after editing task checkboxes: the supervisor must commit the turn first and
+then run the gate from the clean parent process. Return `ready_for_gate` when this turn has concrete
+evidence for the supervisor to validate, or `continue` when more implementation is needed. Return
+`complete` only if the gate exits 0.
 Every final response must match the provided JSON schema and contain no text outside that object.
 {approved}
 """.strip()
@@ -1016,6 +1032,14 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
         _verify_control_snapshot(config, control_snapshot)
         gate_result = _run_gate(config, runner, authorization_path)
         print((gate_result.stdout or gate_result.stderr).strip())
+        if (
+            config.stop_after_item is not None
+            and active.number == config.stop_after_item
+            and next_item is not None
+            and next_item.number != active.number
+        ):
+            print(f"PILOT ACHIEVED: Item {active.number} committed and gate advanced.")
+            return 0
         if gate_result.returncode == 0:
             return 0
         if gate_result.returncode == 2:
@@ -1054,6 +1078,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--retry-delay-seconds", type=int, default=30)
     parser.add_argument("--child-timeout-seconds", type=int, default=DEFAULT_CHILD_TIMEOUT_SECONDS)
     parser.add_argument("--search", action="store_true", dest="use_live_search")
+    parser.add_argument("--stop-after-item", type=int, default=None)
     return parser.parse_args(argv)
 
 
@@ -1084,6 +1109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         retry_delay_seconds=args.retry_delay_seconds,
         child_timeout_seconds=args.child_timeout_seconds,
         use_live_search=args.use_live_search,
+        stop_after_item=args.stop_after_item,
     )
     if config.repo != ROOT.resolve():
         print(

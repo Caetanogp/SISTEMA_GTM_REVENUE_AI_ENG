@@ -26,8 +26,9 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
 
 ## Item 3 - Persistence retrieval adapter
 
-- **Scope:** `packages/core/revops/infrastructure/`, `tests/unit/infrastructure/`,
-  `tests/integration/`
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`,
+  `packages/core/revops/infrastructure/`, `tests/unit/domain/`, `tests/unit/application/`,
+  `tests/unit/infrastructure/`, `tests/integration/`
 - **Requires:** Item 2
 - **Closes:** 4 tasks.md checkboxes
 - **What:** resolve active embedding spaces and implement the filtered pgvector query with active
@@ -90,3 +91,6 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
   security, dependency, destructive, external-action, or unverifiable decisions.
 - No push, merge, work on `main`/`develop`, skipped tests, weakened checks, or checkout temp files.
 - Commit one logical item before checking its task evidence.
+- An executor may return `ready_for_gate` after focused evidence exists. It must not run the
+  autonomous gate after changing task checkboxes; the supervisor commits the turn and runs the gate
+  from the clean parent process.

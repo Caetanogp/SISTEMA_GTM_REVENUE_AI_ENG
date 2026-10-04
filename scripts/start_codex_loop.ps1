@@ -17,7 +17,9 @@ param(
     [int]$RetryDelaySeconds = 30,
     [ValidateRange(1, 3600)]
     [int]$ChildTimeoutSeconds = 1800,
-    [switch]$UseLiveSearch
+    [switch]$UseLiveSearch,
+    [ValidateRange(0, 8)]
+    [int]$StopAfterItem = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -84,6 +86,11 @@ $args = @(
     "--child-timeout-seconds", $ChildTimeoutSeconds
 )
 
+$runtimePythonPath = (Join-Path $repo "packages\core") + [IO.Path]::PathSeparator + $repo
+$env:PYTHONPATH = if ($env:PYTHONPATH) { $runtimePythonPath + [IO.Path]::PathSeparator + $env:PYTHONPATH } else { $runtimePythonPath }
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+
 if ($Model) {
     $args += @("--implementation-model", $Model)
 }
@@ -94,6 +101,10 @@ if ($ArchitectureModel) {
 
 if ($UseLiveSearch) {
     $args += "--search"
+}
+
+if ($StopAfterItem -gt 0) {
+    $args += @("--stop-after-item", $StopAfterItem)
 }
 
 # The supervisor owns temporary-directory selection and validates that its artifact directory is
