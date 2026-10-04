@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-10-03
-branch: feature/SPEC-007-rag-ingestion-final-recovery
-spec: SPEC-007-rag-ingestion
-phase: "SPEC-007 complete"
-status: complete
+updated_at: 2026-10-04
+branch: feature/SPEC-008-context-retrieval
+spec: SPEC-008-context-retrieval
+phase: "spec draft review"
+status: draft_pending_user_review
 ---
 
 # Current state
@@ -15,8 +15,10 @@ Complete PDF-aligned knowledge ingestion and finish the SPEC-007 autonomous queu
 
 ## Now
 
-SPEC-007 is complete. The supervisor committed the final closeout increment as `e7e6d80`, and the
-independent verify-before-done run also passed with the isolated `revops_item8b` database.
+SPEC-007 is complete and locally merged into `develop` by merge commit
+`5a3bf1abcedc228555e11fa7057d5c02c787c6da`.
+SPEC-008's approved high-level scope is drafted in `docs/specs/SPEC-008-context-retrieval/spec.md`
+and awaits user review before `plan.md` and `tasks.md` are created.
 
 ## Done
 
@@ -50,8 +52,8 @@ independent verify-before-done run also passed with the isolated `revops_item8b`
 
 ## Next
 
-1. Do not launch another development loop yet. There is no materialized SPEC-008 `spec.md`,
-   `plan.md`, or `tasks.md`; agree the next product scope and write those documents first.
+1. User: review and approve or revise the SPEC-008 draft. Only after approval, create `plan.md`
+   and `tasks.md`, then consider the autonomous queue.
 
 ## Gotchas
 
@@ -69,5 +71,5 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-SPEC-008 scope, acceptance criteria, risks, and implementation order remain open product
-decisions with the user.
+The SPEC-008 detailed draft acceptance criteria and risks await review; implementation order is
+not yet planned.
