@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 Item 3 architecture review halted after bounded revisions"
-status: architecture_revision_required
+phase: "Item 3 exact retrieval adapter implemented and verified"
+status: pilot_complete_item_3
 ---
 
 # Current state
@@ -15,147 +15,60 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-Item 2 application retrieval contracts are implemented, verified, and committed in `d88abc9`.
-The Item 3 bounded pilot made no code changes. The executor raised a legitimate architecture
-decision about filtered pgvector retrieval; the first plan revision was rejected for incomplete
-HNSW, vector-integrity, provenance, and commit-order guarantees. The second revision closed those
-points but was rejected again for incomplete exception sanitization and float32-representability
-validation. The supervisor stopped after its two permitted architecture attempts.
+SPEC-008 items 1-3 are complete: 9 of 15 task checkboxes are checked. Item 4 is the active queue
+item. No autonomous loop is running. The bounded Item 3 validation was completed in the main
+checkout because the earlier supervisor architecture review halted before implementation.
 
 ## Done
 
-- Implemented Item 2's application retrieval boundary: trusted organization context and bounded
-  query DTOs; the `KnowledgeRetrievalRepository` port; typed provider and embedding-space errors;
-  the one-query-embedding `RetrieveKnowledge` use case; and a provenance-preserving,
-  untrusted-data-fenced context assembler with explicit budget omissions —
-  `packages/core/revops/application/dto.py`, `ports.py`, `context/knowledge.py`, and
-  `use_cases/retrieve_knowledge.py`. Focused evidence: `ruff check` and `ruff format --check`
-  passed; `mypy packages/core/revops/application tests/unit/application` passed; `pytest
-  tests/unit/application -q` passed (85); `lint-imports` passed (4 contracts); and the Item 2
-  gate passed with `PYTEST_ADDOPTS=--basetemp <external-temp>` (Ruff, mypy, import-linter, 431
-  unit/architecture tests, and agent docs). The three Item 2 task checkboxes are checked.
-
-- Item 2 was committed as `d88abc9` after the supervisor recorded the executor increment. The
-  focused application checks and bounded Item 2 gate evidence are recorded above; the three Item 2
-  task checkboxes are checked.
-
-- Implemented the approved retrieval ADR and framework-free retrieval value objects for normalized
-  queries, limits, budgets, schema-compatible embedding spaces, finite scores, complete provenance,
-  attributable passages, and stable score/tie ordering —
-  `docs/decisions/ADR-0016-task-scoped-knowledge-retrieval.md`,
-  `packages/core/revops/domain/values/retrieval.py`, and
-  `tests/unit/domain/values/test_retrieval.py`; `pytest tests/unit/domain -q` passed (159 passed),
-  `mypy .` passed, `lint-imports` passed (4 contracts), and focused Ruff checks passed.
-- Checked Item 1's two SPEC-008 task checkboxes after the observed domain evidence —
-  `docs/specs/SPEC-008-context-retrieval/tasks.md`.
-- Updated SPEC-007 PDF traceability for persisted versioned documents/chunks, versioned corpus
-  ingestion, and the remaining SPEC-008 retrieval gaps — `docs/requirements/PDF_TRACEABILITY.md:27`,
-  `:54`, and `:62`; `python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20).
-- Closeout quality evidence: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, and
-  `python scripts/check_agent_docs.py` passed; `pytest tests/integration -q` passed (45 passed);
-  `pytest tests/adversarial -q` passed (13 passed); `python -m evals.run --suite all` passed at
-  1.00 for tool selection (14/14), lead scoring (15/15), LLM gateway (6/6), and RAG ingestion
-  (7/7).
-- Security review found no SPEC-007 code finding: adversarial coverage passed. Supplemental
-  automation is environment-blocked: Gitleaks reports no leaks but cannot read
-  `.pytest_cache/autonomous-loop`; Semgrep is not provisioned; pip-audit cannot reach PyPI; and
-  Bandit reports four pre-existing low-severity `assert` findings in
-  `packages/core/revops/application/use_cases/ingestion.py:115,116,389,390`.
-- Final closeout verification additionally passed `pytest tests/unit tests/architecture -q`
-  (391 passed), `gitleaks detect --no-git` (no leaks found), and the Item 12 pre-tick gate. Pytest
-  uses a process-local workspace temp root because inherited Windows Temp contains an inaccessible
-  stale `pytest-of-Caetanogp123` directory; no test or gate control was changed.
-- Final `python scripts/autonomous_gate.py` exited 0 with every full-gate check green: Ruff, mypy,
-  import boundaries, unit/architecture tests, agent docs, formatting, integration, adversarial,
-  evals, and gitleaks.
-- Independent verification passed: `pytest tests/unit tests/architecture -q` (391 passed),
-  `pytest tests/integration -q` (45 passed) with `DATABASE_URL` set to `revops_item8b`,
-  `pytest tests/adversarial -q` (13 passed), `python -m evals.run --suite all` (all suites at
-  1.00), `python scripts/check_agent_docs.py`, and `gitleaks detect --no-git`.
-- Final clean-tree evidence: branch `feature/SPEC-007-rag-ingestion-final-recovery`, HEAD
-  `e7e6d80`, and `python scripts/autonomous_gate.py` returned exit 0 with
-  `GOAL ACHIEVED: all queue items done, full gate green.`
+- Item 3 exact retrieval adapter: active embedding-space resolution, tenant-scoped platform and
+  organization selection, organization override before ranking, active revision and ready-state
+  filtering, materialized eligible sources, exact pgvector cosine ranking, deterministic ordering,
+  complete provenance, zero-vector integrity checks, and sanitized persistence errors. Commit
+  `e02e529`; follow-up override evidence and four checked task lines in `096255c`.
+- Application/domain hardening: float32-representable query validation, overflow-safe norm checks,
+  zero-vector rejection, fixed public failure codes, and suppressed provider/SQL causes. Commit
+  `e02e529`.
+- Approved design and autonomous controls: exact retrieval decision in SPEC-008 docs and ADR-0016,
+  item 3 scope expansion, UTF-8/local-checkout runtime environment, `ready_for_gate`, and
+  `StopAfterItem`. Commit `737b285`; formal baseline rollover passed for six exact control paths.
+- Focused evidence: 98 unit tests passed, the PostgreSQL retrieval integration passed with a
+  synthetic platform/org override where the platform vector scored higher, and the item 3 gate
+  reported Ruff, mypy, import-linter, unit/architecture tests, and agent docs all OK.
+- Full verification: `pytest tests/unit tests/architecture -q` 440 passed; `pytest
+  tests/integration -q` 46 passed; `pytest tests/adversarial -q` 13 passed; Ruff and format passed;
+  mypy passed for 172 source files; import-linter kept 4 contracts; agent docs passed; all offline
+  eval suites remained at 1.00; gitleaks reported no leaks.
 
 ## Next
 
-1. Perform a deliberate design pass for the two remaining Item 3 decisions: sanitize provider and
-   SQLAlchemy failures without exposing vectors/parameters, and validate every query coordinate as
-   finite, non-boolean, float32-representable with overflow-safe norm handling.
-2. Record the approved revision in `plan.md`/ADR-0016 and the handoff before relaunching the pilot.
-3. Run one fresh bounded Item 3 pilot in `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; do not launch the
-   overnight loop until it produces a clean commit and green gate.
+1. Implement Item 4 internal composition-root wiring and tenant authorization in a bounded pilot.
+2. Run the item 4 gate and inspect the resulting commit before allowing an overnight loop.
+3. If item 4 remains architecture-stable and the pilot is green, launch the long loop with the
+   checkout-local Python path and optional `-StopAfterItem` only when a bounded run is desired.
 
 ## Gotchas
 
-- The stale checkout artifact `.pytest-rag-temp` was removed by the user. Verification used the
-  isolated `revops_item8b` database and a temporary directory outside the checkout; no gate or
-  test control was weakened.
-- The no-migration retrieval baseline fixes supported persisted embedding dimensions at 1536;
-  another dimension requires a spec/plan revision rather than a fallback.
-- The Item 2 pilot exposed a CP1252 console encoding failure when the supervisor printed gate output;
-  `PYTHONIOENCODING=utf-8` is a runtime workaround for the next pilot. The inaccessible residual
-  checkout directory was created by the isolated executor environment and is not a product artifact.
-- The Item 3 architecture supervisor exhausted its two revision attempts on 2026-10-04. Its final
-  review artifacts are outside the checkout under
-  `codex-revops-supervisor-qv9er6fs/turn-001-item-3`; no Item 3 implementation was authorized.
+- The working checkout is `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the original OneDrive checkout must
+  not be used for this development loop.
+- The supervisor baseline is `096255c` with done count 9; the ignored gate state is not committed.
+- The database used for verification is the synthetic Docker database `revops_item8b`.
+- Exact ranking is intentional. HNSW remains in the schema but is not the correctness mechanism for
+  tenant filtering and organization override.
+- The old architecture-halt entries remain in git history; they do not represent the current
+  implementation state.
 
 ## Resume
 
 ```powershell
+$env:PYTHONPATH = (Join-Path (Get-Location).Path 'packages\core') + ';' + (Get-Location).Path
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
 $env:DATABASE_URL = 'postgresql+psycopg://revops:revops@localhost:5432/revops_item8b'
-$env:KNOWLEDGE_EMBEDDING_PROVIDER = 'fake'
-pytest tests/unit/domain -q
 python scripts/autonomous_gate.py
 ```
 
 ## Open questions
 
-The retrieval plan fixes the compatibility and tenant-filtering behavior. Items 1 and 2 are complete;
-Item 3 onward remains blocked until the deliberate design revision closes the two final review
-findings. The queue is not ready for an overnight run.
-
-## Autonomous loop HALT (2026-10-04T19:40:53+00:00)
-
-Item 2 declares scope ('packages/core/revops/application/', 'tests/unit/application/'), but changes touch files outside it: ['docs/decisions/ADR-0016-task-scoped-knowledge-retrieval.md', 'packages/core/revops/domain/values/__init__.py', 'packages/core/revops/domain/values/retrieval.py', 'tests/unit/domain/values/test_retrieval.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T19:41:14+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. git commit -m chore(autonomy): record executor increment failed: check for added large files..............................................Passed
-check for merge conflicts................................................Passed
-check yaml...........................................(no files to check)Skipped
-check toml...........................................(no files to check)Skipped
-detect private key.......................................................Passed
-fix end of files.........................................................Passed
-trim trailing whitespace.................................................Passed
-don't commit to branch...................................................Passed
-ruff.....................................................................Failed
-- hook id: ruff
-- files were modified by this hook
-
-Found 2 errors (2 fixed, 0 remaining).
-
-ruff-format..............................................................Passed
-Detect hardcoded secrets.................................................Passed
-AGENTS.md is canonical and CLAUDE.md imports it......(no files to check)Skipped
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T19:43:45+00:00)
-
-Item 2 declares scope ('packages/core/revops/application/', 'tests/unit/application/'), but changes touch files outside it: ['docs/decisions/ADR-0016-task-scoped-knowledge-retrieval.md', 'packages/core/revops/domain/values/__init__.py', 'packages/core/revops/domain/values/retrieval.py', 'tests/unit/domain/values/test_retrieval.py']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T19:45:46+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-04T21:30:54+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture plan was not approved after 2 attempts
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+None for Item 3. Item 4 is the next implementation item; no product-scope or architecture choice
+is currently awaiting the user.
