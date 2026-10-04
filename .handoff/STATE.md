@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "plan and tasks drafted"
-status: agreed_plan_pending_review
+phase: "SPEC-008 queue materialized"
+status: queue_ready_for_bounded_pilot
 ---
 
 # Current state
@@ -17,8 +17,9 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 SPEC-007 is complete and locally merged into `develop` by merge commit
 `5a3bf1abcedc228555e11fa7057d5c02c787c6da`.
-SPEC-008's agreed scope, plan, and ordered tasks are drafted in
-`docs/specs/SPEC-008-context-retrieval/`. No implementation code has been written for SPEC-008.
+SPEC-008's agreed scope, plan, tasks, and autonomous queue are materialized in
+`docs/specs/SPEC-008-context-retrieval/` and `.handoff/AUTONOMOUS_QUEUE.md`. No implementation
+code has been written for SPEC-008.
 
 ## Done
 
@@ -52,8 +53,8 @@ SPEC-008's agreed scope, plan, and ordered tasks are drafted in
 
 ## Next
 
-1. User: review and approve or revise `plan.md` and `tasks.md`. Only after approval, materialize
-   `.handoff/AUTONOMOUS_QUEUE.md` for SPEC-008 and then consider a bounded pilot.
+1. Run one bounded pilot against Item 1 and inspect a real commit and gate result before any long
+   autonomous run.
 
 ## Gotchas
 
@@ -72,4 +73,4 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 The retrieval plan fixes the compatibility and tenant-filtering behavior; implementation has not
-started and the autonomous queue has not been replaced for SPEC-008.
+started. The queue is ready for a bounded pilot, not an overnight run yet.
