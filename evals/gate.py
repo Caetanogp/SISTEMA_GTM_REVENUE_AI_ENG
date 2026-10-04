@@ -15,7 +15,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from evals.run import RUNNERS, SuiteReport
+from evals.run import ALL_RUNNERS, SuiteReport
 
 THRESHOLDS_PATH = Path(__file__).resolve().parent / "thresholds.toml"
 
@@ -31,17 +31,17 @@ def _threshold_for(suite: str, thresholds: dict[str, dict[str, float]]) -> float
 
 
 def evaluate_suite(name: str, thresholds: dict[str, dict[str, float]]) -> tuple[bool, SuiteReport]:
-    report = RUNNERS[name]()
-    minimum = _threshold_for(name, thresholds)
+    report = ALL_RUNNERS[name]()
+    minimum = 1.00 if name == "rag_ingestion_contract" else _threshold_for(name, thresholds)
     return report.metric_value >= minimum, report
 
 
 def main() -> int:
     thresholds = load_thresholds()
     all_passed = True
-    for suite in RUNNERS:
+    for suite in ALL_RUNNERS:
         passed, report = evaluate_suite(suite, thresholds)
-        minimum = _threshold_for(suite, thresholds)
+        minimum = 1.00 if suite == "rag_ingestion_contract" else _threshold_for(suite, thresholds)
         status = "PASS" if passed else "FAIL"
         print(
             f"[{status}] {report.suite}: {report.metric_name}={report.metric_value:.2f} "

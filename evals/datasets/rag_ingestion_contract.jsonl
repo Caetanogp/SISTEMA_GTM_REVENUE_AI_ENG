@@ -1,0 +1,7 @@
+{"id":"validation_rejects_invalid_document_key","contract":"validation"}
+{"id":"chunking_is_normalized_and_deterministic","contract":"chunking"}
+{"id":"lifecycle_rejects_illegal_transition","contract":"lifecycle"}
+{"id":"tenant_payload_cannot_select_platform_scope","contract":"tenant_scope"}
+{"id":"submission_replays_an_idempotency_key","contract":"idempotency"}
+{"id":"embedding_failure_does_not_publish_a_revision","contract":"failure_atomicity"}
+{"id":"offline_embeddings_are_deterministic","contract":"fake_embeddings"}
