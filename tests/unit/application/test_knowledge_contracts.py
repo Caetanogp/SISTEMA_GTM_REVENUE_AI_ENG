@@ -64,12 +64,29 @@ class _FakeDocuments:
     ) -> KnowledgeDocumentVersion | None:
         return None
 
+    async def get_latest_seed_version(
+        self, corpus_id: UUID, document_key: str
+    ) -> KnowledgeDocumentVersion | None:
+        return None
+
     async def reserve_draft(
         self,
         *,
         corpus_id: UUID,
         requested_by: UUID,
         document: KnowledgeDocument,
+        idempotency_key: str,
+        created_at: datetime,
+    ) -> KnowledgeDocumentVersion:
+        raise NotImplementedError
+
+    async def reserve_platform_draft(
+        self,
+        *,
+        corpus_id: UUID,
+        requested_by_system: UUID,
+        document: KnowledgeDocument,
+        seed_revision: int,
         idempotency_key: str,
         created_at: datetime,
     ) -> KnowledgeDocumentVersion:
@@ -153,6 +170,9 @@ class _FakeProcessingEvents:
 
 class _FakeCorpora:
     async def get_platform(self) -> KnowledgeCorpus:
+        raise NotImplementedError
+
+    async def get_or_create_platform_for_update(self) -> KnowledgeCorpus:
         raise NotImplementedError
 
     async def get_organization(self, organization_id: UUID) -> KnowledgeCorpus:
