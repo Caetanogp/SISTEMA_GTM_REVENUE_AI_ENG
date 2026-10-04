@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-final-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 12 closeout verification"
-status: item_12_complete_pending_supervisor_commit
+phase: "SPEC-007 complete"
+status: complete
 ---
 
 # Current state
@@ -15,8 +15,8 @@ Complete PDF-aligned knowledge ingestion and finish the SPEC-007 autonomous queu
 
 ## Now
 
-Item 12 is complete. The autonomous gate passed its full verification suite; the supervisor now
-only needs to inspect and commit the documentation-only increment.
+SPEC-007 is complete. The supervisor committed the final closeout increment as `e7e6d80`, and the
+independent verify-before-done run also passed with the isolated `revops_item8b` database.
 
 ## Done
 
@@ -40,26 +40,34 @@ only needs to inspect and commit the documentation-only increment.
 - Final `python scripts/autonomous_gate.py` exited 0 with every full-gate check green: Ruff, mypy,
   import boundaries, unit/architecture tests, agent docs, formatting, integration, adversarial,
   evals, and gitleaks.
+- Independent verification passed: `pytest tests/unit tests/architecture -q` (391 passed),
+  `pytest tests/integration -q` (45 passed) with `DATABASE_URL` set to `revops_item8b`,
+  `pytest tests/adversarial -q` (13 passed), `python -m evals.run --suite all` (all suites at
+  1.00), `python scripts/check_agent_docs.py`, and `gitleaks detect --no-git`.
+- Final clean-tree evidence: branch `feature/SPEC-007-rag-ingestion-final-recovery`, HEAD
+  `e7e6d80`, and `python scripts/autonomous_gate.py` returned exit 0 with
+  `GOAL ACHIEVED: all queue items done, full gate green.`
 
 ## Next
 
-1. Supervisor: inspect the two documentation changes and commit the completed Item 12 increment.
+1. Do not launch another development loop yet. There is no materialized SPEC-008 `spec.md`,
+   `plan.md`, or `tasks.md`; agree the next product scope and write those documents first.
 
 ## Gotchas
 
-- The inherited Windows Temp location is unusable to pytest because of an inaccessible stale
-  `pytest-of-Caetanogp123` directory. Set all three temporary-directory variables to the workspace
-  only for verification processes; their ignored artifacts remain outside the tracked worktree.
-- No cleanup was attempted on inaccessible cache or external Temp artifacts.
+- The stale checkout artifact `.pytest-rag-temp` was removed by the user. Verification used the
+  isolated `revops_item8b` database and a temporary directory outside the checkout; no gate or
+  test control was weakened.
 
 ## Resume
 
 ```powershell
-$tempRoot = (Get-Location).Path
-$env:TEMP = $tempRoot; $env:TMP = $tempRoot; $env:TMPDIR = $tempRoot
+$env:DATABASE_URL = 'postgresql+psycopg://revops:revops@localhost:5432/revops_item8b'
+$env:KNOWLEDGE_EMBEDDING_PROVIDER = 'fake'
 python scripts/autonomous_gate.py
 ```
 
 ## Open questions
 
-None.
+SPEC-008 scope, acceptance criteria, risks, and implementation order remain open product
+decisions with the user.
