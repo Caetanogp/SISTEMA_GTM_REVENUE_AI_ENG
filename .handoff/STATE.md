@@ -3,21 +3,20 @@ agent: codex
 updated_at: 2026-10-03
 branch: feature/SPEC-007-rag-ingestion-final-recovery
 spec: SPEC-007-rag-ingestion
-phase: "Item 12 closeout verification blocked by external ACLs"
-status: item_12_closeout_blocked_environment
+phase: "Item 12 closeout verification"
+status: item_12_complete_pending_supervisor_commit
 ---
 
 # Current state
 
 ## Goal
 
-Complete PDF-aligned knowledge ingestion and verify the remaining SPEC-007 queue.
+Complete PDF-aligned knowledge ingestion and finish the SPEC-007 autonomous queue.
 
 ## Now
 
-Item 12 corrected SPEC-007 PDF traceability, but its checkbox remains unticked because the
-autonomous gate exits 1 before the unit/architecture suite can create its external pytest temp
-directory.
+Item 12 is complete. The autonomous gate passed its full verification suite; the supervisor now
+only needs to inspect and commit the documentation-only increment.
 
 ## Done
 
@@ -34,31 +33,33 @@ directory.
   `.pytest_cache/autonomous-loop`; Semgrep is not provisioned; pip-audit cannot reach PyPI; and
   Bandit reports four pre-existing low-severity `assert` findings in
   `packages/core/revops/application/use_cases/ingestion.py:115,116,389,390`.
+- Final closeout verification additionally passed `pytest tests/unit tests/architecture -q`
+  (391 passed), `gitleaks detect --no-git` (no leaks found), and the Item 12 pre-tick gate. Pytest
+  uses a process-local workspace temp root because inherited Windows Temp contains an inaccessible
+  stale `pytest-of-Caetanogp123` directory; no test or gate control was changed.
+- Final `python scripts/autonomous_gate.py` exited 0 with every full-gate check green: Ruff, mypy,
+  import boundaries, unit/architecture tests, agent docs, formatting, integration, adversarial,
+  evals, and gitleaks.
 
 ## Next
 
-1. Restore access to `%LOCALAPPDATA%\Temp\pytest-of-Caetanogp123` and
-   `.pytest_cache/autonomous-loop` outside this executor, without weakening or bypassing checks.
-2. Provision Semgrep and network access for pip-audit if a complete supplemental security review is
-   required, then rerun those commands.
-3. Rerun `python scripts/autonomous_gate.py`; only after exit 0 tick task 15 and update this state
-   with the final gate evidence for the supervisor commit.
+1. Supervisor: inspect the two documentation changes and commit the completed Item 12 increment.
 
 ## Gotchas
 
-- `pytest tests/unit tests/architecture -q` currently reports 341 passed and 50 errors, all caused
-  by `PermissionError` creating `%LOCALAPPDATA%\Temp\pytest-of-Caetanogp123`.
-- `python scripts/autonomous_gate.py` was observed exiting 1 on Item 12; its state counter is 4/5.
-  Do not repeatedly rerun it before resolving the external ACL condition or it will halt.
-- No cleanup was attempted: deleting inaccessible cache/temp artifacts is outside the requested
-  scope and requires explicit authorization.
+- The inherited Windows Temp location is unusable to pytest because of an inaccessible stale
+  `pytest-of-Caetanogp123` directory. Set all three temporary-directory variables to the workspace
+  only for verification processes; their ignored artifacts remain outside the tracked worktree.
+- No cleanup was attempted on inaccessible cache or external Temp artifacts.
 
 ## Resume
 
 ```powershell
+$tempRoot = (Get-Location).Path
+$env:TEMP = $tempRoot; $env:TMP = $tempRoot; $env:TMPDIR = $tempRoot
 python scripts/autonomous_gate.py
 ```
 
 ## Open questions
 
-- Who can restore the external Temp/cache ACLs and provision the unavailable security scanner?
+None.
