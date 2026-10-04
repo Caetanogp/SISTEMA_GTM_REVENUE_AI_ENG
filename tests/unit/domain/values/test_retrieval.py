@@ -15,6 +15,7 @@ from revops.domain.values.retrieval import (
     RetrievalTokenBudget,
     RetrievedPassage,
     order_retrieved_passages,
+    validate_embedding_vector,
 )
 
 _VERSION_ID = UUID("00000000-0000-0000-0000-000000000002")
@@ -106,6 +107,33 @@ def test_embedding_space_requires_a_model_and_schema_dimension(
 
 def test_embedding_space_normalizes_its_model_name() -> None:
     assert EmbeddingSpace(" model ", 1536).model == "model"
+
+
+def test_embedding_vector_returns_float32_quantized_non_zero_values() -> None:
+    vector = validate_embedding_vector((1, 2.5), dimension=2)
+
+    assert vector == (1.0, 2.5)
+    assert all(type(value) is float for value in vector)
+
+
+@pytest.mark.parametrize(
+    "vector",
+    [
+        (0.0, 0.0),
+        (float("nan"), 1.0),
+        (float("inf"), 1.0),
+        (True, 1.0),
+        (10**400, 1.0),
+    ],
+)
+def test_embedding_vector_rejects_invalid_float32_values(vector: tuple[object, ...]) -> None:
+    with pytest.raises(PolicyViolationError, match="embedding vector"):
+        validate_embedding_vector(vector, dimension=2)
+
+
+def test_embedding_vector_rejects_underflow_to_zero() -> None:
+    with pytest.raises(PolicyViolationError, match="must not be zero"):
+        validate_embedding_vector((1e-50, 0.0), dimension=2)
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Iterable
+import struct
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Final
 from unicodedata import normalize
@@ -75,6 +76,37 @@ class EmbeddingSpace:
         if self.dimension not in SUPPORTED_EMBEDDING_DIMENSIONS:
             raise PolicyViolationError("embedding dimension is not supported by the active schema")
         object.__setattr__(self, "model", self.model.strip())
+
+
+def validate_embedding_vector(values: Sequence[object], *, dimension: int) -> tuple[float, ...]:
+    """Validate and quantize a query vector exactly as the pgvector column does."""
+    if isinstance(dimension, bool) or not isinstance(dimension, int) or dimension <= 0:
+        raise PolicyViolationError("embedding dimension must be a positive integer")
+    if len(values) != dimension:
+        raise PolicyViolationError("embedding vector dimension does not match its space")
+
+    quantized: list[float] = []
+    try:
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                raise PolicyViolationError("embedding vector coordinates must be numeric")
+            coordinate = float(value)
+            if not math.isfinite(coordinate):
+                raise PolicyViolationError("embedding vector coordinates must be finite")
+            packed = struct.pack("!f", coordinate)
+            quantized_coordinate = struct.unpack("!f", packed)[0]
+            if not math.isfinite(quantized_coordinate):
+                raise PolicyViolationError("embedding vector is not representable as float32")
+            quantized.append(quantized_coordinate)
+    except (OverflowError, struct.error) as exc:
+        raise PolicyViolationError("embedding vector is not representable as float32") from exc
+
+    norm = 0.0
+    for coordinate in quantized:
+        norm = math.hypot(norm, coordinate)
+    if norm == 0.0:
+        raise PolicyViolationError("embedding vector must not be zero")
+    return tuple(quantized)
 
 
 @dataclass(frozen=True, slots=True)

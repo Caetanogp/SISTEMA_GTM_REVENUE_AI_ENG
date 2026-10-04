@@ -625,16 +625,38 @@ class EmbeddingProviderError(RuntimeError):
     """Sanitized provider failure classified at the application boundary."""
 
     def __init__(self, failure_code: str, *, retryable: bool) -> None:
-        self.failure_code = failure_code
+        safe_codes = {
+            "embedding_unavailable",
+            "embedding_rejected",
+            "embedding_invalid_response",
+            "provider_timeout",
+        }
+        self.failure_code = (
+            failure_code if failure_code in safe_codes else "embedding_provider_error"
+        )
         self.retryable = retryable
-        super().__init__(failure_code)
+        super().__init__(self.failure_code)
+
+
+class KnowledgeRetrievalRepositoryError(RuntimeError):
+    """Sanitized persistence failure at the retrieval port boundary."""
+
+    def __init__(self, failure_code: str = "retrieval_storage_error") -> None:
+        self.failure_code = (
+            failure_code
+            if failure_code in {"retrieval_storage_error", "embedding_space_incompatible"}
+            else "retrieval_storage_error"
+        )
+        super().__init__(self.failure_code)
 
 
 @runtime_checkable
 class KnowledgeRetrievalRepository(Protocol):
     """Read-only active-corpus retrieval boundary owned by the infrastructure adapter."""
 
-    async def resolve_active_embedding_space(self, *, organization_id: UUID) -> EmbeddingSpace: ...
+    async def resolve_active_embedding_space(
+        self, *, organization_id: UUID
+    ) -> EmbeddingSpace | None: ...
 
     async def search_active_chunks(
         self,

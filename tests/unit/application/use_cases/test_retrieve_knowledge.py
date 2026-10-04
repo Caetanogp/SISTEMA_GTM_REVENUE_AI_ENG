@@ -20,6 +20,7 @@ from revops.application.ports import (
 from revops.application.use_cases.retrieve_knowledge import (
     EmbeddingSpaceIncompatibleError,
     KnowledgeRetrievalProviderError,
+    KnowledgeRetrievalStorageError,
     RetrieveKnowledge,
 )
 from revops.domain.entities.knowledge import KnowledgeCategory, KnowledgeLanguage
@@ -54,7 +55,7 @@ class _FakeRepository:
     def __init__(
         self,
         *,
-        space: EmbeddingSpace = _DEFAULT_SPACE,
+        space: EmbeddingSpace | None = _DEFAULT_SPACE,
         candidates: Sequence[KnowledgeRetrievalCandidate] = (),
     ) -> None:
         self.space = space
@@ -62,7 +63,9 @@ class _FakeRepository:
         self.resolved_organization_id: UUID | None = None
         self.search_call: dict[str, object] | None = None
 
-    async def resolve_active_embedding_space(self, *, organization_id: UUID) -> EmbeddingSpace:
+    async def resolve_active_embedding_space(
+        self, *, organization_id: UUID
+    ) -> EmbeddingSpace | None:
         self.resolved_organization_id = organization_id
         return self.space
 
@@ -110,7 +113,7 @@ def _embeddings() -> _FakeEmbeddings:
         EmbeddingBatch(
             model="configured-model",
             dimension=1536,
-            vectors=(tuple(0.0 for _ in range(1536)),),
+            vectors=((1.0, *tuple(0.0 for _ in range(1535))),),
         )
     )
 
@@ -166,3 +169,30 @@ async def test_retrieve_wraps_sanitized_embedding_provider_failure() -> None:
 
     assert caught.value.failure_code == "provider_timeout"
     assert caught.value.retryable is True
+    assert caught.value.__cause__ is None
+
+
+async def test_retrieve_does_not_call_provider_when_no_active_sources_exist() -> None:
+    repository = _FakeRepository(space=None)
+    embeddings = _embeddings()
+
+    result = await RetrieveKnowledge(repository, embeddings).execute(
+        context=KnowledgeRetrievalContext(organization_id=_ORGANIZATION_ID), args=_args()
+    )
+
+    assert result.included == ()
+    assert embeddings.texts == []
+
+
+async def test_retrieve_sanitizes_typed_repository_failure() -> None:
+    from revops.application.ports import KnowledgeRetrievalRepositoryError
+
+    class _FailingRepository(_FakeRepository):
+        async def resolve_active_embedding_space(self, *, organization_id: UUID) -> EmbeddingSpace:
+            raise KnowledgeRetrievalRepositoryError("secret vector=sentinel")
+
+    with pytest.raises(KnowledgeRetrievalStorageError, match="retrieval_storage_error") as caught:
+        await RetrieveKnowledge(_FailingRepository(), _embeddings()).execute(
+            context=KnowledgeRetrievalContext(organization_id=_ORGANIZATION_ID), args=_args()
+        )
+    assert caught.value.__cause__ is None

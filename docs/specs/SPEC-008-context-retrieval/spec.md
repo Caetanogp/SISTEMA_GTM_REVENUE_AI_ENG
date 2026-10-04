@@ -27,7 +27,9 @@ the existing rule that retrieved content is untrusted data.
 
 - A bounded application retrieval contract for a task-specific query using the existing embedding
   provider and knowledge repository boundaries.
-- Semantic nearest-neighbor retrieval through the existing PostgreSQL/pgvector cosine index.
+- Exact semantic cosine retrieval through the existing PostgreSQL/pgvector storage type, over a
+  materialized eligible set. The existing approximate index remains available for a later,
+  evidence-backed optimization but is not required for this contract.
 - Read access to the shared platform corpus and the authenticated organization's corpus, with the
   organization version overriding the platform version for the same `document_key`.
 - Retrieval only from versions included in the active corpus revision and in `ready` state.
@@ -70,9 +72,10 @@ the existing rule that retrieved content is untrusted data.
 4. Given ready and non-ready or inactive versions, when retrieval runs, then only chunks belonging
    to versions present in the active corpus revision and marked `ready` are eligible.
 5. Given a valid task query, when semantic search runs, then it uses the explicitly configured
-   embedding provider and pgvector cosine similarity, enforces a result limit from 1 through 20,
-   and resolves equal scores deterministically. Provider/model or vector-dimension incompatibility
-   never causes scores from incompatible embedding spaces to be compared.
+   embedding provider and exact pgvector cosine similarity over only the eligible set, enforces a
+   result limit from 1 through 20, and resolves equal scores deterministically. Provider/model,
+   vector-dimension, vector-integrity, or float32-representability incompatibility never causes
+   scores from incompatible embedding spaces to be compared.
 6. Given retrieved results, when they are returned to the application, then each result includes
    its source document key, version ID, chunk ID and ordinal, category, language, active revision
    ID, score, and passage text.
@@ -100,10 +103,10 @@ the existing rule that retrieved content is untrusted data.
 
 ## Data model impact
 
-Reuse SPEC-007's corpora, immutable versions, chunks, embeddings, active revision entries, and
-existing pgvector cosine index. No persistent memory table is in scope. The implementation plan
-must confirm whether these structures support efficient active-revision and tenant filtering
-without a migration; any required schema change must be additive and preserve immutable history.
+Reuse SPEC-007's corpora, immutable versions, chunks, embeddings, and active revision entries. No
+persistent memory table or migration is in scope. The initial contract uses exact ranking over a
+materialized eligible set so tenant and organization-override filtering are semantically prior to
+ranking; the existing approximate index can be evaluated separately after correctness evidence.
 
 ## Security considerations
 
@@ -125,9 +128,9 @@ quality checks are optional, cost-confirmed, and excluded from CI.
 
 - Active-revision membership and organization override must be enforced before ranking, not applied
   only after top-k selection, or relevant eligible chunks could be hidden by ineligible ones.
-- Platform and organization chunks may have different embedding model versions. The plan must
-  define the compatibility behavior and migration/re-embedding implications without comparing
-  incompatible vectors.
+- Platform and organization chunks may have different embedding model versions. Retrieval fails
+  closed with a typed compatibility error rather than comparing incompatible vectors or returning a
+  partial result.
 - The current task context builder uses a conservative character-based token estimate. The plan
   must decide whether this existing bound is sufficient for retrieval or whether retrieval needs a
   separately bounded allocation within the task's total context budget.
