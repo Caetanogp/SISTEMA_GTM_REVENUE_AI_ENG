@@ -29,6 +29,7 @@ from revops.application.dto import (
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
     KnowledgeProcessingEvent,
+    KnowledgeRetrievalCandidate,
     KnowledgeRevisionActivation,
     LLMFailureKind,
     LLMGatewayHealth,
@@ -52,6 +53,7 @@ from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersion
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
 from revops.domain.entities.touchpoint import Touchpoint
+from revops.domain.values.retrieval import EmbeddingSpace
 
 
 @dataclass(frozen=True, slots=True)
@@ -626,6 +628,23 @@ class EmbeddingProviderError(RuntimeError):
         self.failure_code = failure_code
         self.retryable = retryable
         super().__init__(failure_code)
+
+
+@runtime_checkable
+class KnowledgeRetrievalRepository(Protocol):
+    """Read-only active-corpus retrieval boundary owned by the infrastructure adapter."""
+
+    async def resolve_active_embedding_space(self, *, organization_id: UUID) -> EmbeddingSpace: ...
+
+    async def search_active_chunks(
+        self,
+        *,
+        organization_id: UUID,
+        query_vector: Sequence[float],
+        embedding_model: str,
+        embedding_dimension: int,
+        limit: int,
+    ) -> Sequence[KnowledgeRetrievalCandidate]: ...
 
 
 @runtime_checkable

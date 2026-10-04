@@ -6,12 +6,12 @@
 - [x] Add pure retrieval value objects and invariants under `packages/core/revops/domain/` -
   verified by focused domain unit tests for limits, budgets, scores, provenance, and embedding
   spaces
-- [ ] Add retrieval DTOs, `KnowledgeRetrievalRepository`, and typed errors under
+- [x] Add retrieval DTOs, `KnowledgeRetrievalRepository`, and typed errors under
   `packages/core/revops/application/` - verified by mypy, import-linter, and contract unit tests
-- [ ] Implement `RetrieveKnowledge` with trusted organization context, one configured query
+- [x] Implement `RetrieveKnowledge` with trusted organization context, one configured query
   embedding, bounded limits, and typed provider/compatibility failures - verified by application
   unit tests with fake ports
-- [ ] Implement the task knowledge context assembler with untrusted-data fencing, provenance, token
+- [x] Implement the task knowledge context assembler with untrusted-data fencing, provenance, token
   budgeting, and omission reporting - verified by context unit tests and injection-shaped cases
 - [ ] Implement active embedding-space resolution in the persistence adapter - verified by
   PostgreSQL integration tests for compatible and incompatible active versions

@@ -36,6 +36,7 @@ from revops.domain.entities.knowledge import (
     KnowledgeScope,
     KnowledgeVersionStatus,
 )
+from revops.domain.values.retrieval import RetrievalProvenance, RetrievalScore, RetrievedPassage
 from revops.domain.values.score import ScoreTier
 
 
@@ -481,6 +482,24 @@ class KnowledgeAdminContext(BaseModel):
     role: Literal["admin"]
 
 
+class KnowledgeRetrievalContext(BaseModel):
+    """Trusted task identity injected by the authenticated application boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: UUID
+
+
+class RetrieveKnowledgeArgs(BaseModel):
+    """Untrusted query parameters; corpus and tenant selection are intentionally absent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=4_000)
+    limit: int = Field(ge=1, le=20)
+    token_budget: int = Field(gt=0)
+
+
 @dataclass(frozen=True, slots=True)
 class KnowledgeCorpus:
     """Explicit owner boundary for platform or organization knowledge."""
@@ -568,6 +587,32 @@ class EmbeddingBatch:
     model: str
     dimension: int
     vectors: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeRetrievalCandidate:
+    """A fully filtered, attributable passage returned by the retrieval adapter."""
+
+    passage: RetrievedPassage
+
+
+@dataclass(frozen=True, slots=True)
+class OmittedKnowledgePassage:
+    """A ranked passage excluded solely because its fenced section did not fit."""
+
+    provenance: RetrievalProvenance
+    score: RetrievalScore
+    reason: Literal["token_budget_exceeded"] = "token_budget_exceeded"
+
+
+@dataclass(frozen=True, slots=True)
+class TaskKnowledgeContext:
+    """Fenced retrieved context, its stable token estimate, and explicit omissions."""
+
+    text: str
+    token_count: int
+    included: tuple[RetrievedPassage, ...]
+    omitted: tuple[OmittedKnowledgePassage, ...]
 
 
 @dataclass(frozen=True, slots=True)

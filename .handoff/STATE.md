@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 Item 2 ready for bounded pilot"
-status: item_2_ready_for_pilot
+phase: "SPEC-008 Item 2 implemented; awaiting supervisor commit"
+status: item_2_gate_green_uncommitted
 ---
 
 # Current state
@@ -15,14 +15,24 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-Item 1 is committed in `2de29b8` and its focused checks pass. The bounded supervisor pilot stopped
-during its commit because Ruff auto-fixed two files; the corrected files were staged and committed
-manually. The earlier Item 2 scope halt was a supervisor recovery artifact: the listed files are
-the already completed Item 1 changes, not an Item 2 implementation. The ignored gate baseline was
-reconciled to the clean Item 1 checkpoint, and the ordinary gate now selects Item 2 with all partial
-checks green.
+Item 2 application retrieval contracts are implemented and verified, but remain uncommitted for the
+supervisor. The autonomous gate selected Item 2 and passed its bounded checks with an external
+pytest base temp directory because the inherited `pytest-of-Caetanogp123` temporary root has a stale
+Windows ACL denial. No test, gate, or repository control was changed.
 
 ## Done
+
+- Implemented Item 2's application retrieval boundary: trusted organization context and bounded
+  query DTOs; the `KnowledgeRetrievalRepository` port; typed provider and embedding-space errors;
+  the one-query-embedding `RetrieveKnowledge` use case; and a provenance-preserving,
+  untrusted-data-fenced context assembler with explicit budget omissions —
+  `packages/core/revops/application/dto.py`, `ports.py`, `context/knowledge.py`, and
+  `use_cases/retrieve_knowledge.py`. Focused evidence: `ruff check` and `ruff format --check`
+  passed; `mypy packages/core/revops/application tests/unit/application` passed; `pytest
+  tests/unit/application -q` passed (85); `lint-imports` passed (4 contracts); and the Item 2
+  gate passed with `PYTEST_ADDOPTS=--basetemp <external-temp>` (Ruff, mypy, import-linter, 431
+  unit/architecture tests, and agent docs). The three Item 2 task checkboxes are checked;
+  supervisor commit still pending.
 
 - Implemented the approved retrieval ADR and framework-free retrieval value objects for normalized
   queries, limits, budgets, schema-compatible embedding spaces, finite scores, complete provenance,
@@ -63,9 +73,10 @@ checks green.
 
 ## Next
 
-1. Run the bounded pilot for Item 2 application retrieval contracts.
-2. Inspect the real Item 2 commit and run the autonomous gate after it is committed.
-3. Do not begin Item 3 until the Item 2 gate is green.
+1. Have the supervisor inspect and commit only the Item 2 application/test changes plus this
+   required task and handoff evidence.
+2. Run the ordinary autonomous gate after that commit; it should advance to Item 3.
+3. Do not begin Item 3 in this executor session.
 
 ## Gotchas
 
