@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 Item 2 committed; Item 3 bounded pilot ready"
-status: item_3_ready_for_pilot
+phase: "SPEC-008 Item 3 architecture review halted after bounded revisions"
+status: architecture_revision_required
 ---
 
 # Current state
@@ -16,11 +16,11 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 ## Now
 
 Item 2 application retrieval contracts are implemented, verified, and committed in `d88abc9`.
-The bounded gate selected Item 3 after the commit. The supervisor then stopped while printing a
-gate message through a CP1252 console (`UnicodeEncodeError`); this is an operational output issue,
-not an implementation or architecture block. The executor also left the exact residual temporary
-directory `UsersCAETAN~1AppDataLocalTempcodex-revops-item-2-gate/` inside the checkout; its ACL
-denies inspection/removal, so it must not be treated as source code.
+The Item 3 bounded pilot made no code changes. The executor raised a legitimate architecture
+decision about filtered pgvector retrieval; the first plan revision was rejected for incomplete
+HNSW, vector-integrity, provenance, and commit-order guarantees. The second revision closed those
+points but was rejected again for incomplete exception sanitization and float32-representability
+validation. The supervisor stopped after its two permitted architecture attempts.
 
 ## Done
 
@@ -78,11 +78,12 @@ denies inspection/removal, so it must not be treated as source code.
 
 ## Next
 
-1. Run the ordinary autonomous gate with the isolated database and confirm Item 3 is the active
-   item.
-2. Run a bounded Item 3 persistence-adapter pilot with UTF-8 supervisor output enabled.
-3. Stop on any real architecture, security, scope, or environment-permission block; do not launch
-   the overnight loop yet.
+1. Perform a deliberate design pass for the two remaining Item 3 decisions: sanitize provider and
+   SQLAlchemy failures without exposing vectors/parameters, and validate every query coordinate as
+   finite, non-boolean, float32-representable with overflow-safe norm handling.
+2. Record the approved revision in `plan.md`/ADR-0016 and the handoff before relaunching the pilot.
+3. Run one fresh bounded Item 3 pilot in `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; do not launch the
+   overnight loop until it produces a clean commit and green gate.
 
 ## Gotchas
 
@@ -94,6 +95,9 @@ denies inspection/removal, so it must not be treated as source code.
 - The Item 2 pilot exposed a CP1252 console encoding failure when the supervisor printed gate output;
   `PYTHONIOENCODING=utf-8` is a runtime workaround for the next pilot. The inaccessible residual
   checkout directory was created by the isolated executor environment and is not a product artifact.
+- The Item 3 architecture supervisor exhausted its two revision attempts on 2026-10-04. Its final
+  review artifacts are outside the checkout under
+  `codex-revops-supervisor-qv9er6fs/turn-001-item-3`; no Item 3 implementation was authorized.
 
 ## Resume
 
@@ -107,7 +111,8 @@ python scripts/autonomous_gate.py
 ## Open questions
 
 The retrieval plan fixes the compatibility and tenant-filtering behavior. Items 1 and 2 are complete;
-Item 3 onward remains. The queue is ready for another bounded pilot, not an overnight run yet.
+Item 3 onward remains blocked until the deliberate design revision closes the two final review
+findings. The queue is not ready for an overnight run.
 
 ## Autonomous loop HALT (2026-10-04T19:40:53+00:00)
 
@@ -146,5 +151,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-04T19:45:46+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-04T21:30:54+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture plan was not approved after 2 attempts
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
