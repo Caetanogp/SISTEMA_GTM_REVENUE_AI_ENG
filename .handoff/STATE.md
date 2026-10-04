@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 Item 1 implemented; supervisor commit pending"
-status: item_1_ready_for_supervisor
+phase: "SPEC-008 Item 1 committed; bounded pilot recovery"
+status: item_1_complete_pending_gate
 ---
 
 # Current state
@@ -15,8 +15,10 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-Item 1 has uncommitted, verified changes in the declared queue scope. The supervisor must inspect
-and commit them before starting Item 2.
+Item 1 is committed in `2de29b8` and its focused checks pass. The bounded supervisor pilot stopped
+during its commit because Ruff auto-fixed two files; the corrected files were staged and committed
+manually. The earlier Item 2 scope halt was a supervisor recovery artifact: the listed files are
+the already completed Item 1 changes, not an Item 2 implementation.
 
 ## Done
 
@@ -59,9 +61,10 @@ and commit them before starting Item 2.
 
 ## Next
 
-1. Supervisor: inspect and commit the bounded Item 1 diff.
-2. Implement Item 2 application retrieval contract after the Item 1 commit.
-3. Run the autonomous gate after each bounded item; do not begin Item 3 until Item 2 is committed.
+1. Run `python scripts/autonomous_gate.py` on the clean worktree to rebaseline after the Item 1
+   recovery and confirm the queue selects Item 2.
+2. Run a bounded pilot for Item 2 application retrieval contracts.
+3. Run the autonomous gate after Item 2 is committed; do not begin Item 3 until that gate is green.
 
 ## Gotchas
 
@@ -82,8 +85,8 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-The retrieval plan fixes the compatibility and tenant-filtering behavior; implementation has not
-started. The queue is ready for a bounded pilot, not an overnight run yet.
+The retrieval plan fixes the compatibility and tenant-filtering behavior. Item 1 is complete;
+Item 2 onward remains. The queue is ready for another bounded pilot, not an overnight run yet.
 
 ## Autonomous loop HALT (2026-10-04T19:40:53+00:00)
 
