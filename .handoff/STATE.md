@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 queue materialized"
-status: queue_ready_for_bounded_pilot
+phase: "SPEC-008 Item 1 implemented; supervisor commit pending"
+status: item_1_ready_for_supervisor
 ---
 
 # Current state
@@ -15,14 +15,20 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-SPEC-007 is complete and locally merged into `develop` by merge commit
-`5a3bf1abcedc228555e11fa7057d5c02c787c6da`.
-SPEC-008's agreed scope, plan, tasks, and autonomous queue are materialized in
-`docs/specs/SPEC-008-context-retrieval/` and `.handoff/AUTONOMOUS_QUEUE.md`. No implementation
-code has been written for SPEC-008.
+Item 1 has uncommitted, verified changes in the declared queue scope. The supervisor must inspect
+and commit them before starting Item 2.
 
 ## Done
 
+- Implemented the approved retrieval ADR and framework-free retrieval value objects for normalized
+  queries, limits, budgets, schema-compatible embedding spaces, finite scores, complete provenance,
+  attributable passages, and stable score/tie ordering —
+  `docs/decisions/ADR-0016-task-scoped-knowledge-retrieval.md`,
+  `packages/core/revops/domain/values/retrieval.py`, and
+  `tests/unit/domain/values/test_retrieval.py`; `pytest tests/unit/domain -q` passed (159 passed),
+  `mypy .` passed, `lint-imports` passed (4 contracts), and focused Ruff checks passed.
+- Checked Item 1's two SPEC-008 task checkboxes after the observed domain evidence —
+  `docs/specs/SPEC-008-context-retrieval/tasks.md`.
 - Updated SPEC-007 PDF traceability for persisted versioned documents/chunks, versioned corpus
   ingestion, and the remaining SPEC-008 retrieval gaps — `docs/requirements/PDF_TRACEABILITY.md:27`,
   `:54`, and `:62`; `python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20).
@@ -53,20 +59,24 @@ code has been written for SPEC-008.
 
 ## Next
 
-1. Run one bounded pilot against Item 1 and inspect a real commit and gate result before any long
-   autonomous run.
+1. Supervisor: inspect and commit the bounded Item 1 diff.
+2. Implement Item 2 application retrieval contract after the Item 1 commit.
+3. Run the autonomous gate after each bounded item; do not begin Item 3 until Item 2 is committed.
 
 ## Gotchas
 
 - The stale checkout artifact `.pytest-rag-temp` was removed by the user. Verification used the
   isolated `revops_item8b` database and a temporary directory outside the checkout; no gate or
   test control was weakened.
+- The no-migration retrieval baseline fixes supported persisted embedding dimensions at 1536;
+  another dimension requires a spec/plan revision rather than a fallback.
 
 ## Resume
 
 ```powershell
 $env:DATABASE_URL = 'postgresql+psycopg://revops:revops@localhost:5432/revops_item8b'
 $env:KNOWLEDGE_EMBEDDING_PROVIDER = 'fake'
+pytest tests/unit/domain -q
 python scripts/autonomous_gate.py
 ```
 
@@ -74,3 +84,31 @@ python scripts/autonomous_gate.py
 
 The retrieval plan fixes the compatibility and tenant-filtering behavior; implementation has not
 started. The queue is ready for a bounded pilot, not an overnight run yet.
+
+## Autonomous loop HALT (2026-10-04T19:40:53+00:00)
+
+Item 2 declares scope ('packages/core/revops/application/', 'tests/unit/application/'), but changes touch files outside it: ['docs/decisions/ADR-0016-task-scoped-knowledge-retrieval.md', 'packages/core/revops/domain/values/__init__.py', 'packages/core/revops/domain/values/retrieval.py', 'tests/unit/domain/values/test_retrieval.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-04T19:41:14+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. git commit -m chore(autonomy): record executor increment failed: check for added large files..............................................Passed
+check for merge conflicts................................................Passed
+check yaml...........................................(no files to check)Skipped
+check toml...........................................(no files to check)Skipped
+detect private key.......................................................Passed
+fix end of files.........................................................Passed
+trim trailing whitespace.................................................Passed
+don't commit to branch...................................................Passed
+ruff.....................................................................Failed
+- hook id: ruff
+- files were modified by this hook
+
+Found 2 errors (2 fixed, 0 remaining).
+
+ruff-format..............................................................Passed
+Detect hardcoded secrets.................................................Passed
+AGENTS.md is canonical and CLAUDE.md imports it......(no files to check)Skipped
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

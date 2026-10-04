@@ -1,9 +1,9 @@
 # SPEC-008: Task-Scoped Knowledge Retrieval Tasks
 
-- [ ] Record the approved retrieval contract, compatibility failure behavior, tenant boundary, and
+- [x] Record the approved retrieval contract, compatibility failure behavior, tenant boundary, and
   no-migration baseline in an ADR under `docs/decisions/` - verified by the ADR covering the
   decisions in `plan.md`
-- [ ] Add pure retrieval value objects and invariants under `packages/core/revops/domain/` -
+- [x] Add pure retrieval value objects and invariants under `packages/core/revops/domain/` -
   verified by focused domain unit tests for limits, budgets, scores, provenance, and embedding
   spaces
 - [ ] Add retrieval DTOs, `KnowledgeRetrievalRepository`, and typed errors under
