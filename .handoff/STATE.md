@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "spec draft review"
-status: draft_pending_user_review
+phase: "plan and tasks drafted"
+status: agreed_plan_pending_review
 ---
 
 # Current state
@@ -17,8 +17,8 @@ Complete PDF-aligned knowledge ingestion and finish the SPEC-007 autonomous queu
 
 SPEC-007 is complete and locally merged into `develop` by merge commit
 `5a3bf1abcedc228555e11fa7057d5c02c787c6da`.
-SPEC-008's approved high-level scope is drafted in `docs/specs/SPEC-008-context-retrieval/spec.md`
-and awaits user review before `plan.md` and `tasks.md` are created.
+SPEC-008's agreed scope, plan, and ordered tasks are drafted in
+`docs/specs/SPEC-008-context-retrieval/`. No implementation code has been written for SPEC-008.
 
 ## Done
 
@@ -52,8 +52,8 @@ and awaits user review before `plan.md` and `tasks.md` are created.
 
 ## Next
 
-1. User: review and approve or revise the SPEC-008 draft. Only after approval, create `plan.md`
-   and `tasks.md`, then consider the autonomous queue.
+1. User: review and approve or revise `plan.md` and `tasks.md`. Only after approval, materialize
+   `.handoff/AUTONOMOUS_QUEUE.md` for SPEC-008 and then consider a bounded pilot.
 
 ## Gotchas
 
@@ -71,5 +71,5 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-The SPEC-008 detailed draft acceptance criteria and risks await review; implementation order is
-not yet planned.
+The retrieval plan fixes the compatibility and tenant-filtering behavior; implementation has not
+started and the autonomous queue has not been replaced for SPEC-008.

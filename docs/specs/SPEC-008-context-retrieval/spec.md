@@ -1,6 +1,6 @@
 # SPEC-008: Task-Scoped Knowledge Retrieval
 
-- **Status:** draft
+- **Status:** agreed
 - **Owner:** Caetano
 - **Roadmap phase:** 2
 - **Created:** 2026-10-04
