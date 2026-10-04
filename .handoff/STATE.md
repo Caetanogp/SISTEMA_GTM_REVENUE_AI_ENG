@@ -56,3 +56,21 @@ Run `pytest tests/integration -q`, `pytest tests/adversarial -q`, then
 ## Open questions
 
 - None for Item 10.
+
+## Autonomous loop HALT (2026-10-04T00:16:05+00:00)
+
+Item 11 declares scope ('evals/', 'scripts/', 'docs/'), but changes touch files outside it: ['.pytest-rag-temp/test_write_report_writes_valid0/lead_scoring.json']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-04T00:16:38+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The focused pytest run created an out-of-scope temporary artifact with an access-denied ACL. The autonomous gate halted, and the repository rules prohibit me from using a destructive cleanup command without explicit authorization.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-04T00:42:48+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
