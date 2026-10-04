@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "SPEC-008 Item 2 implemented; awaiting supervisor commit"
-status: item_2_gate_green_uncommitted
+phase: "SPEC-008 Item 2 committed; Item 3 bounded pilot ready"
+status: item_3_ready_for_pilot
 ---
 
 # Current state
@@ -15,10 +15,12 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-Item 2 application retrieval contracts are implemented and verified, but remain uncommitted for the
-supervisor. The autonomous gate selected Item 2 and passed its bounded checks with an external
-pytest base temp directory because the inherited `pytest-of-Caetanogp123` temporary root has a stale
-Windows ACL denial. No test, gate, or repository control was changed.
+Item 2 application retrieval contracts are implemented, verified, and committed in `d88abc9`.
+The bounded gate selected Item 3 after the commit. The supervisor then stopped while printing a
+gate message through a CP1252 console (`UnicodeEncodeError`); this is an operational output issue,
+not an implementation or architecture block. The executor also left the exact residual temporary
+directory `UsersCAETAN~1AppDataLocalTempcodex-revops-item-2-gate/` inside the checkout; its ACL
+denies inspection/removal, so it must not be treated as source code.
 
 ## Done
 
@@ -31,8 +33,11 @@ Windows ACL denial. No test, gate, or repository control was changed.
   passed; `mypy packages/core/revops/application tests/unit/application` passed; `pytest
   tests/unit/application -q` passed (85); `lint-imports` passed (4 contracts); and the Item 2
   gate passed with `PYTEST_ADDOPTS=--basetemp <external-temp>` (Ruff, mypy, import-linter, 431
-  unit/architecture tests, and agent docs). The three Item 2 task checkboxes are checked;
-  supervisor commit still pending.
+  unit/architecture tests, and agent docs). The three Item 2 task checkboxes are checked.
+
+- Item 2 was committed as `d88abc9` after the supervisor recorded the executor increment. The
+  focused application checks and bounded Item 2 gate evidence are recorded above; the three Item 2
+  task checkboxes are checked.
 
 - Implemented the approved retrieval ADR and framework-free retrieval value objects for normalized
   queries, limits, budgets, schema-compatible embedding spaces, finite scores, complete provenance,
@@ -73,10 +78,11 @@ Windows ACL denial. No test, gate, or repository control was changed.
 
 ## Next
 
-1. Have the supervisor inspect and commit only the Item 2 application/test changes plus this
-   required task and handoff evidence.
-2. Run the ordinary autonomous gate after that commit; it should advance to Item 3.
-3. Do not begin Item 3 in this executor session.
+1. Run the ordinary autonomous gate with the isolated database and confirm Item 3 is the active
+   item.
+2. Run a bounded Item 3 persistence-adapter pilot with UTF-8 supervisor output enabled.
+3. Stop on any real architecture, security, scope, or environment-permission block; do not launch
+   the overnight loop yet.
 
 ## Gotchas
 
@@ -85,6 +91,9 @@ Windows ACL denial. No test, gate, or repository control was changed.
   test control was weakened.
 - The no-migration retrieval baseline fixes supported persisted embedding dimensions at 1536;
   another dimension requires a spec/plan revision rather than a fallback.
+- The Item 2 pilot exposed a CP1252 console encoding failure when the supervisor printed gate output;
+  `PYTHONIOENCODING=utf-8` is a runtime workaround for the next pilot. The inaccessible residual
+  checkout directory was created by the isolated executor environment and is not a product artifact.
 
 ## Resume
 
@@ -97,8 +106,8 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-The retrieval plan fixes the compatibility and tenant-filtering behavior. Item 1 is complete;
-Item 2 onward remains. The queue is ready for another bounded pilot, not an overnight run yet.
+The retrieval plan fixes the compatibility and tenant-filtering behavior. Items 1 and 2 are complete;
+Item 3 onward remains. The queue is ready for another bounded pilot, not an overnight run yet.
 
 ## Autonomous loop HALT (2026-10-04T19:40:53+00:00)
 
