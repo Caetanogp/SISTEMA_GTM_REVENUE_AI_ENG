@@ -11,7 +11,7 @@ status: agreed_plan_pending_review
 
 ## Goal
 
-Complete PDF-aligned knowledge ingestion and finish the SPEC-007 autonomous queue.
+Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
