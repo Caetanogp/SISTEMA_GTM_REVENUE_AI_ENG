@@ -23,10 +23,17 @@ from pathlib import Path
 from evals.scorers.lead_scoring import score_lead_scoring_dataset
 from evals.scorers.llm_gateway_contract import score_llm_gateway_contract_dataset
 from evals.scorers.rag_ingestion_contract import score_rag_ingestion_contract_dataset
+from evals.scorers.rag_retrieval_contract import score_rag_retrieval_contract_dataset
 from evals.scorers.tool_selection import score_tool_selection_dataset
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
-SUITES = ("tool_selection", "lead_scoring", "llm_gateway_contract", "rag_ingestion_contract")
+SUITES = (
+    "tool_selection",
+    "lead_scoring",
+    "llm_gateway_contract",
+    "rag_ingestion_contract",
+    "rag_retrieval_contract",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,15 +99,32 @@ def run_rag_ingestion_contract() -> SuiteReport:
     )
 
 
+def run_rag_retrieval_contract() -> SuiteReport:
+    result = score_rag_retrieval_contract_dataset()
+    return SuiteReport(
+        suite="rag_retrieval_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
 RUNNERS: dict[str, Callable[[], SuiteReport]] = {
     "tool_selection": run_tool_selection,
     "lead_scoring": run_lead_scoring,
     "llm_gateway_contract": run_llm_gateway_contract,
 }
 
-# This mandatory ingestion contract has a fixed 1.00 threshold. Keep legacy RUNNERS stable for
-# callers that enumerate the pre-SPEC-007 suites; all CLI and gate execution uses this registry.
-ALL_RUNNERS = {**RUNNERS, "rag_ingestion_contract": run_rag_ingestion_contract}
+# Keep legacy RUNNERS stable for callers that enumerate the pre-SPEC-007 suites; all CLI and gate
+# execution uses this registry, including the mandatory retrieval contracts.
+ALL_RUNNERS = {
+    **RUNNERS,
+    "rag_ingestion_contract": run_rag_ingestion_contract,
+    "rag_retrieval_contract": run_rag_retrieval_contract,
+}
 
 
 def run_suite(name: str) -> SuiteReport:

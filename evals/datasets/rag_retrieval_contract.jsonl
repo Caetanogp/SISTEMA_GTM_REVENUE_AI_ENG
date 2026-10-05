@@ -1,0 +1,8 @@
+{"id":"tenant_filtering_precedes_top_k","contract":"tenant_filtering"}
+{"id":"active_revision_and_ready_filtering","contract":"active_membership"}
+{"id":"organization_override_precedes_top_k","contract":"organization_override"}
+{"id":"retrieval_returns_complete_provenance","contract":"provenance"}
+{"id":"retrieval_order_is_deterministic","contract":"ordering"}
+{"id":"token_budget_reports_omissions","contract":"budget"}
+{"id":"incompatible_embedding_spaces_fail_closed","contract":"incompatible_space"}
+{"id":"retrieved_instructions_remain_fenced_data","contract":"data_fencing"}
