@@ -1,23 +1,24 @@
 ---
 agent: codex
-updated_at: 2026-10-04
-branch: feature/SPEC-008-context-retrieval
-spec: SPEC-008-context-retrieval
-phase: "SPEC-008 closeout complete and fully verified"
-status: complete
+updated_at: 2026-10-05
+branch: feature/SPEC-009-single-agent-tool-runtime
+spec: SPEC-009-single-agent-tool-runtime
+phase: "SPEC-009 spec draft prepared for scope review"
+status: awaiting_spec_review
 ---
 
 # Current state
 
 ## Goal
 
-Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
+Implement the PDF-aligned bounded single-agent tool runtime described by SPEC-009 after its draft is
+reviewed and agreed.
 
 ## Now
 
-SPEC-008 items 1-8 are complete: all 15 task checkboxes are checked. No autonomous loop is
-running. The closeout passed after Docker Desktop was started and the tests were run against the
-synthetic `revops_item8b` PostgreSQL database.
+SPEC-008 is closed and fully verified. SPEC-009 has an approved initial direction and a draft
+`spec.md`, but no `plan.md`, `tasks.md`, implementation, or autonomous queue exists yet. No
+autonomous loop is running.
 
 ## Done
 
@@ -87,11 +88,10 @@ synthetic `revops_item8b` PostgreSQL database.
 
 ## Next
 
-1. Do not launch another implementation loop yet: SPEC-008 is closed and the current queue has no
-   remaining work.
-2. Materialize and approve the next PDF-aligned spec, plan, and tasks before creating a new queue.
-3. Only then prepare a larger bounded queue for unattended execution; publishing or merging remains
-   a separate user-controlled Git workflow step.
+1. Review and agree `docs/specs/SPEC-009-single-agent-tool-runtime/spec.md`.
+2. After agreement, write `plan.md` and `tasks.md`, then review the plan before implementation.
+3. Only after the three spec artifacts exist should the autonomous queue be created and a bounded
+   pilot run; no overnight loop is authorized yet.
 
 ## Gotchas
 
@@ -118,7 +118,6 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-SPEC-008 is closed. Before SPEC-009 can start, the product owner must approve its scope, supported
-request types, tool catalog, public/internal boundary, checkpoint and tool-call limits, and the
-acceptance/eval contract. The roadmap entry is only a candidate placeholder and is not authorization
-to write code or a spec.
+Review the SPEC-009 draft, especially the supported request outcomes and whether ambiguous requests
+should return only a structured refusal or also a clarification prompt. The draft's safe default is
+refusal without a side effect.
