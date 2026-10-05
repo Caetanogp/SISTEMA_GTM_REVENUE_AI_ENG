@@ -47,6 +47,9 @@ checkout because the earlier supervisor architecture review halted before implem
   was changed. Evidence: `tests/unit/apps/test_knowledge_retrieval_wiring.py` (2 passed),
   `pytest tests/unit tests/architecture -q` (442 passed), and the knowledge API/retrieval
   PostgreSQL integration pair (2 passed).
+- Post-commit verification: `pytest tests/integration -q` passed with 46 tests and 3 known
+  SQLAlchemy pool-cleanup warnings; `lint-imports` kept 4 contracts, `check_agent_docs.py` passed,
+  and `gitleaks detect --no-git` found no leaks.
 
 ## Next
 
