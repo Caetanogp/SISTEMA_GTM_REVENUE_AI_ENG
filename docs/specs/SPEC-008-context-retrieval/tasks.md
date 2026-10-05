@@ -24,7 +24,7 @@
   `tests/integration/test_knowledge_retrieval.py`, domain tests, and the Item 3 gate
 - [x] Wire the retrieval use case through the internal composition root without exposing arbitrary
   corpus selection - verified by application wiring tests and tenant authorization tests
-- [ ] Add adversarial coverage for injection-shaped passages, secret-shaped passages, cross-tenant
+- [x] Add adversarial coverage for injection-shaped passages, secret-shaped passages, cross-tenant
   IDs, historical revisions, invalid limits, and invalid budgets - verified by `pytest
   tests/adversarial -q`
 - [ ] Add the deterministic `rag_retrieval_contract` dataset and scorer - verified by
