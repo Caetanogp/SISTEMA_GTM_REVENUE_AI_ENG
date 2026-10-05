@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "Item 5 adversarial retrieval coverage implemented and verified"
-status: pilot_complete_item_5
+phase: "Item 6 retrieval contract eval and optional live smoke implemented and verified"
+status: pilot_complete_item_6
 ---
 
 # Current state
@@ -15,9 +15,9 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-SPEC-008 items 1-5 are complete: 11 of 15 task checkboxes are checked. Item 6 is the next queue
-item. No autonomous loop is running. The bounded Item 5 validation was completed in the main
-checkout because the earlier supervisor architecture review halted before implementation.
+SPEC-008 items 1-6 are complete: 13 of 15 task checkboxes are checked. Item 7 is the next queue
+item. No autonomous loop is running. The bounded Item 6 validation was completed in the main
+checkout; the offline retrieval contract passed without network or credentials.
 
 ## Done
 
@@ -59,13 +59,23 @@ checkout because the earlier supervisor architecture review halted before implem
 - Post-commit Item 5 gate: Item 6 became the next queue item; Ruff, mypy, import-linter, unit/
   architecture tests, and agent docs were all `OK`, with `GATE_EXIT=1` only because Item 6 is not
   yet implemented or ticked. Commit `1a2b56f`; working tree is clean and no autonomous loop runs.
+- Item 6 retrieval contract: added eight synthetic controlled-vector cases covering tenant
+  filtering, active/ready membership, organization override before top-k, complete provenance,
+  deterministic ordering, token-budget omissions, incompatible embedding spaces, and untrusted
+  data fencing. Evidence: `python -m evals.run --suite rag_retrieval_contract` passed at 1.00
+  (8/8); `python -m evals.gate` passed all five suites; 35 eval unit tests passed; Ruff, format,
+  and mypy passed. Commit `9eca992`.
+- Item 6 live smoke: `python scripts/check_rag_retrieval_live.py` refused without
+  `--confirm-cost`; the explicitly confirmed invocation returned failure without making a live
+  request because the provider configuration was absent. The smoke is optional and excluded from
+  CI and the autonomous gate. Commit `9eca992`.
 
 ## Next
 
-1. Implement Item 6 deterministic retrieval eval and explicitly cost-confirmed live-smoke guard.
-2. Run the Item 6 bounded pilot and gate before marking its two task checkboxes.
-3. Continue through the remaining SPEC-008 items; do not launch an overnight loop until the queue
-   contract and gate prove the next item is architecture-stable.
+1. Run the Item 7 bounded pilot and gate for PDF traceability evidence.
+2. Complete Item 8 closeout, security review, handoff evidence, and full verification.
+3. Do not launch an overnight loop until the remaining queue contract and gate prove the next item
+   is architecture-stable.
 
 ## Gotchas
 

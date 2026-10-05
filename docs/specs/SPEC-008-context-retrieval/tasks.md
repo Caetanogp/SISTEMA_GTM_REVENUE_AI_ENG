@@ -27,9 +27,9 @@
 - [x] Add adversarial coverage for injection-shaped passages, secret-shaped passages, cross-tenant
   IDs, historical revisions, invalid limits, and invalid budgets - verified by `pytest
   tests/adversarial -q`
-- [ ] Add the deterministic `rag_retrieval_contract` dataset and scorer - verified by
+- [x] Add the deterministic `rag_retrieval_contract` dataset and scorer - verified by
   `python -m evals.run --suite rag_retrieval_contract` at 1.00 without credentials or network
-- [ ] Document the optional live retrieval smoke and cost confirmation behavior - verified by the
+- [x] Document the optional live retrieval smoke and cost confirmation behavior - verified by the
   smoke command refusing unconfirmed or missing live configuration
 - [ ] Update PDF traceability for retrieval, source attribution, and retrieval evaluation -
   verified by `python scripts/check_pdf_traceability.py`
