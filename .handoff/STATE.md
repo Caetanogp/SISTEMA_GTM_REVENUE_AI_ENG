@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "Item 6 retrieval contract eval and optional live smoke implemented and verified"
-status: pilot_complete_item_6
+phase: "Item 7 PDF traceability updated with retrieval evidence"
+status: pilot_complete_item_7
 ---
 
 # Current state
@@ -15,9 +15,9 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-SPEC-008 items 1-6 are complete: 13 of 15 task checkboxes are checked. Item 7 is the next queue
-item. No autonomous loop is running. The bounded Item 6 validation was completed in the main
-checkout; the offline retrieval contract passed without network or credentials.
+SPEC-008 items 1-7 are complete: 14 of 15 task checkboxes are checked. Item 8 is the next queue
+item. No autonomous loop is running. The bounded Item 7 validation passed against the checked-in
+source PDF and preserved explicit gaps for capabilities not yet implemented.
 
 ## Done
 
@@ -69,13 +69,18 @@ checkout; the offline retrieval contract passed without network or credentials.
   `--confirm-cost`; the explicitly confirmed invocation returned failure without making a live
   request because the provider configuration was absent. The smoke is optional and excluded from
   CI and the autonomous gate. Commit `9eca992`.
+- Item 7 traceability: updated retrieval, source attribution, pgvector, and offline evaluation
+  rows with concrete file/line evidence while retaining partial gaps for graph generation, reply
+  classification, groundedness, and production metrics. Evidence: `python
+  scripts/check_pdf_traceability.py` passed with 86 rows covering PDF pages 1-20. Commit `0991acc`.
 
 ## Next
 
-1. Run the Item 7 bounded pilot and gate for PDF traceability evidence.
-2. Complete Item 8 closeout, security review, handoff evidence, and full verification.
-3. Do not launch an overnight loop until the remaining queue contract and gate prove the next item
-   is architecture-stable.
+1. Run the Item 8 bounded pilot and gate for security review, handoff evidence, and full
+   verification.
+2. Complete the SPEC-008 queue closeout and confirm every task checkbox with observed evidence.
+3. Do not launch an overnight loop until the final closeout gate is green and the next approved
+   queue has enough real work to justify unattended execution.
 
 ## Gotchas
 

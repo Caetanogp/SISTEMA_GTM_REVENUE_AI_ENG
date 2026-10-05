@@ -31,7 +31,7 @@
   `python -m evals.run --suite rag_retrieval_contract` at 1.00 without credentials or network
 - [x] Document the optional live retrieval smoke and cost confirmation behavior - verified by the
   smoke command refusing unconfirmed or missing live configuration
-- [ ] Update PDF traceability for retrieval, source attribution, and retrieval evaluation -
+- [x] Update PDF traceability for retrieval, source attribution, and retrieval evaluation -
   verified by `python scripts/check_pdf_traceability.py`
 - [ ] Complete security review, handoff evidence, full verification, and the autonomous gate -
   verified by `docs/playbooks/verify-before-done.md` and `python scripts/autonomous_gate.py`
