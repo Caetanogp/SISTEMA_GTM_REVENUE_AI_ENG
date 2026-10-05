@@ -118,5 +118,7 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-None for Item 5. Item 6 is the next implementation item; no product-scope or architecture choice
-is currently awaiting the user.
+SPEC-008 is closed. Before SPEC-009 can start, the product owner must approve its scope, supported
+request types, tool catalog, public/internal boundary, checkpoint and tool-call limits, and the
+acceptance/eval contract. The roadmap entry is only a candidate placeholder and is not authorization
+to write code or a spec.
