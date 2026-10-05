@@ -234,3 +234,40 @@ class KnowledgeRevisionResponse(BaseModel):
     manifest_hash: str
     activated_by: UUID
     created_at: datetime
+
+
+class KnowledgeRetrievalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=4_000)
+    limit: int = Field(default=5, ge=1, le=20)
+    token_budget: int = Field(default=2_048, gt=0)
+
+
+class KnowledgeRetrievalProvenanceResponse(BaseModel):
+    document_key: str
+    document_version_id: UUID
+    chunk_id: UUID
+    chunk_ordinal: int
+    category: KnowledgeCategory
+    language: KnowledgeLanguage
+    active_revision_id: UUID
+
+
+class KnowledgeRetrievalPassageResponse(BaseModel):
+    text: str
+    provenance: KnowledgeRetrievalProvenanceResponse
+    score: float
+
+
+class KnowledgeRetrievalOmittedResponse(BaseModel):
+    provenance: KnowledgeRetrievalProvenanceResponse
+    score: float
+    reason: str
+
+
+class KnowledgeRetrievalResponse(BaseModel):
+    text: str
+    token_count: int
+    included: list[KnowledgeRetrievalPassageResponse]
+    omitted: list[KnowledgeRetrievalOmittedResponse]

@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import cast
+from typing import Annotated, cast
 
-from fastapi import Request
+from fastapi import Depends, Request
 from revops.application.ports import (
     DeduplicationUnitOfWork,
     DeduplicationUnitOfWorkFactory,
+    EmbeddingProvider,
     IngestionUnitOfWork,
     IngestionUnitOfWorkFactory,
     KnowledgeUnitOfWork,
     KnowledgeUnitOfWorkFactory,
     LLMGateway,
 )
+from revops.application.use_cases.retrieve_knowledge import RetrieveKnowledge
 from revops.infrastructure.llm.gateway import build_live_gateway
 from revops.infrastructure.persistence.ingestion_unit_of_work import SqlAlchemyIngestionUnitOfWork
+from revops.infrastructure.persistence.knowledge_repositories import (
+    SqlAlchemyKnowledgeRetrievalRepository,
+)
 from revops.infrastructure.persistence.knowledge_unit_of_work import SqlAlchemyKnowledgeUnitOfWork
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -39,12 +44,24 @@ async def get_llm_gateway(request: Request) -> LLMGateway:
     return cast(LLMGateway, request.app.state.llm_gateway)
 
 
+async def get_embedding_provider(request: Request) -> EmbeddingProvider:
+    return cast(EmbeddingProvider, request.app.state.embedding_provider)
+
+
 async def get_session(
     request: Request,
 ) -> AsyncIterator[AsyncSession]:
     session_factory = request.app.state.session_factory
     async with session_factory() as session:
         yield session
+
+
+def retrieval_use_case(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    embeddings: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+) -> RetrieveKnowledge:
+    """Compose retrieval with a request-scoped session and configured provider."""
+    return RetrieveKnowledge(SqlAlchemyKnowledgeRetrievalRepository(session), embeddings)
 
 
 def ingestion_uow_factory(request: Request) -> IngestionUnitOfWorkFactory:

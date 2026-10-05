@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "Item 3 exact retrieval adapter implemented and verified"
-status: pilot_complete_item_3
+phase: "Item 4 internal composition wiring implemented and verified"
+status: pilot_complete_item_4
 ---
 
 # Current state
@@ -15,8 +15,8 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-SPEC-008 items 1-3 are complete: 9 of 15 task checkboxes are checked. Item 4 is the active queue
-item. No autonomous loop is running. The bounded Item 3 validation was completed in the main
+SPEC-008 items 1-4 are complete: 10 of 15 task checkboxes are checked. Item 5 is the next queue
+item. No autonomous loop is running. The bounded Item 4 validation was completed in the main
 checkout because the earlier supervisor architecture review halted before implementation.
 
 ## Done
@@ -39,13 +39,21 @@ checkout because the earlier supervisor architecture review halted before implem
   tests/integration -q` 46 passed; `pytest tests/adversarial -q` 13 passed; Ruff and format passed;
   mypy passed for 172 source files; import-linter kept 4 contracts; agent docs passed; all offline
   eval suites remained at 1.00; gitleaks reported no leaks.
+- Item 4 internal composition wiring: `ApiSettings` and the API lifecycle now build the explicitly
+  configured fake/OpenAI query embedding provider, while the request dependency composes
+  `RetrieveKnowledge` with a request-scoped SQLAlchemy retrieval repository. The authenticated
+  `/v1/knowledge/retrieve` route accepts only query, limit, and token budget, derives organization
+  identity from JWT claims, and returns provenance plus omission reporting. No write or HITL route
+  was changed. Evidence: `tests/unit/apps/test_knowledge_retrieval_wiring.py` (2 passed),
+  `pytest tests/unit tests/architecture -q` (442 passed), and the knowledge API/retrieval
+  PostgreSQL integration pair (2 passed).
 
 ## Next
 
-1. Implement Item 4 internal composition-root wiring and tenant authorization in a bounded pilot.
-2. Run the item 4 gate and inspect the resulting commit before allowing an overnight loop.
-3. If item 4 remains architecture-stable and the pilot is green, launch the long loop with the
-   checkout-local Python path and optional `-StopAfterItem` only when a bounded run is desired.
+1. Run the Item 4 autonomous gate and inspect the resulting commit.
+2. Implement Item 5 adversarial retrieval coverage in a bounded pilot.
+3. Continue through the remaining SPEC-008 items; do not launch an overnight loop until the queue
+   contract and gate prove the next item is architecture-stable.
 
 ## Gotchas
 
@@ -55,6 +63,8 @@ checkout because the earlier supervisor architecture review halted before implem
 - The database used for verification is the synthetic Docker database `revops_item8b`.
 - Exact ranking is intentional. HNSW remains in the schema but is not the correctness mechanism for
   tenant filtering and organization override.
+- API retrieval defaults to the deterministic offline provider; live OpenAI retrieval is explicit
+  and requires `KNOWLEDGE_EMBEDDING_PROVIDER=openai` plus `OPENAI_API_KEY`.
 - The old architecture-halt entries remain in git history; they do not represent the current
   implementation state.
 
@@ -70,5 +80,11 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-None for Item 3. Item 4 is the next implementation item; no product-scope or architecture choice
+None for Item 4. Item 5 is the next implementation item; no product-scope or architecture choice
 is currently awaiting the user.
+
+## Autonomous loop HALT (2026-10-05T00:05:18+00:00)
+
+Item 5 declares scope ('tests/adversarial/',), but changes touch files outside it: ['apps/api/dependencies.py', 'apps/api/main.py', 'apps/api/routes/knowledge.py', 'apps/api/runtime.py', 'apps/api/schemas.py', 'apps/api/settings.py', 'tests/unit/apps/test_knowledge_retrieval_wiring.py']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
