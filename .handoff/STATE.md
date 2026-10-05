@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-04
 branch: feature/SPEC-008-context-retrieval
 spec: SPEC-008-context-retrieval
-phase: "Item 7 PDF traceability updated with retrieval evidence"
-status: pilot_complete_item_7
+phase: "Item 8 closeout verification pending local Docker/security prerequisites"
+status: verification_pending_item_8
 ---
 
 # Current state
@@ -15,9 +15,9 @@ Implement PDF-aligned task-scoped knowledge retrieval in SPEC-008.
 
 ## Now
 
-SPEC-008 items 1-7 are complete: 14 of 15 task checkboxes are checked. Item 8 is the next queue
-item. No autonomous loop is running. The bounded Item 7 validation passed against the checked-in
-source PDF and preserved explicit gaps for capabilities not yet implemented.
+SPEC-008 items 1-7 are complete: 14 of 15 task checkboxes are checked. Item 8 is the active queue
+item. No autonomous loop is running. The closeout is not complete because the integration suite
+cannot reach the expected synthetic Docker PostgreSQL environment in this session.
 
 ## Done
 
@@ -73,14 +73,24 @@ source PDF and preserved explicit gaps for capabilities not yet implemented.
   rows with concrete file/line evidence while retaining partial gaps for graph generation, reply
   classification, groundedness, and production metrics. Evidence: `python
   scripts/check_pdf_traceability.py` passed with 86 rows covering PDF pages 1-20. Commit `0991acc`.
+- Item 8 verification progress: `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`,
+  `python scripts/check_agent_docs.py`, `gitleaks detect --no-git`, `pytest tests/unit -q` (440
+  passed), `pytest tests/adversarial -q` (23 passed), `python -m evals.run --suite all` (5 suites
+  passed), and `python scripts/check_pdf_traceability.py` passed. `pytest tests/integration -q`
+  reached migration setup but failed because the expected PostgreSQL service was unavailable or
+  rejected the configured `revops` credentials; `docker info` and `docker compose ps` reported the
+  Docker Desktop engine pipe unavailable. Security follow-ups remain: `semgrep` is not installed,
+  Bandit reports four pre-existing low-severity B101 findings in ingestion assertions, and
+  `pip-audit` could not query PyPI because local TLS certificate verification failed.
 
 ## Next
 
-1. Run the Item 8 bounded pilot and gate for security review, handoff evidence, and full
-   verification.
-2. Complete the SPEC-008 queue closeout and confirm every task checkbox with observed evidence.
-3. Do not launch an overnight loop until the final closeout gate is green and the next approved
-   queue has enough real work to justify unattended execution.
+1. Start Docker Desktop/Engine and make the synthetic PostgreSQL service reachable, then rerun
+   `pytest tests/integration -q` with the repository's documented test database URL.
+2. Resolve or explicitly review the security-tool prerequisites/findings, then rerun the full
+   verification sequence and `python scripts/autonomous_gate.py`.
+3. Only after those commands pass should Item 8 be checked and SPEC-008 closed; do not launch an
+   overnight loop before the final closeout gate is green.
 
 ## Gotchas
 
