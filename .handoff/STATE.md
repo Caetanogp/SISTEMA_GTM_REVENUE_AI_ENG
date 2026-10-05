@@ -56,11 +56,14 @@ checkout because the earlier supervisor architecture review halted before implem
   `tests/adversarial/test_knowledge_retrieval_security.py`. Evidence: `pytest tests/adversarial -q`
   (23 passed), `pytest tests/unit tests/architecture -q` (442 passed), Ruff, mypy, and the Item 5
   gate all passed; the gate returned `GATE_EXIT=1` only because the task checkbox was not yet ticked.
+- Post-commit Item 5 gate: Item 6 became the next queue item; Ruff, mypy, import-linter, unit/
+  architecture tests, and agent docs were all `OK`, with `GATE_EXIT=1` only because Item 6 is not
+  yet implemented or ticked. Commit `1a2b56f`; working tree is clean and no autonomous loop runs.
 
 ## Next
 
-1. Run the Item 5 post-commit gate and inspect the resulting commit.
-2. Implement Item 6 deterministic retrieval eval and explicitly cost-confirmed live-smoke guard.
+1. Implement Item 6 deterministic retrieval eval and explicitly cost-confirmed live-smoke guard.
+2. Run the Item 6 bounded pilot and gate before marking its two task checkboxes.
 3. Continue through the remaining SPEC-008 items; do not launch an overnight loop until the queue
    contract and gate prove the next item is architecture-stable.
 
