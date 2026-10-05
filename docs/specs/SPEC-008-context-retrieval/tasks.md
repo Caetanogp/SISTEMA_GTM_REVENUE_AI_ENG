@@ -33,5 +33,9 @@
   smoke command refusing unconfirmed or missing live configuration
 - [x] Update PDF traceability for retrieval, source attribution, and retrieval evaluation -
   verified by `python scripts/check_pdf_traceability.py`
-- [ ] Complete security review, handoff evidence, full verification, and the autonomous gate -
-  verified by `docs/playbooks/verify-before-done.md` and `python scripts/autonomous_gate.py`
+- [x] Complete security review, handoff evidence, full verification, and the autonomous gate -
+  verified by `ruff check .`, `ruff format --check .`, `mypy .`, `lint-imports`, `pytest tests/unit
+  -q` (440 passed), `pytest tests/integration -q` (46 passed with 3 known SQLAlchemy cleanup
+  warnings), `pytest tests/adversarial -q` (23 passed), `python -m evals.run --suite all` (5 suites
+  passed), `python scripts/check_pdf_traceability.py`, `python scripts/check_agent_docs.py`,
+  `gitleaks detect --no-git`, and `python scripts/autonomous_gate.py` (all required gate checks OK)
