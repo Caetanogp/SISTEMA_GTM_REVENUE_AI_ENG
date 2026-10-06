@@ -1,6 +1,6 @@
 # SPEC-009: Bounded Single-Agent Tool Runtime
 
-- **Status:** draft
+- **Status:** agreed
 - **Owner:** Product owner and platform engineering
 - **Roadmap phase:** 2-3
 - **Created:** 2026-10-05
@@ -140,5 +140,5 @@ above and preserve the existing retrieval/ingestion eval baselines.
 
 ---
 
-This document is a draft for review. No implementation, `plan.md`, or `tasks.md` should begin until
-the scope and acceptance criteria are agreed.
+The scope and acceptance criteria were agreed on 2026-10-06. Implementation remains blocked until
+the `plan.md` is reviewed and agreed.

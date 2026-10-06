@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-10-05
+updated_at: 2026-10-06
 branch: feature/SPEC-009-single-agent-tool-runtime
 spec: SPEC-009-single-agent-tool-runtime
-phase: "SPEC-009 spec draft prepared for scope review"
-status: awaiting_spec_review
+phase: "SPEC-009 spec agreed; plan and tasks prepared for review"
+status: awaiting_plan_review
 ---
 
 # Current state
@@ -16,9 +16,10 @@ reviewed and agreed.
 
 ## Now
 
-SPEC-008 is closed and fully verified. SPEC-009 has an approved initial direction and a draft
-`spec.md`, but no `plan.md`, `tasks.md`, implementation, or autonomous queue exists yet. No
-autonomous loop is running.
+SPEC-008 is closed and fully verified. SPEC-009 `spec.md` was agreed on 2026-10-06; `plan.md` and
+`tasks.md` now define the bounded dispatcher, existing-tool adapters, checkpoint/HITL reuse, and
+verification contract. No implementation or autonomous queue exists yet. No autonomous loop is
+running.
 
 ## Done
 
@@ -88,10 +89,11 @@ autonomous loop is running.
 
 ## Next
 
-1. Review and agree `docs/specs/SPEC-009-single-agent-tool-runtime/spec.md`.
-2. After agreement, write `plan.md` and `tasks.md`, then review the plan before implementation.
-3. Only after the three spec artifacts exist should the autonomous queue be created and a bounded
-   pilot run; no overnight loop is authorized yet.
+1. Review and agree `docs/specs/SPEC-009-single-agent-tool-runtime/plan.md` and confirm its
+   internal dispatcher/checkpoint/evidence boundaries.
+2. After plan agreement, implement `tasks.md` in small commits, ticking each item with evidence.
+3. Add the autonomous queue only after implementation, full verification, and a bounded pilot pass;
+   no overnight loop is authorized yet.
 
 ## Gotchas
 
@@ -118,6 +120,5 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-Review the SPEC-009 draft, especially the supported request outcomes and whether ambiguous requests
-should return only a structured refusal or also a clarification prompt. The draft's safe default is
-refusal without a side effect.
+The plan review must confirm the internal dispatcher/tool-adapter boundary and checkpoint/event
+fields. Ambiguous requests remain a structured refusal without a side effect.
