@@ -53,6 +53,10 @@ The runtime agent consumes web pages, RAG chunks, lead replies and tool outputs.
 - Never execute an LLM output that failed validation. Retry with a bounded number of attempts, then
   fail loudly. A partially valid payload is an invalid payload.
 - Idempotency key on every write. A retry must never double-send an email or duplicate a task.
+- SPEC-009's runtime applies the same order to every registered tool: strict argument schema,
+  domain allowlist and rules, authenticated tenant scope, risk classification, then HITL before
+  `create_task`. It enforces five calls and one write per run outside model control, and refuses
+  unsupported or ambiguous requests without a side effect.
 - External writes are sandboxed in demo mode: mocked providers, an outbound allowlist, hard quotas
   and rate limits.
 
