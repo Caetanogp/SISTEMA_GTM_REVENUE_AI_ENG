@@ -11,8 +11,7 @@ status: done_awaiting_merge
 
 ## Goal
 
-Implement the PDF-aligned bounded single-agent tool runtime described by SPEC-009 after its draft is
-reviewed and agreed.
+Implement the PDF-aligned bounded single-agent tool runtime described by SPEC-009.
 
 ## Now
 
@@ -28,7 +27,7 @@ historical SPEC-008 queue and is not active.
   allowlisted adapters, fail-closed routing, checkpointed `create_task` proposal, sanitized runtime
   evidence, and idempotent API approval replay. Evidence: `tests/unit/application/use_cases/test_agent_tool_runtime.py`
   (9 passed), `tests/unit/infrastructure/agent` (10 passed), and `tests/integration/test_agent_runs_api.py`
-  (4 passed); full branch evidence is recorded in the task closeout.
+  (4 passed); implementation commit `e0c4ac4`.
 - SPEC-009 offline contract suite and adversarial coverage: `python -m evals.run --suite
   agent_tool_runtime_contract` scored 1.00 (8/8), `python -m evals.gate` passed all six suites, and
   `tests/adversarial/test_agent_tool_runtime_security.py` passed 3 cases alongside existing agent
@@ -100,9 +99,9 @@ historical SPEC-008 queue and is not active.
 
 ## Next
 
-1. Commit the verified SPEC-009 implementation and update this handoff with the final SHA.
-2. Review the branch diff before merging into `develop`; publishing remains the user's action.
-3. After merge, do not create an overnight loop until a future spec is materialized and its own
+1. Review the verified branch diff and merge `feature/SPEC-009-single-agent-tool-runtime` into
+   `develop` when authorized; publishing remains the user's action.
+2. After merge, do not create an overnight loop until a future spec is materialized and its own
    queue is reviewed; SPEC-009 has no remaining implementation queue.
 
 ## Gotchas
