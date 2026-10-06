@@ -1,6 +1,6 @@
 # SPEC-009: Bounded Single-Agent Tool Runtime
 
-- **Status:** agreed
+- **Status:** done
 - **Owner:** Product owner and platform engineering
 - **Roadmap phase:** 2-3
 - **Created:** 2026-10-05

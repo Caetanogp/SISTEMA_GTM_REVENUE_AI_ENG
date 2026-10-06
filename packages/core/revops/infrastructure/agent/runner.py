@@ -88,6 +88,22 @@ class AgentGraphRunner:
             metadata=metadata,
         )
 
+    @staticmethod
+    def _snapshot_metadata(values: Mapping[str, object]) -> dict[str, object]:
+        """Keep runtime lifecycle evidence sanitized and bounded."""
+        if "runtime_evidence" not in values and "runtime_failure" not in values:
+            return dict(values)
+        metadata: dict[str, object] = {}
+        for key in (
+            "runtime_outcome",
+            "runtime_tool_name",
+            "runtime_evidence",
+            "runtime_failure",
+        ):
+            if key in values:
+                metadata[key] = values[key]
+        return metadata
+
     async def _record_event(
         self,
         *,
@@ -184,13 +200,22 @@ class AgentGraphRunner:
                 occurred_at=ended_at,
                 metadata={"interrupt": snapshot.interrupts[0].value},
             )
+        elif "runtime_failure" in snapshot.values:
+            await self._record_event(
+                run_id=run_id,
+                organization_id=organization_id,
+                event_type="refused",
+                occurred_at=ended_at,
+                metadata=self._snapshot_metadata(snapshot.values),
+                latency_ms=self._elapsed_ms(started_at, ended_at),
+            )
         else:
             await self._record_event(
                 run_id=run_id,
                 organization_id=organization_id,
                 event_type="completed",
                 occurred_at=ended_at,
-                metadata=dict(snapshot.values),
+                metadata=self._snapshot_metadata(snapshot.values),
             )
         return AgentRunResult(run_id=run_id, thread_id=str(run_id), state=dict(snapshot.values))
 
@@ -205,7 +230,10 @@ class AgentGraphRunner:
                 organization_id=UUID(str(snapshot.values.get("organization_id", thread_id))),
                 event_type="interrupted",
                 occurred_at=ended_at,
-                metadata={"interrupt": snapshot.interrupts[0].value, **dict(snapshot.values)},
+                metadata={
+                    "interrupt": snapshot.interrupts[0].value,
+                    **self._snapshot_metadata(snapshot.values),
+                },
             )
         else:
             await self._record_event(
@@ -213,7 +241,7 @@ class AgentGraphRunner:
                 organization_id=UUID(str(snapshot.values.get("organization_id", thread_id))),
                 event_type="completed",
                 occurred_at=ended_at,
-                metadata=dict(snapshot.values),
+                metadata=self._snapshot_metadata(snapshot.values),
             )
         return AgentRunResult(
             run_id=UUID(thread_id),

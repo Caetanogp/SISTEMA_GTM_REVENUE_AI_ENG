@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-06
 branch: feature/SPEC-009-single-agent-tool-runtime
 spec: SPEC-009-single-agent-tool-runtime
-phase: "SPEC-009 spec agreed; plan and tasks prepared for review"
-status: awaiting_plan_review
+phase: "SPEC-009 bounded runtime implemented and fully verified"
+status: done_awaiting_merge
 ---
 
 # Current state
@@ -16,12 +16,23 @@ reviewed and agreed.
 
 ## Now
 
-SPEC-008 is closed and fully verified. SPEC-009 `spec.md` was agreed on 2026-10-06; `plan.md` and
-`tasks.md` now define the bounded dispatcher, existing-tool adapters, checkpoint/HITL reuse, and
-verification contract. No implementation or autonomous queue exists yet. No autonomous loop is
-running.
+SPEC-008 is closed and fully verified. SPEC-009 now has a bounded dispatcher, three typed tool
+adapters, checkpoint/HITL reuse, sanitized lifecycle evidence, offline contract evals, adversarial
+coverage, and API integration coverage. Full repository verification and the gate are green. No
+SPEC-009 autonomous queue or loop is running; the checked-in autonomous queue remains the
+historical SPEC-008 queue and is not active.
 
 ## Done
+
+- SPEC-009 runtime implementation: strict decision/argument DTOs, domain call/write budgets,
+  allowlisted adapters, fail-closed routing, checkpointed `create_task` proposal, sanitized runtime
+  evidence, and idempotent API approval replay. Evidence: `tests/unit/application/use_cases/test_agent_tool_runtime.py`
+  (9 passed), `tests/unit/infrastructure/agent` (10 passed), and `tests/integration/test_agent_runs_api.py`
+  (4 passed); full branch evidence is recorded in the task closeout.
+- SPEC-009 offline contract suite and adversarial coverage: `python -m evals.run --suite
+  agent_tool_runtime_contract` scored 1.00 (8/8), `python -m evals.gate` passed all six suites, and
+  `tests/adversarial/test_agent_tool_runtime_security.py` passed 3 cases alongside existing agent
+  security tests. The full gate passed after the complete verification sequence.
 
 - Item 3 exact retrieval adapter: active embedding-space resolution, tenant-scoped platform and
   organization selection, organization override before ranking, active revision and ready-state
@@ -89,11 +100,10 @@ running.
 
 ## Next
 
-1. Review and agree `docs/specs/SPEC-009-single-agent-tool-runtime/plan.md` and confirm its
-   internal dispatcher/checkpoint/evidence boundaries.
-2. After plan agreement, implement `tasks.md` in small commits, ticking each item with evidence.
-3. Add the autonomous queue only after implementation, full verification, and a bounded pilot pass;
-   no overnight loop is authorized yet.
+1. Commit the verified SPEC-009 implementation and update this handoff with the final SHA.
+2. Review the branch diff before merging into `develop`; publishing remains the user's action.
+3. After merge, do not create an overnight loop until a future spec is materialized and its own
+   queue is reviewed; SPEC-009 has no remaining implementation queue.
 
 ## Gotchas
 
@@ -120,5 +130,5 @@ python scripts/autonomous_gate.py
 
 ## Open questions
 
-The plan review must confirm the internal dispatcher/tool-adapter boundary and checkpoint/event
-fields. Ambiguous requests remain a structured refusal without a side effect.
+No product decision is currently open. Ambiguous requests remain a structured refusal without a
+side effect; broader tools and clarification UX require later specs.

@@ -18,8 +18,15 @@ from revops.application.dto import (
     CreateTaskDraft,
     LLMResult,
     PrioritizationOutput,
+    RuntimeResult,
 )
-from revops.application.ports import Clock, LLMGateway, UnitOfWork
+from revops.application.ports import (
+    AgentToolRuntime,
+    Clock,
+    LLMGateway,
+    TrustedRunContext,
+    UnitOfWork,
+)
 from revops.application.use_cases.decide_approval import DecideApproval, PendingApproval
 from revops.application.use_cases.prioritize_accounts import PrioritizeAccounts
 from revops.application.use_cases.propose_task import ProposedAction, ProposeTask
@@ -53,6 +60,7 @@ class AgentGraphDependencies:
     clock: Clock
     graph_version: str
     prompt_version: str
+    tool_runtime: AgentToolRuntime | None = None
     token_budget: int = 4096
 
 
@@ -124,6 +132,58 @@ def _task_snapshot(task: Task) -> dict[str, object]:
     snapshot["account_id"] = str(task.account_id)
     snapshot["due_at"] = task.due_at.isoformat()
     return snapshot
+
+
+def _runtime_pending_approval(
+    result: RuntimeResult,
+    *,
+    run_id: UUID,
+) -> PendingApprovalSnapshot:
+    if result.tool_name != "create_task" or result.tool_result is None:
+        raise ValueError("runtime approval result is not a create_task proposal")
+    args = CreateTaskArgs.model_validate(result.tool_result["args"])
+    proposal = ProposeTask().execute(args)
+    action_id = uuid5(NAMESPACE_URL, f"action:{run_id}")
+    return _proposal_snapshot(
+        proposal,
+        run_id=run_id,
+        task_id=uuid4(),
+        action_id=action_id,
+    )
+
+
+async def route_runtime(state: AgentGraphState, deps: AgentGraphDependencies) -> dict[str, object]:
+    """Route through the bounded runtime when the composition root provides it."""
+    if deps.tool_runtime is None:
+        raise RuntimeError("bounded agent tool runtime is not configured")
+    context = TrustedRunContext(
+        organization_id=_uuid(state["organization_id"]),
+        actor_id=_uuid(state["actor_id"]),
+        run_id=_uuid(state["run_id"]),
+    )
+    result = await deps.tool_runtime.run(
+        context=context,
+        request_text=state.get("request_text", ""),
+    )
+    update: dict[str, object] = {
+        "runtime_evidence": [item.model_dump(mode="json") for item in result.evidence],
+    }
+    if result.outcome is not None:
+        update["runtime_outcome"] = result.outcome.value
+    if result.tool_name is not None:
+        update["runtime_tool_name"] = result.tool_name
+    if result.tool_arguments is not None:
+        update["runtime_tool_arguments"] = result.tool_arguments
+    if result.tool_result is not None:
+        update["runtime_tool_result"] = result.tool_result
+    if result.failure is not None:
+        update["runtime_failure"] = result.failure.model_dump(mode="json")
+    if result.requires_approval:
+        update["pending_approval"] = _runtime_pending_approval(
+            result,
+            run_id=_uuid(state["run_id"]),
+        )
+    return update
 
 
 async def load_context(state: AgentGraphState, deps: AgentGraphDependencies) -> dict[str, object]:

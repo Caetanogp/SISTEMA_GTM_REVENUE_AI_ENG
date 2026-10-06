@@ -220,6 +220,14 @@ async def test_agent_run_start_stream_and_approval_flow(
                 assert approved["status"] == "completed"
                 assert approved["task"]["title"].startswith("Follow up with")
 
+                replay = await client.post(
+                    f"/agent/runs/{run_id}/approve",
+                    headers=_headers(token),
+                    json={"decision": "approve"},
+                )
+                assert replay.status_code == 200, replay.text
+                assert replay.json()["task"]["id"] == approved["task"]["id"]
+
                 runs = await client.get("/agent/runs", headers=_headers(token))
                 assert runs.status_code == 200, runs.text
                 assert runs.json()[0]["latest_event_type"] == "completed"
@@ -280,6 +288,48 @@ async def test_agent_run_endpoints_reject_missing_auth(database_url: str) -> Non
                     json={"request_text": "which accounts need attention today?"},
                 )
                 assert response.status_code == 401
+
+
+@pytest.mark.integration
+async def test_agent_run_routes_a_read_tool_without_approval(database_url: str) -> None:
+    async with _session_factory(database_url) as session_factory:
+        org_id, actor_id, _prioritization = await _seed_demo_data(session_factory, "runtime-read")
+        settings = ApiSettings(
+            database_url=database_url,
+            jwt_secret="test-secret-test-secret-test-secret-test-secret",
+        )
+        app = create_app(
+            settings=settings,
+            llm_gateway=FakeLLMGateway(
+                responses=[
+                    {
+                        "outcome": "account_prioritization",
+                        "tool_name": "search_accounts",
+                        "arguments": {"query": "Acme", "limit": 5},
+                    }
+                ]
+            ),
+        )
+        token = create_access_token(
+            subject=actor_id,
+            organization_id=org_id,
+            email="runtime-read@example.com",
+            role="rep",
+            settings=settings,
+        )
+
+        async with app.router.lifespan_context(app):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    "/agent/runs",
+                    headers=_headers(token),
+                    json={"request_text": "which accounts need attention?"},
+                )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["status"] == "completed"
+        assert response.json()["interrupt"] is None
 
 
 @pytest.mark.integration

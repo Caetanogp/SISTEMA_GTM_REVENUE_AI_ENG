@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from evals.scorers.agent_tool_runtime_contract import score_agent_tool_runtime_contract_dataset
 from evals.scorers.lead_scoring import score_lead_scoring_dataset
 from evals.scorers.llm_gateway_contract import score_llm_gateway_contract_dataset
 from evals.scorers.rag_ingestion_contract import score_rag_ingestion_contract_dataset
@@ -33,6 +34,7 @@ SUITES = (
     "llm_gateway_contract",
     "rag_ingestion_contract",
     "rag_retrieval_contract",
+    "agent_tool_runtime_contract",
 )
 
 
@@ -112,6 +114,19 @@ def run_rag_retrieval_contract() -> SuiteReport:
     )
 
 
+def run_agent_tool_runtime_contract() -> SuiteReport:
+    result = score_agent_tool_runtime_contract_dataset()
+    return SuiteReport(
+        suite="agent_tool_runtime_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
 RUNNERS: dict[str, Callable[[], SuiteReport]] = {
     "tool_selection": run_tool_selection,
     "lead_scoring": run_lead_scoring,
@@ -124,6 +139,7 @@ ALL_RUNNERS = {
     **RUNNERS,
     "rag_ingestion_contract": run_rag_ingestion_contract,
     "rag_retrieval_contract": run_rag_retrieval_contract,
+    "agent_tool_runtime_contract": run_agent_tool_runtime_contract,
 }
 
 

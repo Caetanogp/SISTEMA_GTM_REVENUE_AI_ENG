@@ -68,6 +68,18 @@ class ApprovalDecisionSnapshot(TypedDict):
     edited: NotRequired[CreateTaskDraftSnapshot | None]
 
 
+class RuntimeFailureSnapshot(TypedDict):
+    code: str
+
+
+class RuntimeEvidenceSnapshot(TypedDict):
+    sequence: int
+    tool_name: str
+    risk: str
+    outcome: str
+    metadata: dict[str, Any]
+
+
 class AgentGraphState(TypedDict, total=False):
     organization_id: str
     actor_id: str
@@ -85,3 +97,9 @@ class AgentGraphState(TypedDict, total=False):
     decision: ApprovalDecisionSnapshot
     task: dict[str, Any]
     error: str
+    runtime_outcome: str
+    runtime_tool_name: str
+    runtime_tool_arguments: dict[str, Any]
+    runtime_tool_result: dict[str, Any]
+    runtime_evidence: list[RuntimeEvidenceSnapshot]
+    runtime_failure: RuntimeFailureSnapshot
