@@ -41,7 +41,10 @@ from revops.infrastructure.agent.outreach_context import (
     SqlAlchemyOutreachContextProvider,
     outreach_read_scope_factory,
 )
-from revops.infrastructure.agent.prompt_loader import load_agent_tool_runtime_prompt
+from revops.infrastructure.agent.prompt_loader import (
+    load_agent_tool_runtime_prompt,
+    load_legacy_agent_tool_runtime_prompt,
+)
 from revops.infrastructure.agent.research import (
     AuthorizedCompanyPage,
     BoundedCompanyResearcher,
@@ -68,6 +71,8 @@ from .settings import ApiSettings
 
 GRAPH_VERSION = "single-agent-tool-runtime.v2"
 PROMPT_VERSION = "agent_tool_runtime.v2"
+LEGACY_GRAPH_VERSION = "single-agent-tool-runtime.v1"
+LEGACY_PROMPT_VERSION = "agent_tool_runtime.v1"
 
 
 class UtcClock:
@@ -213,8 +218,12 @@ async def open_agent_runner(
     settings: ApiSettings,
     llm_gateway: LLMGateway,
     embedding_provider: EmbeddingProvider | None = None,
+    graph_version: str | None = None,
 ) -> AsyncIterator[AgentGraphRunner]:
     clock: Clock = UtcClock()
+    selected_graph_version = graph_version or GRAPH_VERSION
+    is_legacy = selected_graph_version == LEGACY_GRAPH_VERSION
+    selected_prompt_version = LEGACY_PROMPT_VERSION if is_legacy else PROMPT_VERSION
     research_client = (
         httpx.AsyncClient(follow_redirects=False, trust_env=False)
         if settings.research_enabled
@@ -225,26 +234,36 @@ async def open_agent_runner(
             embedding_provider = build_embedding_provider(settings)
         researcher = build_researcher(settings, client=research_client)
         outreach_context = SqlAlchemyOutreachContextProvider(session_factory, embedding_provider)
+        tools = build_agent_tools(
+            lambda: cast(UnitOfWorkScope, _uow_factory(session_factory)),
+            clock,
+        )
+        if not is_legacy:
+            tools = build_agent_tools(
+                lambda: cast(UnitOfWorkScope, _uow_factory(session_factory)),
+                clock,
+                outreach_uow_factory=cast(
+                    Callable[[], OutreachUnitOfWorkScope],
+                    outreach_read_scope_factory(session_factory),
+                ),
+                researcher=researcher,
+                outreach_context=outreach_context,
+                outreach_gateway=llm_gateway,
+            )
         deps = AgentGraphDependencies(
             uow_factory=lambda: cast(UnitOfWorkScope, _uow_factory(session_factory)),
             llm_gateway=llm_gateway,
             clock=clock,
-            graph_version=GRAPH_VERSION,
-            prompt_version=PROMPT_VERSION,
+            graph_version=selected_graph_version,
+            prompt_version=selected_prompt_version,
             tool_runtime=BoundedAgentToolRuntime(
                 gateway=llm_gateway,
-                tools=build_agent_tools(
-                    lambda: cast(UnitOfWorkScope, _uow_factory(session_factory)),
-                    clock,
-                    outreach_uow_factory=cast(
-                        Callable[[], OutreachUnitOfWorkScope],
-                        outreach_read_scope_factory(session_factory),
-                    ),
-                    researcher=researcher,
-                    outreach_context=outreach_context,
-                    outreach_gateway=llm_gateway,
+                tools=tools,
+                prompt_builder=(
+                    load_legacy_agent_tool_runtime_prompt
+                    if is_legacy
+                    else load_agent_tool_runtime_prompt
                 ),
-                prompt_builder=load_agent_tool_runtime_prompt,
             ),
         )
         async with open_checkpointer(settings.postgres_dsn) as checkpointer:
@@ -253,8 +272,8 @@ async def open_agent_runner(
                 graph=graph,
                 runs=SqlAlchemyAgentRunJournal(session_factory),
                 clock=clock,
-                graph_version=GRAPH_VERSION,
-                prompt_version=PROMPT_VERSION,
+                graph_version=selected_graph_version,
+                prompt_version=selected_prompt_version,
                 model_config_json=dict(llm_gateway.configuration_snapshot()),
             )
     finally:

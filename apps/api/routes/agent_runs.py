@@ -183,7 +183,7 @@ async def get_agent_run_result(
     embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> AgentRunResultResponse:
     async with session_factory() as session:
-        await _visible_run_or_404(
+        run_row = await _visible_run_or_404(
             session,
             organization_id=current_user.organization_id,
             run_id=run_id,
@@ -194,6 +194,7 @@ async def get_agent_run_result(
             settings=settings,
             llm_gateway=llm_gateway,
             embedding_provider=embedding_provider,
+            graph_version=run_row.graph_version,
         ) as runner:
             snapshot = await runner.graph.aget_state(_run_config(run_id))
     values = snapshot.values
@@ -232,7 +233,7 @@ async def stream_agent_run(
 ) -> StreamingResponse:
     async def _events() -> AsyncIterator[str]:
         async with session_factory() as session:
-            await _visible_run_or_404(
+            run_row = await _visible_run_or_404(
                 session,
                 organization_id=current_user.organization_id,
                 run_id=run_id,
@@ -243,6 +244,7 @@ async def stream_agent_run(
                 settings=settings,
                 llm_gateway=llm_gateway,
                 embedding_provider=embedding_provider,
+                graph_version=run_row.graph_version,
             ) as runner:
                 snapshot = await runner.graph.aget_state(_run_config(run_id))
                 rows = (
@@ -284,7 +286,7 @@ async def approve_agent_run(
     result = None
     final_snapshot = None
     async with session_factory() as session:
-        await _visible_run_or_404(
+        run_row = await _visible_run_or_404(
             session,
             organization_id=current_user.organization_id,
             run_id=run_id,
@@ -295,6 +297,7 @@ async def approve_agent_run(
             settings=settings,
             llm_gateway=llm_gateway,
             embedding_provider=embedding_provider,
+            graph_version=run_row.graph_version,
         ) as runner:
             snapshot = await runner.graph.aget_state(_run_config(run_id))
             decision = ApprovalDecisionInput(
