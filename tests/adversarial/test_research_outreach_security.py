@@ -37,10 +37,16 @@ def test_research_page_rejects_credentials_and_query_data() -> None:
         )
 
 
-def test_loopback_resolution_is_rejected_before_http(monkeypatch) -> None:
+def test_loopback_resolution_is_rejected_before_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    def loopback_addresses(
+        *args: object, **kwargs: object
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        del args, kwargs
+        return [(2, 1, 6, "", ("127.0.0.1", 443))]
+
     monkeypatch.setattr(
         "revops.infrastructure.agent.research.socket.getaddrinfo",
-        lambda *args, **kwargs: [(2, 1, 6, "", ("127.0.0.1", 443))],
+        loopback_addresses,
     )
     with pytest.raises(ResearchPolicyError):
         resolve_global_addresses("example.test", 443)

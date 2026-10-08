@@ -265,6 +265,7 @@ async def open_agent_runner(
                     else load_agent_tool_runtime_prompt
                 ),
             ),
+            checkpointed_runtime=not is_legacy,
         )
         async with open_checkpointer(settings.postgres_dsn) as checkpointer:
             graph = build_agent_graph(deps, checkpointer)

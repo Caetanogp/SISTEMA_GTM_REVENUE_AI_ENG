@@ -7,10 +7,11 @@ from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
-from revops.application.dto import LLMUsage, RuntimeFailure
+from revops.application.dto import LLMUsage, RuntimeFailure, RuntimeResult
 from revops.application.ports import AgentTool, ToolExecutionResult, TrustedRunContext
 from revops.application.use_cases.agent_tool_runtime import BoundedAgentToolRuntime
 from revops.domain.values.risk import RiskLevel
+from revops.domain.values.runtime import RuntimeFailureCode
 from revops.infrastructure.llm.fake import FakeLLMGateway
 
 
@@ -175,3 +176,40 @@ async def test_runtime_maps_malformed_structured_output_to_safe_refusal() -> Non
     assert result.failure is not None
     assert result.failure.code.value == "unsupported_request"
     assert tool.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_checkpointed_selection_rehydrates_and_completes_with_bounded_evidence() -> None:
+    tool = _FakeTool("search_accounts")
+    runtime = _runtime(_gateway([_decision()]), tool)
+    selected = await runtime.select(
+        context=_context(),
+        request_text="prioritize accounts",
+        context_text="",
+        evidence=(),
+    )
+
+    assert not isinstance(selected, RuntimeResult)
+    calls, writes, failure = runtime.reserve(selection=selected, calls=0, writes=0)
+    assert (calls, writes, failure) == (1, 0, None)
+
+    restored = runtime.restore_selection(
+        outcome=selected.decision.outcome.value,
+        tool_name=selected.tool.name,
+        arguments=selected.arguments.model_dump(mode="json"),
+        continue_after=selected.decision.continue_after,
+        usage=selected.usage,
+    )
+    assert not isinstance(restored, RuntimeResult)
+    execution = await runtime.execute_selected(context=_context(), selection=restored)
+    assert not isinstance(execution, RuntimeFailureCode)
+
+    result = runtime.complete(
+        selection=restored,
+        execution=execution,
+        evidence=[],
+        calls=calls,
+    )
+    assert result.tool_result == {"value": "safe"}
+    assert result.evidence[0].metadata["result_keys"] == ["value"]
+    assert "value" not in result.evidence[0].metadata

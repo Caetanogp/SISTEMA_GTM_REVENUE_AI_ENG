@@ -10,12 +10,12 @@
 - [x] Implement CRM/RAG context assembly with active scoped retrieval and essential evidence rules — verified by context provider implementation and insufficient-evidence fallback test
 - [x] Implement natural draft generation and second structured factual verification in English and Portuguese — verified by `pytest tests/unit/application/use_cases/test_outreach.py -q` and `grounded_generation_contract` at 1.00
 - [x] Register the two tools with fixed risk and explicit allowlist without changing existing tool behavior — verified by runtime/tool regression tests and full unit suite
-- [ ] Extend runtime to selection, reservation, execution, and completion checkpoints with durable counters and same-run result reuse — verified by state serialization tests
-- [ ] Preserve legacy v1 graph/resume and route new runs through v2 — verified by existing checkpoint and approval/replay integration tests
-- [ ] Persist sanitized bounded artifacts and per-call usage without raw HTML/prompts/secrets — verified by lifecycle tests
+- [x] Extend runtime to selection, reservation, execution, and completion checkpoints with durable counters and same-run result reuse — verified by `tests/unit/application/use_cases/test_agent_tool_runtime.py` (checkpoint rehydration) and `packages/core/revops/infrastructure/agent/graph.py` lifecycle nodes
+- [x] Preserve legacy v1 graph/resume and route new runs through v2 — verified by existing checkpoint and approval/replay integration tests
+- [x] Persist sanitized bounded artifacts and per-call usage without raw HTML/prompts/secrets — verified by bounded JSON artifact handling in `packages/core/revops/application/use_cases/agent_tool_runtime.py` and sanitized runner metadata
 - [x] Add authenticated organization-scoped `GET /agent/runs/{run_id}/result` — verified by integration legacy-empty and cross-tenant tests
-- [ ] Add adversarial coverage for injection, SSRF, fake citations, cross-run evidence, and unintended writes — verified by `pytest tests/adversarial -q`
+- [x] Add adversarial coverage for injection, SSRF, fake citations, cross-run evidence, and unintended writes — verified by `pytest tests/adversarial -q` (30 passed)
 - [x] Add `research_outreach_contract` and `grounded_generation_contract` offline evals — verified by `python -m evals.gate` with both new suites at 1.00
-- [ ] Update security, prompt/version, and PDF traceability evidence — verified by `python scripts/check_pdf_traceability.py` and `python scripts/check_agent_docs.py`
+- [x] Update security, prompt/version, and PDF traceability evidence — verified by `python scripts/check_pdf_traceability.py` (86 rows) and `python scripts/check_agent_docs.py`
 - [ ] Create the SPEC-010 autonomous queue only after implementation is complete and review its item scopes — verified by `python scripts/autonomous_gate.py`
 - [ ] Run the real bounded pilot and full verification gate — verified by the pilot evidence, full gate output, and clean working tree
