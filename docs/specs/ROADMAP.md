@@ -25,7 +25,7 @@ enough to reorder what follows, or when a new item is discovered mid-implementat
 | [SPEC-007](SPEC-007-rag-ingestion/) | 2 | Versioned ICP, product, pricing, playbook, brand voice and policy corpus with pgvector ingestion | done |
 | [SPEC-008](SPEC-008-context-retrieval/) | 2 | Task-scoped semantic retrieval with tenant-safe provenance and offline retrieval eval; hybrid/reranking and persistent memory remain deferred | done |
 | [SPEC-009](SPEC-009-single-agent-tool-runtime/) | 2/3 | Bounded single-agent routing and up to five tool calls with explicit schemas and one-write/HITL rules | done, feature branch verified |
-| SPEC-010-research-and-outreach | 2/3 | Grounded company research and personalized follow-up preparation | not started |
+| [SPEC-010](SPEC-010-research-and-outreach/) | 2/3 | Grounded company research and personalized follow-up preparation | in progress, scope and plan agreed |
 | SPEC-011-reply-intelligence | 2/3 | Reply classification, recommended next actions and feedback linkage | not started |
 | SPEC-012-frontend-crm-assistant | 1/3 | Next.js CRM, assistant SSE, Agent Activity and HITL approval screens | not started |
 | SPEC-013-mcp-server | 2/3 | MCP server exposing the CRM and RevOps tools with explicit contracts | not started |
