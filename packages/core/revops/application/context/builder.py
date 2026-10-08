@@ -19,7 +19,8 @@ from revops.domain.entities.opportunity import Opportunity
 _CHARS_PER_TOKEN = 4
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
+    """Return the stable conservative estimate shared by task-context assemblers."""
     return max(1, len(text) // _CHARS_PER_TOKEN)
 
 
@@ -88,7 +89,7 @@ class ContextBuilder:
         budget_exceeded = False
 
         for section in candidates:
-            cost = _estimate_tokens(section.text)
+            cost = estimate_tokens(section.text)
             if budget_exceeded or used_tokens + cost > token_budget:
                 budget_exceeded = True
                 dropped_labels.append(section.label)

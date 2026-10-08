@@ -43,6 +43,15 @@ class ApiSettings(BaseSettings):
     llm_max_retries: int = Field(default=2, ge=0, le=5, alias="LLM_MAX_RETRIES")
     llm_backoff_base_seconds: float = Field(default=0.5, gt=0.0, alias="LLM_BACKOFF_BASE_SECONDS")
     llm_backoff_max_seconds: float = Field(default=8.0, gt=0.0, alias="LLM_BACKOFF_MAX_SECONDS")
+    knowledge_embedding_provider: Literal["fake", "openai"] = Field(
+        default="fake", alias="KNOWLEDGE_EMBEDDING_PROVIDER"
+    )
+    knowledge_embedding_model: str = Field(
+        default="text-embedding-3-small", alias="KNOWLEDGE_EMBEDDING_MODEL"
+    )
+    knowledge_embedding_dimension: int = Field(
+        default=1536, gt=0, alias="KNOWLEDGE_EMBEDDING_DIMENSION"
+    )
 
     @field_validator("llm_primary_provider", "llm_fallback_provider", mode="before")
     @classmethod

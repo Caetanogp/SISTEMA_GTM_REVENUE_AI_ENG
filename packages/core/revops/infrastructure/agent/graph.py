@@ -12,6 +12,7 @@ from revops.infrastructure.agent.nodes import (
     execute_action,
     load_context,
     propose_action,
+    route_runtime,
     score_accounts,
 )
 from revops.infrastructure.agent.state import AgentGraphState
@@ -19,6 +20,28 @@ from revops.infrastructure.agent.state import AgentGraphState
 
 def build_agent_graph(deps: AgentGraphDependencies, checkpointer: AsyncPostgresSaver) -> Any:
     builder = StateGraph(AgentGraphState)
+
+    if deps.tool_runtime is not None:
+
+        async def _route_runtime(state: AgentGraphState) -> dict[str, object]:
+            return await route_runtime(state, deps)
+
+        async def _execute_action(state: AgentGraphState) -> dict[str, object]:
+            return await execute_action(state, deps)
+
+        def _after_runtime(state: AgentGraphState) -> str:
+            return "execute_action" if "pending_approval" in state else END
+
+        builder.add_node("route_runtime", _route_runtime)
+        builder.add_node("execute_action", _execute_action)
+        builder.add_edge(START, "route_runtime")
+        builder.add_conditional_edges(
+            "route_runtime",
+            _after_runtime,
+            {"execute_action": "execute_action", END: END},
+        )
+        builder.add_edge("execute_action", END)
+        return builder.compile(checkpointer=checkpointer, name=deps.graph_version)
 
     async def _load_context(state: AgentGraphState) -> dict[str, object]:
         return await load_context(state, deps)

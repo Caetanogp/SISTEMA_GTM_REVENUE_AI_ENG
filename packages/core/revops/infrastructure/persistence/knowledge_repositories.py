@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import case, func, select, text
+from sqlalchemy import cast as sqlalchemy_cast
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from revops.application.dto import (
@@ -20,8 +24,10 @@ from revops.application.dto import (
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
     KnowledgeProcessingEvent,
+    KnowledgeRetrievalCandidate,
     KnowledgeRevisionActivation,
 )
+from revops.application.ports import KnowledgeRetrievalRepositoryError
 from revops.domain.entities.knowledge import (
     KnowledgeCategory,
     KnowledgeDocument,
@@ -29,6 +35,13 @@ from revops.domain.entities.knowledge import (
     KnowledgeLanguage,
     KnowledgeScope,
     KnowledgeVersionStatus,
+)
+from revops.domain.errors import PolicyViolationError
+from revops.domain.values.retrieval import (
+    EmbeddingSpace,
+    RetrievalProvenance,
+    RetrievalScore,
+    RetrievedPassage,
 )
 from revops.infrastructure.persistence.models import (
     KnowledgeChunk as KnowledgeChunkModel,
@@ -403,6 +416,228 @@ class SqlAlchemyKnowledgeCorpusRepository:
         if row is None:
             raise LookupError("organization knowledge corpus not found")
         return _corpus(row)
+
+
+class SqlAlchemyKnowledgeRetrievalRepository:
+    """Exact, tenant-scoped retrieval over the active immutable corpus view."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    def _active_versions(self, organization_id: UUID) -> Any:
+        corpus = KnowledgeCorpusModel
+        revision = KnowledgeRevisionModel
+        entry = KnowledgeRevisionEntryModel
+        version = KnowledgeDocumentVersionModel
+        document = KnowledgeDocumentModel
+        head = KnowledgeCorpusHead
+        priority = case(
+            (corpus.scope == KnowledgeScope.ORGANIZATION.value, 0),
+            else_=1,
+        )
+        return (
+            select(
+                document.document_key.label("document_key"),
+                version.id.label("version_id"),
+                version.corpus_id.label("corpus_id"),
+                revision.id.label("revision_id"),
+                version.category.label("category"),
+                version.language.label("language"),
+                version.status.label("status"),
+                version.embedding_model.label("embedding_model"),
+                version.embedding_dimension.label("embedding_dimension"),
+                priority.label("source_priority"),
+                func.row_number()
+                .over(
+                    partition_by=document.document_key,
+                    order_by=(priority, version.id),
+                )
+                .label("source_rank"),
+            )
+            .select_from(entry)
+            .join(
+                revision,
+                (revision.id == entry.revision_id) & (revision.corpus_id == entry.corpus_id),
+            )
+            .join(
+                head,
+                (head.corpus_id == revision.corpus_id) & (head.revision_id == revision.id),
+            )
+            .join(corpus, corpus.id == revision.corpus_id)
+            .join(
+                version,
+                (version.id == entry.version_id) & (version.corpus_id == entry.corpus_id),
+            )
+            .join(
+                document,
+                (document.id == version.document_id) & (document.corpus_id == version.corpus_id),
+            )
+            .where(
+                (
+                    (corpus.scope == KnowledgeScope.PLATFORM.value)
+                    | (
+                        (corpus.scope == KnowledgeScope.ORGANIZATION.value)
+                        & (corpus.organization_id == organization_id)
+                    )
+                ),
+                version.scope == corpus.scope,
+                version.organization_id == corpus.organization_id,
+                entry.document_key == document.document_key,
+            )
+        )
+
+    async def _resolve(self, organization_id: UUID) -> EmbeddingSpace | None:
+        try:
+            active_versions = self._active_versions(organization_id).subquery()
+            rows = (
+                await self._session.execute(
+                    select(
+                        active_versions.c.embedding_model,
+                        active_versions.c.embedding_dimension,
+                    ).where(
+                        active_versions.c.source_rank == 1,
+                        active_versions.c.status == KnowledgeVersionStatus.READY.value,
+                    )
+                )
+            ).all()
+            spaces: set[tuple[str, int]] = set()
+            for model, dimension in rows:
+                if not isinstance(model, str) or not isinstance(dimension, int):
+                    raise KnowledgeRetrievalRepositoryError("embedding_space_incompatible")
+                spaces.add((model, dimension))
+            if not spaces:
+                return None
+            if len(spaces) != 1:
+                raise KnowledgeRetrievalRepositoryError("embedding_space_incompatible")
+            model, dimension = spaces.pop()
+            try:
+                return EmbeddingSpace(model=model, dimension=dimension)
+            except Exception:
+                raise KnowledgeRetrievalRepositoryError("embedding_space_incompatible") from None
+        except KnowledgeRetrievalRepositoryError:
+            raise
+        except SQLAlchemyError:
+            raise KnowledgeRetrievalRepositoryError() from None
+
+    async def resolve_active_embedding_space(
+        self, *, organization_id: UUID
+    ) -> EmbeddingSpace | None:
+        return await self._resolve(organization_id)
+
+    async def search_active_chunks(
+        self,
+        *,
+        organization_id: UUID,
+        query_vector: Sequence[float],
+        embedding_model: str,
+        embedding_dimension: int,
+        limit: int,
+    ) -> Sequence[KnowledgeRetrievalCandidate]:
+        try:
+            active_space = await self._resolve(organization_id)
+            if active_space is None:
+                return ()
+            if (
+                active_space.model != embedding_model
+                or active_space.dimension != embedding_dimension
+            ):
+                raise KnowledgeRetrievalRepositoryError("embedding_space_incompatible")
+
+            ranked = self._active_versions(organization_id).cte("ranked_sources")
+            eligible_versions = (
+                select(ranked)
+                .where(ranked.c.source_rank == 1)
+                .cte("eligible_sources")
+                .prefix_with("MATERIALIZED")
+            )
+            eligible = (
+                select(
+                    eligible_versions.c.document_key,
+                    eligible_versions.c.version_id,
+                    eligible_versions.c.revision_id,
+                    eligible_versions.c.category,
+                    eligible_versions.c.language,
+                    KnowledgeChunkModel.id.label("chunk_id"),
+                    KnowledgeChunkModel.ordinal.label("chunk_ordinal"),
+                    KnowledgeChunkModel.text.label("chunk_text"),
+                    KnowledgeChunkModel.embedding,
+                )
+                .select_from(eligible_versions)
+                .join(
+                    KnowledgeChunkModel,
+                    (KnowledgeChunkModel.version_id == eligible_versions.c.version_id)
+                    & (KnowledgeChunkModel.corpus_id == eligible_versions.c.corpus_id),
+                )
+                .where(
+                    eligible_versions.c.embedding_model == embedding_model,
+                    eligible_versions.c.embedding_dimension == embedding_dimension,
+                    eligible_versions.c.status == KnowledgeVersionStatus.READY.value,
+                )
+                .cte("eligible_chunks")
+                .prefix_with("MATERIALIZED")
+            )
+            invalid_count = await self._session.scalar(
+                select(func.count())
+                .select_from(eligible)
+                .where(func.vector_norm(eligible.c.embedding) <= 0)
+            )
+            if invalid_count:
+                raise KnowledgeRetrievalRepositoryError()
+
+            query = sqlalchemy_cast(list(query_vector), Vector(embedding_dimension))
+            distance = func.l2_normalize(eligible.c.embedding).op("<=>")(func.l2_normalize(query))
+            rows = (
+                await self._session.execute(
+                    select(
+                        eligible.c.document_key,
+                        eligible.c.version_id,
+                        eligible.c.revision_id,
+                        eligible.c.category,
+                        eligible.c.language,
+                        eligible.c.chunk_id,
+                        eligible.c.chunk_ordinal,
+                        eligible.c.chunk_text,
+                        distance.label("distance"),
+                    )
+                    .where(distance.is_not(None))
+                    .order_by(
+                        distance,
+                        eligible.c.document_key,
+                        eligible.c.version_id,
+                        eligible.c.chunk_ordinal,
+                        eligible.c.chunk_id,
+                    )
+                    .limit(limit)
+                )
+            ).all()
+            candidates: list[KnowledgeRetrievalCandidate] = []
+            for row in rows:
+                if not isinstance(row.distance, (int, float)) or not math.isfinite(row.distance):
+                    raise KnowledgeRetrievalRepositoryError()
+                score = RetrievalScore(1.0 - float(row.distance))
+                provenance = RetrievalProvenance(
+                    document_key=row.document_key,
+                    document_version_id=row.version_id,
+                    chunk_id=row.chunk_id,
+                    chunk_ordinal=row.chunk_ordinal,
+                    category=KnowledgeCategory(row.category),
+                    language=KnowledgeLanguage(row.language),
+                    active_revision_id=row.revision_id,
+                )
+                candidates.append(
+                    KnowledgeRetrievalCandidate(
+                        passage=RetrievedPassage(
+                            text=row.chunk_text,
+                            provenance=provenance,
+                            score=score,
+                        )
+                    )
+                )
+            return tuple(candidates)
+        except KnowledgeRetrievalRepositoryError:
+            raise
+        except (PolicyViolationError, SQLAlchemyError, ValueError, TypeError, OverflowError):
+            raise KnowledgeRetrievalRepositoryError() from None
 
 
 class SqlAlchemyKnowledgeProcessingEventRepository:

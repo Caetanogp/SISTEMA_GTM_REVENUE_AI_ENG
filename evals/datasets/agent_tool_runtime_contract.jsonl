@@ -1,0 +1,8 @@
+{"id":"prioritization_route","kind":"decision","decision":{"outcome":"account_prioritization","tool_name":"search_accounts","arguments":{"query":"Acme","limit":5}},"expected":true}
+{"id":"context_route","kind":"decision","decision":{"outcome":"account_context_read","tool_name":"get_account_context","arguments":{"account_id":"00000000-0000-0000-0000-000000000001"}},"expected":true}
+{"id":"task_route","kind":"decision","decision":{"outcome":"proposed_task_action","tool_name":"create_task","arguments":{"account_id":"00000000-0000-0000-0000-000000000001","title":"Follow up","due_at":"2026-10-10T12:00:00Z"}},"expected":true}
+{"id":"tool_confusion","kind":"decision","decision":{"outcome":"account_prioritization","tool_name":"delete_accounts","arguments":{}},"expected":false}
+{"id":"tenant_field_rejected","kind":"decision","decision":{"outcome":"account_prioritization","tool_name":"search_accounts","arguments":{"query":"Acme","organization_id":"00000000-0000-0000-0000-000000000002"}},"expected":false}
+{"id":"outcome_tool_mismatch","kind":"decision","decision":{"outcome":"account_context_read","tool_name":"search_accounts","arguments":{}},"expected":false}
+{"id":"call_budget","kind":"budget","risk":"low","calls":5,"writes":0,"expected":"call_budget_exceeded"}
+{"id":"write_budget","kind":"budget","risk":"medium","calls":1,"writes":1,"expected":"write_budget_exceeded"}

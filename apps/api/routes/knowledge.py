@@ -10,7 +10,10 @@ from revops.application.dto import (
     CorpusRevision,
     KnowledgeAdminContext,
     KnowledgeDocumentVersion,
+    KnowledgeRetrievalContext,
+    RetrieveKnowledgeArgs,
     SubmitKnowledgeDocumentArgs,
+    TaskKnowledgeContext,
 )
 from revops.application.use_cases.knowledge import (
     ActivateKnowledgeRevision,
@@ -22,12 +25,25 @@ from revops.application.use_cases.knowledge import (
     RetireKnowledgeVersion,
     SubmitKnowledgeDocument,
 )
+from revops.application.use_cases.retrieve_knowledge import (
+    EmbeddingSpaceIncompatibleError,
+    KnowledgeRetrievalError,
+    KnowledgeRetrievalProviderError,
+    KnowledgeRetrievalStorageError,
+    RetrieveKnowledge,
+)
 from revops.domain.errors import PolicyViolationError
+from revops.domain.values.retrieval import RetrievalProvenance
 
-from apps.api.auth import ApiPrincipal, require_admin
-from apps.api.dependencies import knowledge_uow_factory
+from apps.api.auth import ApiPrincipal, get_current_principal, require_admin
+from apps.api.dependencies import knowledge_uow_factory, retrieval_use_case
 from apps.api.runtime import knowledge_services
 from apps.api.schemas import (
+    KnowledgeRetrievalOmittedResponse,
+    KnowledgeRetrievalPassageResponse,
+    KnowledgeRetrievalProvenanceResponse,
+    KnowledgeRetrievalRequest,
+    KnowledgeRetrievalResponse,
     KnowledgeRevisionResponse,
     KnowledgeVersionCreateRequest,
     KnowledgeVersionMetadataResponse,
@@ -79,6 +95,43 @@ def _revision(revision: CorpusRevision) -> KnowledgeRevisionResponse:
     )
 
 
+def _retrieval_provenance(
+    provenance: RetrievalProvenance,
+) -> KnowledgeRetrievalProvenanceResponse:
+    return KnowledgeRetrievalProvenanceResponse(
+        document_key=provenance.document_key,
+        document_version_id=provenance.document_version_id,
+        chunk_id=provenance.chunk_id,
+        chunk_ordinal=provenance.chunk_ordinal,
+        category=provenance.category,
+        language=provenance.language,
+        active_revision_id=provenance.active_revision_id,
+    )
+
+
+def _retrieval_response(result: TaskKnowledgeContext) -> KnowledgeRetrievalResponse:
+    return KnowledgeRetrievalResponse(
+        text=result.text,
+        token_count=result.token_count,
+        included=[
+            KnowledgeRetrievalPassageResponse(
+                text=passage.text,
+                provenance=_retrieval_provenance(passage.provenance),
+                score=passage.score.value,
+            )
+            for passage in result.included
+        ],
+        omitted=[
+            KnowledgeRetrievalOmittedResponse(
+                provenance=_retrieval_provenance(passage.provenance),
+                score=passage.score.value,
+                reason=passage.reason,
+            )
+            for passage in result.omitted
+        ],
+    )
+
+
 def _services(
     request: Request,
 ) -> tuple[
@@ -100,6 +153,42 @@ def _not_found(exc: Exception) -> HTTPException:
 
 def _conflict(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@router.post("/retrieve", response_model=KnowledgeRetrievalResponse)
+async def retrieve_knowledge(
+    payload: KnowledgeRetrievalRequest,
+    principal: Annotated[ApiPrincipal, Depends(get_current_principal)],
+    use_case: Annotated[RetrieveKnowledge, Depends(retrieval_use_case)],
+) -> KnowledgeRetrievalResponse:
+    """Retrieve only the authenticated tenant's active task context."""
+    try:
+        result = await use_case.execute(
+            context=KnowledgeRetrievalContext(organization_id=principal.organization_id),
+            args=RetrieveKnowledgeArgs(**payload.model_dump()),
+        )
+    except PolicyViolationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    except EmbeddingSpaceIncompatibleError as exc:
+        raise _conflict(exc) from exc
+    except KnowledgeRetrievalProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.failure_code,
+        ) from exc
+    except KnowledgeRetrievalStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=exc.failure_code,
+        ) from exc
+    except KnowledgeRetrievalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="retrieval unavailable",
+        ) from exc
+    return _retrieval_response(result)
 
 
 @router.post(

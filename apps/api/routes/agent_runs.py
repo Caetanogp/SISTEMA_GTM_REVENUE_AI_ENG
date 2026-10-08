@@ -231,11 +231,6 @@ async def approve_agent_run(
             llm_gateway=llm_gateway,
         ) as runner:
             snapshot = await runner.graph.aget_state(_run_config(run_id))
-            if not snapshot.interrupts:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="run is not waiting for approval",
-                )
             decision = ApprovalDecisionInput(
                 decision=ApprovalDecisionType(payload.decision.value),
                 organization_id=current_user.organization_id,
@@ -250,6 +245,26 @@ async def approve_agent_run(
                     else None
                 ),
             )
+            if not snapshot.interrupts:
+                persisted_decision = snapshot.values.get("decision")
+                if persisted_decision == decision.model_dump(mode="json"):
+                    task_payload = snapshot.values.get("task")
+                    task_response: TaskResponse | None = None
+                    if isinstance(task_payload, dict):
+                        task_row = await session.scalar(
+                            select(TaskModel).where(TaskModel.id == UUID(task_payload["id"]))
+                        )
+                        if task_row is not None:
+                            task_response = _task_response(task_row)
+                    return ApprovalResponse(
+                        agent_run_id=run_id,
+                        status="completed",
+                        task=task_response,
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="run is not waiting for approval",
+                )
             try:
                 result = await runner.resume(
                     thread_id=str(run_id),

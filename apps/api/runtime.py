@@ -7,8 +7,10 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import httpx
 from revops.application.dto import LLMGatewayHealth, LLMHealthStatus
-from revops.application.ports import Clock, LLMGateway
+from revops.application.ports import Clock, EmbeddingProvider, LLMGateway
+from revops.application.use_cases.agent_tool_runtime import BoundedAgentToolRuntime
 from revops.application.use_cases.deduplication import (
     DismissDeduplicationCandidate,
     GetDeduplicationStatus,
@@ -35,7 +37,13 @@ from revops.application.use_cases.knowledge import (
 from revops.infrastructure.agent.checkpointer import open_checkpointer
 from revops.infrastructure.agent.graph import build_agent_graph
 from revops.infrastructure.agent.nodes import AgentGraphDependencies, UnitOfWorkScope
+from revops.infrastructure.agent.prompt_loader import load_agent_tool_runtime_prompt
 from revops.infrastructure.agent.runner import AgentGraphRunner
+from revops.infrastructure.agent.tools import build_agent_tools
+from revops.infrastructure.embeddings.providers import (
+    DeterministicFakeEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+)
 from revops.infrastructure.persistence.repositories import SqlAlchemyAgentRunJournal
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from revops.infrastructure.queue import (
@@ -48,8 +56,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .settings import ApiSettings
 
-GRAPH_VERSION = "account-prioritization.v1"
-PROMPT_VERSION = "prioritize_accounts.v2"
+GRAPH_VERSION = "single-agent-tool-runtime.v1"
+PROMPT_VERSION = "agent_tool_runtime.v1"
 
 
 class UtcClock:
@@ -70,6 +78,24 @@ class UnconfiguredLLMGateway:
             status=LLMHealthStatus.DISABLED,
             providers=(),
         )
+
+
+def build_embedding_provider(
+    settings: ApiSettings, *, client: httpx.AsyncClient | None = None
+) -> EmbeddingProvider:
+    """Build the explicitly configured query embedding adapter for the API."""
+    if settings.knowledge_embedding_provider == "fake":
+        return DeterministicFakeEmbeddingProvider(dimension=settings.knowledge_embedding_dimension)
+    if settings.openai_api_key is None:
+        raise RuntimeError("knowledge embedding provider requires OPENAI_API_KEY")
+    if client is None:
+        raise RuntimeError("live knowledge embedding provider requires an HTTP client")
+    return OpenAIEmbeddingProvider(
+        client=client,
+        api_key=settings.openai_api_key.get_secret_value(),
+        model=settings.knowledge_embedding_model,
+        dimension=settings.knowledge_embedding_dimension,
+    )
 
 
 def ingestion_services(
@@ -150,6 +176,14 @@ async def open_agent_runner(
         clock=clock,
         graph_version=GRAPH_VERSION,
         prompt_version=PROMPT_VERSION,
+        tool_runtime=BoundedAgentToolRuntime(
+            gateway=llm_gateway,
+            tools=build_agent_tools(
+                lambda: cast(UnitOfWorkScope, _uow_factory(session_factory)),
+                clock,
+            ),
+            prompt_builder=load_agent_tool_runtime_prompt,
+        ),
     )
     async with open_checkpointer(settings.postgres_dsn) as checkpointer:
         graph = build_agent_graph(deps, checkpointer)

@@ -36,6 +36,8 @@ from revops.domain.entities.knowledge import (
     KnowledgeScope,
     KnowledgeVersionStatus,
 )
+from revops.domain.values.retrieval import RetrievalProvenance, RetrievalScore, RetrievedPassage
+from revops.domain.values.runtime import RuntimeFailureCode, RuntimeOutcome
 from revops.domain.values.score import ScoreTier
 
 
@@ -233,6 +235,73 @@ class PrioritizationOutput(BaseModel):
 
     accounts: list[RankedAccount] = Field(min_length=1)
     task: CreateTaskDraft
+
+
+class SearchAccountsArgs(BaseModel):
+    """Validated read arguments; tenant identity is supplied by the authenticated run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(default="", max_length=200)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+class GetAccountContextArgs(BaseModel):
+    """Validated account lookup arguments without a caller-selectable organization."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+
+
+class CreateTaskToolArgs(BaseModel):
+    """Model-authored task fields; owner and tenant come from trusted run context."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    title: str = Field(min_length=1, max_length=255)
+    due_at: datetime
+
+
+class AgentToolDecision(BaseModel):
+    """Structured model decision consumed by the bounded runtime."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: RuntimeOutcome
+    tool_name: str = Field(min_length=1, max_length=64)
+    arguments: dict[str, JsonValue] = Field(default_factory=dict)
+    continue_after: bool = False
+
+
+class RuntimeFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: RuntimeFailureCode
+
+
+class RuntimeToolEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sequence: int = Field(ge=1)
+    tool_name: str
+    risk: str
+    outcome: str
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeResult:
+    """Serializable application result returned to the graph boundary."""
+
+    outcome: RuntimeOutcome | None
+    tool_name: str | None
+    tool_arguments: dict[str, object] | None
+    tool_result: dict[str, object] | None
+    evidence: tuple[RuntimeToolEvidence, ...]
+    failure: RuntimeFailure | None = None
+    requires_approval: bool = False
 
 
 class LLMUsage(BaseModel):
@@ -481,6 +550,24 @@ class KnowledgeAdminContext(BaseModel):
     role: Literal["admin"]
 
 
+class KnowledgeRetrievalContext(BaseModel):
+    """Trusted task identity injected by the authenticated application boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: UUID
+
+
+class RetrieveKnowledgeArgs(BaseModel):
+    """Untrusted query parameters; corpus and tenant selection are intentionally absent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=4_000)
+    limit: int = Field(ge=1, le=20)
+    token_budget: int = Field(gt=0)
+
+
 @dataclass(frozen=True, slots=True)
 class KnowledgeCorpus:
     """Explicit owner boundary for platform or organization knowledge."""
@@ -568,6 +655,32 @@ class EmbeddingBatch:
     model: str
     dimension: int
     vectors: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeRetrievalCandidate:
+    """A fully filtered, attributable passage returned by the retrieval adapter."""
+
+    passage: RetrievedPassage
+
+
+@dataclass(frozen=True, slots=True)
+class OmittedKnowledgePassage:
+    """A ranked passage excluded solely because its fenced section did not fit."""
+
+    provenance: RetrievalProvenance
+    score: RetrievalScore
+    reason: Literal["token_budget_exceeded"] = "token_budget_exceeded"
+
+
+@dataclass(frozen=True, slots=True)
+class TaskKnowledgeContext:
+    """Fenced retrieved context, its stable token estimate, and explicit omissions."""
+
+    text: str
+    token_count: int
+    included: tuple[RetrievedPassage, ...]
+    omitted: tuple[OmittedKnowledgePassage, ...]
 
 
 @dataclass(frozen=True, slots=True)

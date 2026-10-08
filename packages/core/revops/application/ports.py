@@ -18,6 +18,8 @@ from types import TracebackType
 from typing import Protocol, TypeVar, runtime_checkable
 from uuid import UUID
 
+from pydantic import BaseModel
+
 from revops.application.dto import (
     AccountEnrichmentRecord,
     ApprovalDecisionType,
@@ -29,10 +31,12 @@ from revops.application.dto import (
     KnowledgeCorpus,
     KnowledgeDocumentVersion,
     KnowledgeProcessingEvent,
+    KnowledgeRetrievalCandidate,
     KnowledgeRevisionActivation,
     LLMFailureKind,
     LLMGatewayHealth,
     LLMResult,
+    RuntimeResult,
     StagedIngestionItem,
     StagedIngestionJob,
 )
@@ -52,6 +56,8 @@ from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersion
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
 from revops.domain.entities.touchpoint import Touchpoint
+from revops.domain.values.retrieval import EmbeddingSpace
+from revops.domain.values.risk import RiskLevel
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +208,42 @@ class AgentRunJournal(Protocol):
     async def start(self, run: AgentRunRecord, event: AgentRunEventRecord) -> None: ...
 
     async def append(self, event: AgentRunEventRecord) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedRunContext:
+    """Identity and run metadata injected by the authenticated graph boundary."""
+
+    organization_id: UUID
+    actor_id: UUID
+    run_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ToolExecutionResult:
+    """A typed adapter result; approval is a runtime boundary, not model data."""
+
+    payload: Mapping[str, object]
+    outcome: str
+    requires_approval: bool = False
+
+
+@runtime_checkable
+class AgentTool(Protocol):
+    name: str
+    risk: RiskLevel
+    arguments_model: type[BaseModel]
+
+    async def execute(
+        self, *, context: TrustedRunContext, arguments: BaseModel
+    ) -> ToolExecutionResult: ...
+
+
+@runtime_checkable
+class AgentToolRuntime(Protocol):
+    async def run(
+        self, *, context: TrustedRunContext, request_text: str, context_text: str = ""
+    ) -> RuntimeResult: ...
 
 
 T = TypeVar("T")
@@ -623,9 +665,48 @@ class EmbeddingProviderError(RuntimeError):
     """Sanitized provider failure classified at the application boundary."""
 
     def __init__(self, failure_code: str, *, retryable: bool) -> None:
-        self.failure_code = failure_code
+        safe_codes = {
+            "embedding_unavailable",
+            "embedding_rejected",
+            "embedding_invalid_response",
+            "provider_timeout",
+        }
+        self.failure_code = (
+            failure_code if failure_code in safe_codes else "embedding_provider_error"
+        )
         self.retryable = retryable
-        super().__init__(failure_code)
+        super().__init__(self.failure_code)
+
+
+class KnowledgeRetrievalRepositoryError(RuntimeError):
+    """Sanitized persistence failure at the retrieval port boundary."""
+
+    def __init__(self, failure_code: str = "retrieval_storage_error") -> None:
+        self.failure_code = (
+            failure_code
+            if failure_code in {"retrieval_storage_error", "embedding_space_incompatible"}
+            else "retrieval_storage_error"
+        )
+        super().__init__(self.failure_code)
+
+
+@runtime_checkable
+class KnowledgeRetrievalRepository(Protocol):
+    """Read-only active-corpus retrieval boundary owned by the infrastructure adapter."""
+
+    async def resolve_active_embedding_space(
+        self, *, organization_id: UUID
+    ) -> EmbeddingSpace | None: ...
+
+    async def search_active_chunks(
+        self,
+        *,
+        organization_id: UUID,
+        query_vector: Sequence[float],
+        embedding_model: str,
+        embedding_dimension: int,
+        limit: int,
+    ) -> Sequence[KnowledgeRetrievalCandidate]: ...
 
 
 @runtime_checkable

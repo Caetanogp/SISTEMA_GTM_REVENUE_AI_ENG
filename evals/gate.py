@@ -32,7 +32,12 @@ def _threshold_for(suite: str, thresholds: dict[str, dict[str, float]]) -> float
 
 def evaluate_suite(name: str, thresholds: dict[str, dict[str, float]]) -> tuple[bool, SuiteReport]:
     report = ALL_RUNNERS[name]()
-    minimum = 1.00 if name == "rag_ingestion_contract" else _threshold_for(name, thresholds)
+    mandatory_contract = name in {
+        "rag_ingestion_contract",
+        "rag_retrieval_contract",
+        "agent_tool_runtime_contract",
+    }
+    minimum = 1.00 if mandatory_contract else _threshold_for(name, thresholds)
     return report.metric_value >= minimum, report
 
 
@@ -41,7 +46,12 @@ def main() -> int:
     all_passed = True
     for suite in ALL_RUNNERS:
         passed, report = evaluate_suite(suite, thresholds)
-        minimum = 1.00 if suite == "rag_ingestion_contract" else _threshold_for(suite, thresholds)
+        mandatory_contract = suite in {
+            "rag_ingestion_contract",
+            "rag_retrieval_contract",
+            "agent_tool_runtime_contract",
+        }
+        minimum = 1.00 if mandatory_contract else _threshold_for(suite, thresholds)
         status = "PASS" if passed else "FAIL"
         print(
             f"[{status}] {report.suite}: {report.metric_name}={report.metric_value:.2f} "

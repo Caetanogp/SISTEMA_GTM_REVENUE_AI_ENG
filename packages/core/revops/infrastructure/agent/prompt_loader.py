@@ -5,7 +5,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 
-from revops.application.dto import AccountCandidate
+from revops.application.dto import AccountCandidate, RuntimeToolEvidence
 
 _PROMPT_PATH = Path(__file__).with_name("prompts") / "prioritize_accounts.v2.md"
 
@@ -41,3 +41,24 @@ def _render_candidates(candidates: list[AccountCandidate]) -> str:
             )
         )
     return "\n\n".join(blocks)
+
+
+_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v1.md"
+
+
+def load_agent_tool_runtime_prompt(
+    request_text: str,
+    context_text: str,
+    evidence: tuple[RuntimeToolEvidence, ...],
+) -> str:
+    """Fence untrusted request/context and expose only sanitized prior evidence."""
+    template = _RUNTIME_PROMPT_PATH.read_text(encoding="utf-8")
+    rendered_evidence = "\n".join(
+        f"- sequence={item.sequence} tool={item.tool_name} risk={item.risk} outcome={item.outcome}"
+        for item in evidence
+    )
+    return (
+        template.replace("{{request_text}}", escape(request_text, quote=False))
+        .replace("{{context_text}}", escape(context_text, quote=False))
+        .replace("{{evidence}}", escape(rendered_evidence, quote=False))
+    )
