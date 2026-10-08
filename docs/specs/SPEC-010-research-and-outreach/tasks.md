@@ -17,5 +17,5 @@
 - [x] Add adversarial coverage for injection, SSRF, fake citations, cross-run evidence, and unintended writes — verified by `pytest tests/adversarial -q` (30 passed)
 - [x] Add `research_outreach_contract` and `grounded_generation_contract` offline evals — verified by `python -m evals.gate` with both new suites at 1.00
 - [x] Update security, prompt/version, and PDF traceability evidence — verified by `python scripts/check_pdf_traceability.py` (86 rows) and `python scripts/check_agent_docs.py`
-- [ ] Create the SPEC-010 autonomous queue only after implementation is complete and review its item scopes — verified by `python scripts/autonomous_gate.py`
+- [x] Create the SPEC-010 autonomous queue only after implementation is complete and review its item scopes — verified by the SPEC-010-specific `.handoff/AUTONOMOUS_QUEUE.md`
 - [ ] Run the real bounded pilot and full verification gate — verified by the pilot evidence, full gate output, and clean working tree
