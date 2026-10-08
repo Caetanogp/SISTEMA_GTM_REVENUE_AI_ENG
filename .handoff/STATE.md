@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-10-06
-branch: feature/SPEC-009-single-agent-tool-runtime
+updated_at: 2026-10-07
+branch: develop
 spec: SPEC-009-single-agent-tool-runtime
-phase: "SPEC-009 bounded runtime implemented and fully verified"
-status: done_awaiting_merge
+phase: "SPEC-009 bounded runtime implemented, fully verified, and merged into develop"
+status: merged_into_develop
 ---
 
 # Current state
@@ -15,11 +15,12 @@ Implement the PDF-aligned bounded single-agent tool runtime described by SPEC-00
 
 ## Now
 
-SPEC-008 is closed and fully verified. SPEC-009 now has a bounded dispatcher, three typed tool
+SPEC-008 is closed and fully verified. SPEC-009 has a bounded dispatcher, three typed tool
 adapters, checkpoint/HITL reuse, sanitized lifecycle evidence, offline contract evals, adversarial
-coverage, and API integration coverage. Full repository verification and the gate are green. No
-SPEC-009 autonomous queue or loop is running; the checked-in autonomous queue remains the
-historical SPEC-008 queue and is not active.
+coverage, and API integration coverage. Full repository verification and the gate are green. The
+verified feature branch was merged into `develop` as `9ec47e3`. No SPEC-009 autonomous queue or
+loop is running; the checked-in autonomous queue remains the historical SPEC-008 queue and is not
+active.
 
 ## Done
 
@@ -62,6 +63,9 @@ historical SPEC-008 queue and is not active.
 - Post-commit verification: `pytest tests/integration -q` passed with 46 tests and 3 known
   SQLAlchemy pool-cleanup warnings; `lint-imports` kept 4 contracts, `check_agent_docs.py` passed,
   and `gitleaks detect --no-git` found no leaks.
+- Merge verification: `git merge-tree --write-tree origin/develop HEAD` reported no conflicts;
+  the full gate, PDF traceability check, and agent-docs check passed immediately before merge.
+  Merge commit: `9ec47e3` on `develop`.
 - Item 5 adversarial retrieval coverage: added injection-shaped and secret-shaped data fencing,
   rejection of caller-selected tenant/corpus/historical revision fields, trusted-tenant propagation,
   invalid limit/budget rejection, and sanitized persistence errors in
@@ -99,10 +103,10 @@ historical SPEC-008 queue and is not active.
 
 ## Next
 
-1. Review the verified branch diff and merge `feature/SPEC-009-single-agent-tool-runtime` into
-   `develop` when authorized; publishing remains the user's action.
-2. After merge, do not create an overnight loop until a future spec is materialized and its own
-   queue is reviewed; SPEC-009 has no remaining implementation queue.
+1. Publishing `develop` remains the user's action; this checkout's `origin` currently points to a
+   local OneDrive repository rather than the GitHub URL.
+2. Do not create an overnight loop until a future spec is materialized and its own queue is
+   reviewed; SPEC-009 has no remaining implementation queue.
 
 ## Gotchas
 
