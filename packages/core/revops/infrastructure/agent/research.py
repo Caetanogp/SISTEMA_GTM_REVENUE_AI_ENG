@@ -14,7 +14,12 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from revops.application.ports import CompanyResearcher, ResearchPage, TrustedRunContext
+from revops.application.ports import (
+    CompanyResearcher,
+    ExternalResearchError,
+    ResearchPage,
+    TrustedRunContext,
+)
 from revops.domain.entities.account import Account
 
 MAX_PAGES = 3
@@ -23,12 +28,20 @@ MAX_TEXT_CHARACTERS = 12_000
 MAX_ATTEMPTS = 2
 
 
-class ResearchPolicyError(RuntimeError):
+class ResearchPolicyError(ExternalResearchError):
     """A sanitized refusal to access an unauthorized or unsafe source."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__("research_policy_refused")
+        self.message = message
 
-class ResearchFetchError(RuntimeError):
+
+class ResearchFetchError(ExternalResearchError):
     """A sanitized bounded transport or response failure."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__("research_source_unavailable", retryable=True)
+        self.message = message
 
 
 @dataclass(frozen=True, slots=True)
