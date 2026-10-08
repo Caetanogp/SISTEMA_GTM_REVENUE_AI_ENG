@@ -84,7 +84,12 @@ class _Gateway:
 
 class _Context:
     async def build(self, *, context, account_id, contact_id, objective):
-        return {"account_id": str(account_id), "objective": objective}
+        return {
+            "account_id": str(account_id),
+            "objective": objective,
+            "required_evidence": True,
+            "evidence_ids": ["crm:account:context"],
+        }
 
 
 def _records():

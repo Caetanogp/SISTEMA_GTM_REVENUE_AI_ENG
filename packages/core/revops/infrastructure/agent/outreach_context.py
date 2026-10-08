@@ -122,6 +122,12 @@ class SqlAlchemyOutreachContextProvider(OutreachContextProvider):
                 ),
             )
             return {
+                "required_evidence": _has_required_knowledge(knowledge),
+                "evidence_ids": [
+                    f"knowledge:{item.provenance.document_key}:{item.provenance.chunk_id}"
+                    for item in knowledge.included
+                ]
+                + [f"crm:account:{account.id}"],
                 "crm": {
                     "sections": [{"label": item.label, "text": item.text} for item in crm.sections],
                     "dropped_labels": crm.dropped_labels,
@@ -150,3 +156,15 @@ class SqlAlchemyOutreachContextProvider(OutreachContextProvider):
                     "omitted_count": len(knowledge.omitted),
                 },
             }
+
+
+def _has_required_knowledge(knowledge: object) -> bool:
+    included = getattr(knowledge, "included", ())
+    categories = {
+        item.provenance.category.value
+        for item in included
+        if getattr(item, "provenance", None) is not None
+    }
+    return "product" in categories and (
+        "outreach_policy" in categories or "authorized_pricing" in categories
+    )

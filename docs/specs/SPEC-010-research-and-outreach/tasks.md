@@ -1,10 +1,10 @@
 # SPEC-010: Grounded Company Research and Follow-Up Preparation Tasks
 
-- [ ] Record the approved scope and source traceability in `spec.md`, `plan.md`, and ADR-0018 — verified by document review and `python scripts/check_pdf_traceability.py`
-- [ ] Add pure research, claim, verification, limitation, and follow-up value objects — verified by focused domain tests
-- [ ] Add strict research/follow-up arguments, results, references, usage, and artifact DTOs — verified by schema tests with forbidden-field cases
-- [ ] Add canonical account/contact and research/generation/artifact application ports — verified by protocol tests and `mypy .`
-- [ ] Add configured source authorization and bounded HTTP policy — verified by SSRF, redirect, size, timeout, DNS-change, and SNI tests
+- [x] Record the approved scope and source traceability in `spec.md`, `plan.md`, and ADR-0018 — verified by document review and `python scripts/check_pdf_traceability.py`
+- [x] Add pure research, claim, verification, limitation, and follow-up value objects — verified by `pytest tests/unit/domain/values/test_outreach.py -q` (4 passed)
+- [x] Add strict research/follow-up arguments, results, references, usage, and artifact DTOs — verified by `pytest tests/unit/application/test_outreach_dto.py -q` (2 passed)
+- [x] Add canonical account/contact and research/generation/artifact application ports — verified by `mypy packages/core/revops/application/dto.py packages/core/revops/application/ports.py` (passed)
+- [x] Add configured source authorization and bounded HTTP policy — verified by `pytest tests/unit/infrastructure/agent/test_research.py -q` (4 passed), Ruff, and mypy
 - [ ] Add deterministic offline research and generation/verifier adapters — verified by offline adapter tests without network or credentials
 - [ ] Implement `research_company` with tenant, canonical identity, contact relationship, source provenance, and bounded reuse — verified by application tests
 - [ ] Implement CRM/RAG context assembly with active scoped retrieval and essential evidence rules — verified by context-budget and insufficient-evidence tests

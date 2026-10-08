@@ -119,6 +119,8 @@ class PrepareFollowup:
             contact_id=args.contact_id,
             objective=args.objective,
         )
+        if not bool(crm_context.get("required_evidence")):
+            return _insufficient(args, "essential_product_or_policy_evidence_missing")
         research_context = research.model_dump(mode="json") if research else None
         prompt = _followup_prompt(args, crm_context, research_context)
         generated = await self.gateway.complete(
@@ -127,7 +129,7 @@ class PrepareFollowup:
         )
         if generated.output.language != args.language:
             return _insufficient(args, "generated_language_mismatch")
-        evidence_ids = _source_ids(research)
+        evidence_ids = _source_ids(research) | _context_source_ids(crm_context)
         if any(set(claim.source_ids) - evidence_ids for claim in generated.output.claims):
             return _insufficient(args, "invalid_source_reference")
         verification = await self.gateway.complete(
@@ -169,6 +171,15 @@ def _sources(pages: tuple[ResearchPage, ...]) -> tuple[ResearchSourceDTO, ...]:
 
 def _source_ids(research: ResearchResultDTO | None) -> frozenset[str]:
     return frozenset(source.source_id for source in research.sources) if research else frozenset()
+
+
+def _context_source_ids(context: object) -> frozenset[str]:
+    if not isinstance(context, dict):
+        return frozenset()
+    values = context.get("evidence_ids", ())
+    if not isinstance(values, (list, tuple, set)):
+        return frozenset()
+    return frozenset(str(value) for value in values)
 
 
 def _insufficient(args: PrepareFollowupArgs, *limitations: str) -> FollowupResultDTO:
