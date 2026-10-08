@@ -14,6 +14,8 @@ class RuntimeOutcome(StrEnum):
     ACCOUNT_CONTEXT_READ = "account_context_read"
     ACCOUNT_PRIORITIZATION = "account_prioritization"
     PROPOSED_TASK_ACTION = "proposed_task_action"
+    COMPANY_RESEARCH = "company_research"
+    FOLLOWUP_PREPARATION = "followup_preparation"
 
 
 class RuntimeFailureCode(StrEnum):
@@ -35,6 +37,8 @@ def expected_tool(outcome: RuntimeOutcome) -> str:
         RuntimeOutcome.ACCOUNT_CONTEXT_READ: "get_account_context",
         RuntimeOutcome.ACCOUNT_PRIORITIZATION: "search_accounts",
         RuntimeOutcome.PROPOSED_TASK_ACTION: "create_task",
+        RuntimeOutcome.COMPANY_RESEARCH: "research_company",
+        RuntimeOutcome.FOLLOWUP_PREPARATION: "prepare_followup",
     }[outcome]
 
 

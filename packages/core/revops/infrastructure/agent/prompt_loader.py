@@ -43,7 +43,7 @@ def _render_candidates(candidates: list[AccountCandidate]) -> str:
     return "\n\n".join(blocks)
 
 
-_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v1.md"
+_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v2.md"
 
 
 def load_agent_tool_runtime_prompt(

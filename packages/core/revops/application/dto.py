@@ -354,6 +354,21 @@ class ResearchResultDTO(BaseModel):
     limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
 
 
+class ResearchExtractionFact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=128)
+    value: str = Field(min_length=1, max_length=2_000)
+    source_ids: tuple[str, ...] = Field(min_length=1, max_length=16)
+
+
+class ResearchExtractionOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    facts: tuple[ResearchExtractionFact, ...] = Field(max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
 class GeneratedClaimDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -373,6 +388,25 @@ class FollowupResultDTO(BaseModel):
     rationale: str | None = Field(default=None, max_length=2_000)
     claims: tuple[GeneratedClaimDTO, ...] = Field(default_factory=tuple, max_length=64)
     source_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class FollowupGenerationOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=6_000)
+    language: DraftLanguage
+    rationale: str = Field(min_length=1, max_length=2_000)
+    claims: tuple[GeneratedClaimDTO, ...] = Field(min_length=1, max_length=64)
+
+
+class ClaimVerificationOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: bool
+    unsupported_claim_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    contradictory_claim_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
 
 

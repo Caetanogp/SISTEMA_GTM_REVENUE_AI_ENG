@@ -26,14 +26,14 @@ def build_agent_graph(deps: AgentGraphDependencies, checkpointer: AsyncPostgresS
         async def _route_runtime(state: AgentGraphState) -> dict[str, object]:
             return await route_runtime(state, deps)
 
-        async def _execute_action(state: AgentGraphState) -> dict[str, object]:
+        async def _execute_runtime_action(state: AgentGraphState) -> dict[str, object]:
             return await execute_action(state, deps)
 
         def _after_runtime(state: AgentGraphState) -> str:
             return "execute_action" if "pending_approval" in state else END
 
         builder.add_node("route_runtime", _route_runtime)
-        builder.add_node("execute_action", _execute_action)
+        builder.add_node("execute_action", _execute_runtime_action)
         builder.add_edge(START, "route_runtime")
         builder.add_conditional_edges(
             "route_runtime",
@@ -52,13 +52,13 @@ def build_agent_graph(deps: AgentGraphDependencies, checkpointer: AsyncPostgresS
     async def _propose_action(state: AgentGraphState) -> dict[str, object]:
         return await propose_action(state, deps)
 
-    async def _execute_action(state: AgentGraphState) -> dict[str, object]:
+    async def _execute_legacy_action(state: AgentGraphState) -> dict[str, object]:
         return await execute_action(state, deps)
 
     builder.add_node("load_context", _load_context)
     builder.add_node("score_accounts", _score_accounts)
     builder.add_node("propose_action", _propose_action)
-    builder.add_node("execute_action", _execute_action)
+    builder.add_node("execute_action", _execute_legacy_action)
     builder.add_edge(START, "load_context")
     builder.add_edge("load_context", "score_accounts")
     builder.add_edge("score_accounts", "propose_action")

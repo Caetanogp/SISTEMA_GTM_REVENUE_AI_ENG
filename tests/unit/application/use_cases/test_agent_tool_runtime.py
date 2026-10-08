@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, cast
 from uuid import uuid4
 
@@ -27,6 +27,7 @@ class _FakeTool:
     arguments_model: ClassVar[type[BaseModel]] = _ReadArgs
     calls: int = 0
     requires_approval: bool = False
+    prior_results_seen: list[dict[str, object]] = field(default_factory=list)
 
     async def execute(
         self, *, context: TrustedRunContext, arguments: BaseModel
@@ -34,6 +35,7 @@ class _FakeTool:
         assert context.organization_id
         assert isinstance(arguments, _ReadArgs)
         self.calls += 1
+        self.prior_results_seen.append(dict(context.prior_results))
         return ToolExecutionResult(
             payload={"value": arguments.value},
             outcome="approval_required" if self.requires_approval else "completed",
@@ -146,6 +148,21 @@ async def test_runtime_stops_at_approval_boundary() -> None:
     assert result.failure is None
     assert result.requires_approval is True
     assert result.evidence[0].outcome == "approval_required"
+
+
+@pytest.mark.asyncio
+async def test_runtime_reuses_completed_result_in_the_next_tool_context() -> None:
+    tool = _FakeTool("search_accounts")
+    responses = [_decision(continue_after=True), _decision()]
+    result = await _runtime(_gateway(responses), tool).run(
+        context=_context(), request_text="research then prepare"
+    )
+
+    assert result.failure is None
+    assert tool.calls == 2
+    assert tool.prior_results_seen[0] == {}
+    assert tool.prior_results_seen[1] == {"search_accounts": {"value": "safe"}}
+    assert "llm_usage" in result.evidence[0].metadata
 
 
 @pytest.mark.asyncio

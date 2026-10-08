@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pydantic import ValidationError
 
@@ -56,6 +56,7 @@ class BoundedAgentToolRuntime(AgentToolRuntime):
     ) -> RuntimeResult:
         budget = ToolCallBudget(max_calls=self.max_calls, max_writes=self.max_writes)
         evidence: list[RuntimeToolEvidence] = []
+        current_context = context
         for _ in range(self.max_calls + 1):
             prompt = self.prompt_builder(request_text, context_text, tuple(evidence))
             try:
@@ -89,7 +90,7 @@ class BoundedAgentToolRuntime(AgentToolRuntime):
                 return _failure(budget_failure, evidence)
 
             try:
-                execution = await tool.execute(context=context, arguments=arguments)
+                execution = await tool.execute(context=current_context, arguments=arguments)
             except PermissionError:
                 return _failure(RuntimeFailureCode.TENANT_SCOPE_VIOLATION, evidence)
             except (ValidationError, ValueError):
@@ -102,9 +103,15 @@ class BoundedAgentToolRuntime(AgentToolRuntime):
                 tool_name=tool.name,
                 risk=tool.risk.name.lower(),
                 outcome=execution.outcome,
-                metadata={"result_keys": sorted(execution.payload)},
+                metadata={
+                    "result_keys": sorted(execution.payload),
+                    "llm_usage": response.usage.model_dump(mode="json"),
+                },
             )
             evidence.append(event)
+            prior_results = dict(current_context.prior_results)
+            prior_results[tool.name] = dict(execution.payload)
+            current_context = replace(current_context, prior_results=prior_results)
             result = RuntimeResult(
                 outcome=decision.outcome,
                 tool_name=tool.name,

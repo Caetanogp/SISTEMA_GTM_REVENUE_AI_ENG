@@ -11,7 +11,7 @@ implementations here.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from types import TracebackType
@@ -218,6 +218,7 @@ class TrustedRunContext:
     organization_id: UUID
     actor_id: UUID
     run_id: UUID
+    prior_results: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,12 +268,35 @@ class CompanyResearcher(Protocol):
     ) -> Sequence[ResearchPage]: ...
 
 
+class ExternalResearchError(RuntimeError):
+    """Sanitized research boundary failure with no provider payload."""
+
+    def __init__(self, code: str, *, retryable: bool = False) -> None:
+        self.code = code
+        self.retryable = retryable
+        super().__init__(code)
+
+
 @runtime_checkable
 class ResearchContextReader(Protocol):
     """Separate read composition for CRM facts used by outreach."""
 
     async def read_account_context(
         self, *, context: TrustedRunContext, account_id: UUID, contact_id: UUID | None
+    ) -> Mapping[str, object]: ...
+
+
+@runtime_checkable
+class OutreachContextProvider(Protocol):
+    """Builds bounded CRM/RAG context without exposing a persistence session."""
+
+    async def build(
+        self,
+        *,
+        context: TrustedRunContext,
+        account_id: UUID,
+        contact_id: UUID | None,
+        objective: str,
     ) -> Mapping[str, object]: ...
 
 

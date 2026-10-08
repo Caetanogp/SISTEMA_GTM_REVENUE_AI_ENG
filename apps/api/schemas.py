@@ -8,6 +8,7 @@ from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from revops.application.dto import FollowupResultDTO, ResearchResultDTO
 from revops.domain.entities.knowledge import KnowledgeCategory, KnowledgeFormat, KnowledgeLanguage
 
 
@@ -44,6 +45,15 @@ class AgentRunListItem(BaseModel):
     started_at: datetime
     completed_at: datetime | None
     latest_event_type: str | None
+
+
+class AgentRunResultResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    research: ResearchResultDTO | None = None
+    followup: FollowupResultDTO | None = None
+    limitations: tuple[str, ...] = ()
 
 
 class ApprovalDecisionType(StrEnum):

@@ -15,6 +15,8 @@ _TOOL_RISK: dict[str, RiskLevel] = {
     "search_accounts": RiskLevel.LOW,
     "get_account_context": RiskLevel.LOW,
     "create_task": RiskLevel.MEDIUM,
+    "research_company": RiskLevel.LOW,
+    "prepare_followup": RiskLevel.LOW,
 }
 
 
