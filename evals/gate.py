@@ -36,6 +36,8 @@ def evaluate_suite(name: str, thresholds: dict[str, dict[str, float]]) -> tuple[
         "rag_ingestion_contract",
         "rag_retrieval_contract",
         "agent_tool_runtime_contract",
+        "research_outreach_contract",
+        "grounded_generation_contract",
     }
     minimum = 1.00 if mandatory_contract else _threshold_for(name, thresholds)
     return report.metric_value >= minimum, report
@@ -50,6 +52,8 @@ def main() -> int:
             "rag_ingestion_contract",
             "rag_retrieval_contract",
             "agent_tool_runtime_contract",
+            "research_outreach_contract",
+            "grounded_generation_contract",
         }
         minimum = 1.00 if mandatory_contract else _threshold_for(suite, thresholds)
         status = "PASS" if passed else "FAIL"
