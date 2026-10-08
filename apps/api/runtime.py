@@ -138,6 +138,7 @@ def build_researcher(
     return BoundedCompanyResearcher(
         policy=ResearchSourcePolicy(tuple(pages)),
         fetcher=HttpxPageFetcher(client=client),
+        deadline_seconds=settings.research_deadline_seconds,
     )
 
 

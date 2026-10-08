@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
 from collections.abc import Callable, Sequence
@@ -142,6 +143,14 @@ class HttpxPageFetcher:
                     raise ResearchFetchError("research source temporarily unavailable")
                 if response.status_code >= 400:
                     raise ResearchFetchError("research source refused the request")
+                network_stream = response.extensions.get("network_stream")
+                peer = (
+                    network_stream.get_extra_info("server_addr")
+                    if network_stream is not None
+                    else None
+                )
+                if peer is not None and peer[0] != address:
+                    raise ResearchPolicyError("research connection address changed")
                 media_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
                 if media_type not in {"text/html", "text/plain", "application/xhtml+xml"}:
                     raise ResearchPolicyError(
@@ -172,6 +181,7 @@ class HttpxPageFetcher:
 class BoundedCompanyResearcher(CompanyResearcher):
     policy: ResearchSourcePolicy
     fetcher: PageFetcher
+    deadline_seconds: float = 30.0
 
     async def research(
         self, *, context: TrustedRunContext, account: Account, objective: str
@@ -181,14 +191,18 @@ class BoundedCompanyResearcher(CompanyResearcher):
         if not pages:
             raise ResearchPolicyError("no authorized research page is configured")
         results: list[ResearchPage] = []
-        for page in pages:
-            for attempt in range(MAX_ATTEMPTS):
-                try:
-                    results.append(await self.fetcher.fetch(page))
-                    break
-                except ResearchFetchError:
-                    if attempt + 1 == MAX_ATTEMPTS:
-                        raise
+        try:
+            async with asyncio.timeout(self.deadline_seconds):
+                for page in pages:
+                    for attempt in range(MAX_ATTEMPTS):
+                        try:
+                            results.append(await self.fetcher.fetch(page))
+                            break
+                        except ResearchFetchError:
+                            if attempt + 1 == MAX_ATTEMPTS:
+                                raise
+        except TimeoutError as exc:
+            raise ResearchFetchError("research deadline exceeded") from exc
         return tuple(results)
 
 
