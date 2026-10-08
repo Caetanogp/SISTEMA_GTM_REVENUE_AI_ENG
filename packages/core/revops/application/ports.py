@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from revops.application.dto import (
     AccountEnrichmentRecord,
+    AgentRunArtifactDTO,
     ApprovalDecisionType,
     CorpusRevision,
     EmbeddingBatch,
@@ -244,6 +245,44 @@ class AgentToolRuntime(Protocol):
     async def run(
         self, *, context: TrustedRunContext, request_text: str, context_text: str = ""
     ) -> RuntimeResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchPage:
+    """Sanitized page evidence returned by a bounded research adapter."""
+
+    source_id: str
+    url: str
+    retrieved_at: datetime
+    content_hash: str
+    text: str
+
+
+@runtime_checkable
+class CompanyResearcher(Protocol):
+    """External-read boundary; authorization is enforced by the adapter configuration."""
+
+    async def research(
+        self, *, context: TrustedRunContext, account: Account, objective: str
+    ) -> Sequence[ResearchPage]: ...
+
+
+@runtime_checkable
+class ResearchContextReader(Protocol):
+    """Separate read composition for CRM facts used by outreach."""
+
+    async def read_account_context(
+        self, *, context: TrustedRunContext, account_id: UUID, contact_id: UUID | None
+    ) -> Mapping[str, object]: ...
+
+
+@runtime_checkable
+class AgentArtifactReader(Protocol):
+    """Typed, tenant-scoped result read that never invokes the graph."""
+
+    async def get_result(
+        self, *, organization_id: UUID, run_id: UUID
+    ) -> AgentRunArtifactDTO | None: ...
 
 
 T = TypeVar("T")
