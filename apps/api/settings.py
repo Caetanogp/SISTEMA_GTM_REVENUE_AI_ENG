@@ -52,6 +52,11 @@ class ApiSettings(BaseSettings):
     knowledge_embedding_dimension: int = Field(
         default=1536, gt=0, alias="KNOWLEDGE_EMBEDDING_DIMENSION"
     )
+    research_enabled: bool = Field(default=False, alias="RESEARCH_ENABLED")
+    research_sources_json: str = Field(default="{}", alias="RESEARCH_SOURCES_JSON")
+    research_deadline_seconds: float = Field(
+        default=30.0, gt=0.0, alias="RESEARCH_DEADLINE_SECONDS"
+    )
 
     @field_validator("llm_primary_provider", "llm_fallback_provider", mode="before")
     @classmethod

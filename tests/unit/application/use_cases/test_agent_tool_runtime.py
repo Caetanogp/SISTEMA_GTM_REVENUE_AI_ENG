@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, cast
 from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
-from revops.application.dto import LLMUsage, RuntimeFailure
+from revops.application.dto import LLMUsage, RuntimeFailure, RuntimeResult
 from revops.application.ports import AgentTool, ToolExecutionResult, TrustedRunContext
 from revops.application.use_cases.agent_tool_runtime import BoundedAgentToolRuntime
 from revops.domain.values.risk import RiskLevel
+from revops.domain.values.runtime import RuntimeFailureCode
 from revops.infrastructure.llm.fake import FakeLLMGateway
 
 
@@ -27,6 +28,7 @@ class _FakeTool:
     arguments_model: ClassVar[type[BaseModel]] = _ReadArgs
     calls: int = 0
     requires_approval: bool = False
+    prior_results_seen: list[dict[str, object]] = field(default_factory=list)
 
     async def execute(
         self, *, context: TrustedRunContext, arguments: BaseModel
@@ -34,6 +36,7 @@ class _FakeTool:
         assert context.organization_id
         assert isinstance(arguments, _ReadArgs)
         self.calls += 1
+        self.prior_results_seen.append(dict(context.prior_results))
         return ToolExecutionResult(
             payload={"value": arguments.value},
             outcome="approval_required" if self.requires_approval else "completed",
@@ -149,6 +152,21 @@ async def test_runtime_stops_at_approval_boundary() -> None:
 
 
 @pytest.mark.asyncio
+async def test_runtime_reuses_completed_result_in_the_next_tool_context() -> None:
+    tool = _FakeTool("search_accounts")
+    responses = [_decision(continue_after=True), _decision()]
+    result = await _runtime(_gateway(responses), tool).run(
+        context=_context(), request_text="research then prepare"
+    )
+
+    assert result.failure is None
+    assert tool.calls == 2
+    assert tool.prior_results_seen[0] == {}
+    assert tool.prior_results_seen[1] == {"search_accounts": {"value": "safe"}}
+    assert "llm_usage" in result.evidence[0].metadata
+
+
+@pytest.mark.asyncio
 async def test_runtime_maps_malformed_structured_output_to_safe_refusal() -> None:
     tool = _FakeTool("search_accounts")
     result = await _runtime(_gateway([{"not": "a runtime decision"}]), tool).run(
@@ -158,3 +176,40 @@ async def test_runtime_maps_malformed_structured_output_to_safe_refusal() -> Non
     assert result.failure is not None
     assert result.failure.code.value == "unsupported_request"
     assert tool.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_checkpointed_selection_rehydrates_and_completes_with_bounded_evidence() -> None:
+    tool = _FakeTool("search_accounts")
+    runtime = _runtime(_gateway([_decision()]), tool)
+    selected = await runtime.select(
+        context=_context(),
+        request_text="prioritize accounts",
+        context_text="",
+        evidence=(),
+    )
+
+    assert not isinstance(selected, RuntimeResult)
+    calls, writes, failure = runtime.reserve(selection=selected, calls=0, writes=0)
+    assert (calls, writes, failure) == (1, 0, None)
+
+    restored = runtime.restore_selection(
+        outcome=selected.decision.outcome.value,
+        tool_name=selected.tool.name,
+        arguments=selected.arguments.model_dump(mode="json"),
+        continue_after=selected.decision.continue_after,
+        usage=selected.usage,
+    )
+    assert not isinstance(restored, RuntimeResult)
+    execution = await runtime.execute_selected(context=_context(), selection=restored)
+    assert not isinstance(execution, RuntimeFailureCode)
+
+    result = runtime.complete(
+        selection=restored,
+        execution=execution,
+        evidence=[],
+        calls=calls,
+    )
+    assert result.tool_result == {"value": "safe"}
+    assert result.evidence[0].metadata["result_keys"] == ["value"]
+    assert "value" not in result.evidence[0].metadata

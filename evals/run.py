@@ -23,6 +23,10 @@ from pathlib import Path
 from evals.scorers.agent_tool_runtime_contract import score_agent_tool_runtime_contract_dataset
 from evals.scorers.lead_scoring import score_lead_scoring_dataset
 from evals.scorers.llm_gateway_contract import score_llm_gateway_contract_dataset
+from evals.scorers.outreach_contract import (
+    score_grounded_generation_contract_dataset,
+    score_research_outreach_contract_dataset,
+)
 from evals.scorers.rag_ingestion_contract import score_rag_ingestion_contract_dataset
 from evals.scorers.rag_retrieval_contract import score_rag_retrieval_contract_dataset
 from evals.scorers.tool_selection import score_tool_selection_dataset
@@ -35,6 +39,8 @@ SUITES = (
     "rag_ingestion_contract",
     "rag_retrieval_contract",
     "agent_tool_runtime_contract",
+    "research_outreach_contract",
+    "grounded_generation_contract",
 )
 
 
@@ -127,6 +133,32 @@ def run_agent_tool_runtime_contract() -> SuiteReport:
     )
 
 
+def run_research_outreach_contract() -> SuiteReport:
+    result = score_research_outreach_contract_dataset()
+    return SuiteReport(
+        suite="research_outreach_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
+def run_grounded_generation_contract() -> SuiteReport:
+    result = score_grounded_generation_contract_dataset()
+    return SuiteReport(
+        suite="grounded_generation_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
 RUNNERS: dict[str, Callable[[], SuiteReport]] = {
     "tool_selection": run_tool_selection,
     "lead_scoring": run_lead_scoring,
@@ -140,6 +172,8 @@ ALL_RUNNERS = {
     "rag_ingestion_contract": run_rag_ingestion_contract,
     "rag_retrieval_contract": run_rag_retrieval_contract,
     "agent_tool_runtime_contract": run_agent_tool_runtime_contract,
+    "research_outreach_contract": run_research_outreach_contract,
+    "grounded_generation_contract": run_grounded_generation_contract,
 }
 
 

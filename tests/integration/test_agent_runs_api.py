@@ -200,6 +200,13 @@ async def test_agent_run_start_stream_and_approval_flow(
                 assert started["status"] == "interrupted"
                 assert started["interrupt"]["question"] == "approve_edit_reject"
 
+                legacy_result = await client.get(
+                    f"/agent/runs/{run_id}/result",
+                    headers=_headers(token),
+                )
+                assert legacy_result.status_code == 200, legacy_result.text
+                assert legacy_result.json()["status"] == "artifact_not_recorded"
+
                 stream = await client.get(
                     f"/agent/runs/{run_id}/stream",
                     headers=_headers(token),
@@ -375,6 +382,12 @@ async def test_agent_run_endpoints_reject_cross_org_access(database_url: str) ->
                     json={"decision": "approve"},
                 )
                 assert forbidden.status_code == 403
+
+                forbidden_result = await client.get(
+                    f"/agent/runs/{run_id}/result",
+                    headers=_headers(other_token),
+                )
+                assert forbidden_result.status_code == 403
 
 
 @pytest.mark.integration

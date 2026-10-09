@@ -19,6 +19,7 @@ from revops.application.dto import (
     LLMResult,
     PrioritizationOutput,
     RuntimeResult,
+    RuntimeToolEvidence,
 )
 from revops.application.ports import (
     AgentToolRuntime,
@@ -27,12 +28,17 @@ from revops.application.ports import (
     TrustedRunContext,
     UnitOfWork,
 )
+from revops.application.use_cases.agent_tool_runtime import (
+    BoundedAgentToolRuntime,
+    RuntimeSelection,
+)
 from revops.application.use_cases.decide_approval import DecideApproval, PendingApproval
 from revops.application.use_cases.prioritize_accounts import PrioritizeAccounts
 from revops.application.use_cases.propose_task import ProposedAction, ProposeTask
 from revops.application.use_cases.reason_about_accounts import ReasonAboutAccounts
 from revops.domain.entities.task import Task
 from revops.domain.values.risk import RiskLevel
+from revops.domain.values.runtime import RuntimeFailureCode
 from revops.infrastructure.agent.prompt_loader import load_prioritize_accounts_prompt
 from revops.infrastructure.agent.state import (
     AccountCandidateSnapshot,
@@ -61,6 +67,7 @@ class AgentGraphDependencies:
     graph_version: str
     prompt_version: str
     tool_runtime: AgentToolRuntime | None = None
+    checkpointed_runtime: bool = False
     token_budget: int = 4096
 
 
@@ -178,6 +185,166 @@ async def route_runtime(state: AgentGraphState, deps: AgentGraphDependencies) ->
         update["runtime_tool_result"] = result.tool_result
     if result.failure is not None:
         update["runtime_failure"] = result.failure.model_dump(mode="json")
+    if result.requires_approval:
+        update["pending_approval"] = _runtime_pending_approval(
+            result,
+            run_id=_uuid(state["run_id"]),
+        )
+    return update
+
+
+def _checkpointed_runtime(deps: AgentGraphDependencies) -> BoundedAgentToolRuntime:
+    if not isinstance(deps.tool_runtime, BoundedAgentToolRuntime):
+        raise RuntimeError("checkpointed runtime is not configured")
+    return deps.tool_runtime
+
+
+def _runtime_context(state: AgentGraphState) -> TrustedRunContext:
+    return TrustedRunContext(
+        organization_id=_uuid(state["organization_id"]),
+        actor_id=_uuid(state["actor_id"]),
+        run_id=_uuid(state["run_id"]),
+        prior_results=state.get("runtime_prior_results", {}),
+    )
+
+
+def _runtime_evidence(state: AgentGraphState) -> tuple[RuntimeToolEvidence, ...]:
+    return tuple(
+        RuntimeToolEvidence.model_validate(item) for item in state.get("runtime_evidence", [])
+    )
+
+
+def _runtime_failure_update(
+    failure: RuntimeResult,
+    *,
+    step: str = "failed",
+) -> dict[str, object]:
+    update: dict[str, object] = {"runtime_lifecycle_step": step}
+    if failure.failure is not None:
+        update["runtime_failure"] = failure.failure.model_dump(mode="json")
+    return update
+
+
+async def select_runtime(state: AgentGraphState, deps: AgentGraphDependencies) -> dict[str, object]:
+    runtime = _checkpointed_runtime(deps)
+    selected = await runtime.select(
+        context=_runtime_context(state),
+        request_text=state.get("request_text", ""),
+        context_text="",
+        evidence=_runtime_evidence(state),
+    )
+    if isinstance(selected, RuntimeResult):
+        return _runtime_failure_update(selected)
+    return {
+        "runtime_lifecycle_step": "selected",
+        "runtime_selected_outcome": selected.decision.outcome.value,
+        "runtime_selected_tool_name": selected.tool.name,
+        "runtime_selected_arguments": selected.arguments.model_dump(mode="json"),
+        "runtime_selected_continue_after": selected.decision.continue_after,
+        "runtime_selected_usage": dict(selected.usage),
+    }
+
+
+def _restore_runtime_selection(
+    state: AgentGraphState,
+    runtime: BoundedAgentToolRuntime,
+) -> RuntimeSelection | RuntimeResult:
+    return runtime.restore_selection(
+        outcome=state["runtime_selected_outcome"],
+        tool_name=state["runtime_selected_tool_name"],
+        arguments=state["runtime_selected_arguments"],
+        continue_after=state.get("runtime_selected_continue_after", False),
+        usage=state.get("runtime_selected_usage", {}),
+    )
+
+
+def reserve_runtime(state: AgentGraphState, deps: AgentGraphDependencies) -> dict[str, object]:
+    runtime = _checkpointed_runtime(deps)
+    selection = _restore_runtime_selection(state, runtime)
+    if isinstance(selection, RuntimeResult):
+        return _runtime_failure_update(selection)
+    calls, writes, failure = runtime.reserve(
+        selection=selection,
+        calls=state.get("runtime_call_count", 0),
+        writes=state.get("runtime_write_count", 0),
+    )
+    update: dict[str, object] = {
+        "runtime_call_count": calls,
+        "runtime_write_count": writes,
+    }
+    if failure is not None:
+        update.update(
+            {
+                "runtime_lifecycle_step": "failed",
+                "runtime_failure": {"code": failure.value},
+            }
+        )
+    else:
+        update["runtime_lifecycle_step"] = "reserved"
+    return update
+
+
+async def execute_runtime(
+    state: AgentGraphState, deps: AgentGraphDependencies
+) -> dict[str, object]:
+    runtime = _checkpointed_runtime(deps)
+    selection = _restore_runtime_selection(state, runtime)
+    if isinstance(selection, RuntimeResult):
+        return _runtime_failure_update(selection)
+    if state.get("runtime_lifecycle_step") == "executed":
+        return {}
+    execution = await runtime.execute_selected(
+        selection=selection,
+        context=_runtime_context(state),
+    )
+    if isinstance(execution, RuntimeFailureCode):
+        return {
+            "runtime_lifecycle_step": "failed",
+            "runtime_failure": {"code": execution.value},
+        }
+    return {
+        "runtime_lifecycle_step": "executed",
+        "runtime_execution_result": dict(execution.payload),
+        "runtime_execution_requires_approval": execution.requires_approval,
+        "runtime_execution_outcome": execution.outcome,
+    }
+
+
+def complete_runtime(state: AgentGraphState, deps: AgentGraphDependencies) -> dict[str, object]:
+    runtime = _checkpointed_runtime(deps)
+    selection = _restore_runtime_selection(state, runtime)
+    if isinstance(selection, RuntimeResult):
+        return _runtime_failure_update(selection)
+    from revops.application.ports import ToolExecutionResult
+
+    execution = ToolExecutionResult(
+        payload=state.get("runtime_execution_result", {}),
+        outcome=state.get("runtime_execution_outcome", "completed"),
+        requires_approval=state.get("runtime_execution_requires_approval", False),
+    )
+    result = runtime.complete(
+        selection=selection,
+        execution=execution,
+        evidence=list(_runtime_evidence(state)),
+        calls=state.get("runtime_call_count", 0),
+    )
+    if result.failure is not None:
+        return {
+            "runtime_lifecycle_step": "failed",
+            "runtime_failure": result.failure.model_dump(mode="json"),
+        }
+    update: dict[str, object] = {
+        "runtime_lifecycle_step": "completed",
+        "runtime_outcome": result.outcome.value if result.outcome else None,
+        "runtime_tool_name": result.tool_name,
+        "runtime_tool_arguments": result.tool_arguments,
+        "runtime_tool_result": result.tool_result,
+        "runtime_evidence": [item.model_dump(mode="json") for item in result.evidence],
+        "runtime_prior_results": {
+            **state.get("runtime_prior_results", {}),
+            selection.tool.name: dict(result.tool_result or {}),
+        },
+    }
     if result.requires_approval:
         update["pending_approval"] = _runtime_pending_approval(
             result,

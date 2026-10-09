@@ -36,6 +36,7 @@ from revops.domain.entities.knowledge import (
     KnowledgeScope,
     KnowledgeVersionStatus,
 )
+from revops.domain.values.outreach import DraftLanguage, FollowupStatus, ResearchStatus
 from revops.domain.values.retrieval import RetrievalProvenance, RetrievalScore, RetrievedPassage
 from revops.domain.values.runtime import RuntimeFailureCode, RuntimeOutcome
 from revops.domain.values.score import ScoreTier
@@ -302,6 +303,120 @@ class RuntimeResult:
     evidence: tuple[RuntimeToolEvidence, ...]
     failure: RuntimeFailure | None = None
     requires_approval: bool = False
+
+
+class ResearchCompanyArgs(BaseModel):
+    """Model-authored research fields; tenant and source policy are trusted context."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    contact_id: UUID | None = None
+    objective: str = Field(min_length=1, max_length=500)
+
+
+class PrepareFollowupArgs(BaseModel):
+    """Model-authored follow-up fields without recipient or authorization controls."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    contact_id: UUID | None = None
+    objective: str = Field(min_length=1, max_length=500)
+    language: DraftLanguage
+
+
+class ResearchSourceDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str = Field(min_length=1, max_length=128)
+    url: str = Field(min_length=1, max_length=2_048)
+    retrieved_at: datetime
+    content_hash: str = Field(min_length=64, max_length=64)
+    excerpt: str = Field(min_length=1, max_length=2_000)
+
+
+class ResearchFactDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=128)
+    value: str = Field(min_length=1, max_length=2_000)
+    source_ids: tuple[str, ...] = Field(min_length=1, max_length=16)
+
+
+class ResearchResultDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    status: ResearchStatus
+    facts: tuple[ResearchFactDTO, ...] = Field(max_length=64)
+    sources: tuple[ResearchSourceDTO, ...] = Field(max_length=3)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class ResearchExtractionFact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=128)
+    value: str = Field(min_length=1, max_length=2_000)
+    source_ids: tuple[str, ...] = Field(min_length=1, max_length=16)
+
+
+class ResearchExtractionOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    facts: tuple[ResearchExtractionFact, ...] = Field(max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class GeneratedClaimDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str = Field(min_length=1, max_length=128)
+    text: str = Field(min_length=1, max_length=1_000)
+    source_ids: tuple[str, ...] = Field(min_length=1, max_length=16)
+
+
+class FollowupResultDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    status: FollowupStatus
+    language: DraftLanguage | None = None
+    subject: str | None = Field(default=None, max_length=160)
+    body: str | None = Field(default=None, max_length=6_000)
+    rationale: str | None = Field(default=None, max_length=2_000)
+    claims: tuple[GeneratedClaimDTO, ...] = Field(default_factory=tuple, max_length=64)
+    source_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class FollowupGenerationOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=6_000)
+    language: DraftLanguage
+    rationale: str = Field(min_length=1, max_length=2_000)
+    claims: tuple[GeneratedClaimDTO, ...] = Field(min_length=1, max_length=64)
+
+
+class ClaimVerificationOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: bool
+    unsupported_claim_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    contradictory_claim_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class AgentRunArtifactDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    research: ResearchResultDTO | None = None
+    followup: FollowupResultDTO | None = None
+    status: str = Field(min_length=1, max_length=64)
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
 
 
 class LLMUsage(BaseModel):

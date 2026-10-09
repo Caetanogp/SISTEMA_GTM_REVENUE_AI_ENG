@@ -11,7 +11,7 @@ implementations here.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from types import TracebackType
@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from revops.application.dto import (
     AccountEnrichmentRecord,
+    AgentRunArtifactDTO,
     ApprovalDecisionType,
     CorpusRevision,
     EmbeddingBatch,
@@ -217,6 +218,7 @@ class TrustedRunContext:
     organization_id: UUID
     actor_id: UUID
     run_id: UUID
+    prior_results: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +246,67 @@ class AgentToolRuntime(Protocol):
     async def run(
         self, *, context: TrustedRunContext, request_text: str, context_text: str = ""
     ) -> RuntimeResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchPage:
+    """Sanitized page evidence returned by a bounded research adapter."""
+
+    source_id: str
+    url: str
+    retrieved_at: datetime
+    content_hash: str
+    text: str
+
+
+@runtime_checkable
+class CompanyResearcher(Protocol):
+    """External-read boundary; authorization is enforced by the adapter configuration."""
+
+    async def research(
+        self, *, context: TrustedRunContext, account: Account, objective: str
+    ) -> Sequence[ResearchPage]: ...
+
+
+class ExternalResearchError(RuntimeError):
+    """Sanitized research boundary failure with no provider payload."""
+
+    def __init__(self, code: str, *, retryable: bool = False) -> None:
+        self.code = code
+        self.retryable = retryable
+        super().__init__(code)
+
+
+@runtime_checkable
+class ResearchContextReader(Protocol):
+    """Separate read composition for CRM facts used by outreach."""
+
+    async def read_account_context(
+        self, *, context: TrustedRunContext, account_id: UUID, contact_id: UUID | None
+    ) -> Mapping[str, object]: ...
+
+
+@runtime_checkable
+class OutreachContextProvider(Protocol):
+    """Builds bounded CRM/RAG context without exposing a persistence session."""
+
+    async def build(
+        self,
+        *,
+        context: TrustedRunContext,
+        account_id: UUID,
+        contact_id: UUID | None,
+        objective: str,
+    ) -> Mapping[str, object]: ...
+
+
+@runtime_checkable
+class AgentArtifactReader(Protocol):
+    """Typed, tenant-scoped result read that never invokes the graph."""
+
+    async def get_result(
+        self, *, organization_id: UUID, run_id: UUID
+    ) -> AgentRunArtifactDTO | None: ...
 
 
 T = TypeVar("T")

@@ -1,87 +1,92 @@
 # Autonomous work queue
 
-The only source of work for the SPEC-008 unattended loop. Items run in order and remain inside
+The only source of work for the SPEC-010 closeout loop. Items run in order and remain inside
 their declared file scope. `scripts/autonomous_gate.py` is the sole judge of completion.
 
-- **Tasks file:** `docs/specs/SPEC-008-context-retrieval/tasks.md`
+- **Tasks file:** `docs/specs/SPEC-010-research-and-outreach/tasks.md`
 
-## Item 1 - Retrieval contracts and domain pilot
+The first eighteen items below record implementation work already completed before this queue was
+materialized. They are retained so the deterministic gate can align its task counter. Item 19 is
+the only remaining closeout item.
 
-- **Scope:** `docs/decisions/`, `packages/core/revops/domain/`, `tests/unit/domain/`
-- **Requires:** agreed SPEC-008 spec, plan, and tasks with no unresolved architecture decision
-- **Closes:** 2 tasks.md checkboxes
-- **What:** record the retrieval ADR and implement pure query, score, provenance, budget, and
-  embedding-space invariants.
-- **Done when:** domain tests pass and the domain remains framework-free.
-
-## Item 2 - Application retrieval contract
-
-- **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
-- **Requires:** Item 1
-- **Closes:** 3 tasks.md checkboxes
-- **What:** define DTOs and ports, implement `RetrieveKnowledge`, and assemble bounded untrusted
-  knowledge context with provenance and omission reporting.
-- **Done when:** fake-port tests prove trusted tenant identity, provider behavior, compatibility
-  failure, limits, budgeting, and data-only fencing.
-
-## Item 3 - Persistence retrieval adapter
-
-- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`,
-  `packages/core/revops/infrastructure/`, `tests/unit/domain/`, `tests/unit/application/`,
-  `tests/unit/infrastructure/`, `tests/integration/`
-- **Requires:** Item 2
-- **Closes:** 4 tasks.md checkboxes
-- **What:** resolve active embedding spaces and implement the filtered pgvector query with active
-  revisions, ready versions, tenant isolation, organization override, deterministic ordering, and
-  provenance.
-- **Done when:** PostgreSQL tests prove filtering occurs before ranking/top-k and existing indexes
-  support the bounded query.
-
-## Item 4 - Internal composition wiring
-
-- **Scope:** `apps/`, `packages/core/revops/application/`, `tests/unit/apps/`, `tests/integration/`
-- **Requires:** Item 3
+## Item 1 - Approved SPEC-010 contract
+- **Scope:** `docs/specs/SPEC-010-research-and-outreach/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** wire the retrieval use case through the internal composition root without exposing
-  arbitrary corpus selection or changing write/HITL behavior.
-- **Done when:** application wiring and tenant authorization tests pass.
 
-## Item 5 - Adversarial retrieval coverage
+## Item 2 - Domain outreach values
+- **Scope:** `packages/core/revops/domain/`
+- **Closes:** 1 tasks.md checkbox
 
+## Item 3 - Application DTOs and ports
+- **Scope:** `packages/core/revops/application/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 4 - Bounded research policy
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 5 - Offline adapters
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 6 - Research use case
+- **Scope:** `packages/core/revops/application/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 7 - CRM and RAG context
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 8 - Grounded follow-up generation
+- **Scope:** `packages/core/revops/application/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 9 - Tool registration
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 10 - Result endpoint
+- **Scope:** `apps/api/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 11 - Offline evaluations
+- **Scope:** `evals/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 12 - Runtime v2 selection
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 13 - Runtime v2 reservation
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 14 - Runtime v2 execution
+- **Scope:** `packages/core/revops/infrastructure/agent/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 15 - Runtime v2 completion
+- **Scope:** `packages/core/revops/application/`
+- **Closes:** 1 tasks.md checkbox
+
+## Item 16 - Security and adversarial evidence
 - **Scope:** `tests/adversarial/`
-- **Requires:** Item 4
 - **Closes:** 1 tasks.md checkbox
-- **What:** cover injection-shaped passages, secret-shaped passages, cross-tenant identifiers,
-  historical revisions, invalid limits, and invalid budgets.
-- **Done when:** adversarial retrieval tests pass and no passage can alter policy or trigger a tool.
 
-## Item 6 - Retrieval eval and optional smoke
-
-- **Scope:** `evals/`, `scripts/`, `docs/playbooks/`
-- **Requires:** Item 5
-- **Closes:** 2 tasks.md checkboxes
-- **What:** add the deterministic `rag_retrieval_contract` eval and document an explicitly
-  cost-confirmed optional live smoke.
-- **Done when:** the offline retrieval contract scores 1.00 and live execution is never required
-  by CI.
-
-## Item 7 - Traceability update
-
-- **Scope:** `docs/requirements/`, `docs/specs/`, `docs/decisions/`
-- **Requires:** Item 6
+## Item 17 - Traceability evidence
+- **Scope:** `docs/requirements/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** update PDF traceability and retrieval evidence with concrete file and line references.
-- **Done when:** `python scripts/check_pdf_traceability.py` passes and every retrieval obligation
-  has implemented or remaining-gap evidence.
 
-## Item 8 - Closeout and verification
-
-- **Scope:** `docs/`, `.handoff/`, `tests/`, `packages/`, `apps/`
-- **Requires:** Items 1-7
+## Item 18 - Legacy compatibility
+- **Scope:** `tests/integration/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** complete the security review, handoff evidence, full verification, and queue closeout.
-- **Done when:** every task is checked, the full gate is green, and the handoff records command
-  output and commit evidence.
+
+## Item 19 - Bounded SPEC-010 pilot and verification
+- **Scope:** `docs/specs/SPEC-010-research-and-outreach/`, `docs/requirements/`, `.handoff/`
+- **Requires:** the pilot must use the v2 lifecycle and the existing integration database
+- **Closes:** 1 tasks.md checkbox
+- **What:** run the focused v2 lifecycle pilot, full verification commands, and record concrete evidence in the handoff without changing product scope or controls.
+- **Done when:** the focused pilot, full gate, and clean-tree checks pass; no overnight loop is needed after this item because the approved SPEC-010 implementation queue is exhausted.
 
 ## Loop rules
 
@@ -91,6 +96,5 @@ their declared file scope. `scripts/autonomous_gate.py` is the sole judge of com
   security, dependency, destructive, external-action, or unverifiable decisions.
 - No push, merge, work on `main`/`develop`, skipped tests, weakened checks, or checkout temp files.
 - Commit one logical item before checking its task evidence.
-- An executor may return `ready_for_gate` after focused evidence exists. It must not run the
-  autonomous gate after changing task checkboxes; the supervisor commits the turn and runs the gate
-  from the clean parent process.
+- This queue is a bounded closeout queue, not an overnight feature-development queue. A future
+  long loop requires a new approved spec with real unchecked implementation tasks.

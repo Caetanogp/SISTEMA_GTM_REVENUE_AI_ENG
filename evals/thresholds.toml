@@ -19,3 +19,9 @@ min_accuracy = 0.80
 
 [llm_gateway_contract]
 min_exact_match = 1.00
+
+[research_outreach_contract]
+min_exact_match = 1.00
+
+[grounded_generation_contract]
+min_exact_match = 1.00

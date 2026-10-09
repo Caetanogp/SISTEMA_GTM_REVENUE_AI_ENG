@@ -11,8 +11,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from langchain_core.runnables import RunnableConfig
-from revops.application.dto import ApprovalDecisionInput, ApprovalDecisionType, CreateTaskDraft
-from revops.application.ports import LLMGateway
+from revops.application.dto import (
+    ApprovalDecisionInput,
+    ApprovalDecisionType,
+    CreateTaskDraft,
+    FollowupResultDTO,
+    ResearchResultDTO,
+)
+from revops.application.ports import EmbeddingProvider, LLMGateway
 from revops.domain.errors import InvalidTransitionError, NotAuthorizedError, PolicyViolationError
 from revops.infrastructure.persistence.models import AgentRun as AgentRunModel
 from revops.infrastructure.persistence.models import AgentRunEvent as AgentRunEventModel
@@ -21,10 +27,16 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from apps.api.auth import ApiPrincipal, get_current_principal
-from apps.api.dependencies import get_llm_gateway, get_session_factory, get_settings
+from apps.api.dependencies import (
+    get_embedding_provider,
+    get_llm_gateway,
+    get_session_factory,
+    get_settings,
+)
 from apps.api.runtime import open_agent_runner
 from apps.api.schemas import (
     AgentRunListItem,
+    AgentRunResultResponse,
     ApprovalDecisionRequest,
     ApprovalResponse,
     StartAgentRunRequest,
@@ -85,6 +97,7 @@ async def start_agent_run(
     session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings: Annotated[ApiSettings, Depends(get_settings)],
     llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> StartAgentRunResponse:
     result = None
     snapshot = None
@@ -95,6 +108,7 @@ async def start_agent_run(
             session_factory=session_factory,
             settings=settings,
             llm_gateway=llm_gateway,
+            embedding_provider=embedding_provider,
         ) as runner,
     ):
         try:
@@ -159,6 +173,55 @@ async def list_agent_runs(
         return items
 
 
+@router.get("/{run_id}/result", response_model=AgentRunResultResponse)
+async def get_agent_run_result(
+    run_id: UUID,
+    current_user: Annotated[ApiPrincipal, Depends(get_current_principal)],
+    session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+    llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+) -> AgentRunResultResponse:
+    async with session_factory() as session:
+        run_row = await _visible_run_or_404(
+            session,
+            organization_id=current_user.organization_id,
+            run_id=run_id,
+        )
+        async with open_agent_runner(
+            session=session,
+            session_factory=session_factory,
+            settings=settings,
+            llm_gateway=llm_gateway,
+            embedding_provider=embedding_provider,
+            graph_version=run_row.graph_version,
+        ) as runner:
+            snapshot = await runner.graph.aget_state(_run_config(run_id))
+    values = snapshot.values
+    tool_name = values.get("runtime_tool_name")
+    payload = values.get("runtime_tool_result")
+    if not isinstance(payload, dict):
+        return AgentRunResultResponse(status="artifact_not_recorded")
+    try:
+        if tool_name == "research_company":
+            research = ResearchResultDTO.model_validate(payload)
+            return AgentRunResultResponse(
+                status=research.status.value,
+                research=research,
+                limitations=research.limitations,
+            )
+        if tool_name == "prepare_followup":
+            followup = FollowupResultDTO.model_validate(payload)
+            return AgentRunResultResponse(
+                status=followup.status.value,
+                followup=followup,
+                limitations=followup.limitations,
+            )
+    except ValueError:
+        return AgentRunResultResponse(status="artifact_unavailable")
+    return AgentRunResultResponse(status="artifact_not_recorded")
+
+
 @router.get("/{run_id}/stream")
 async def stream_agent_run(
     run_id: UUID,
@@ -166,10 +229,11 @@ async def stream_agent_run(
     session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings: Annotated[ApiSettings, Depends(get_settings)],
     llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> StreamingResponse:
     async def _events() -> AsyncIterator[str]:
         async with session_factory() as session:
-            await _visible_run_or_404(
+            run_row = await _visible_run_or_404(
                 session,
                 organization_id=current_user.organization_id,
                 run_id=run_id,
@@ -179,6 +243,8 @@ async def stream_agent_run(
                 session_factory=session_factory,
                 settings=settings,
                 llm_gateway=llm_gateway,
+                embedding_provider=embedding_provider,
+                graph_version=run_row.graph_version,
             ) as runner:
                 snapshot = await runner.graph.aget_state(_run_config(run_id))
                 rows = (
@@ -215,11 +281,12 @@ async def approve_agent_run(
     session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings: Annotated[ApiSettings, Depends(get_settings)],
     llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> ApprovalResponse:
     result = None
     final_snapshot = None
     async with session_factory() as session:
-        await _visible_run_or_404(
+        run_row = await _visible_run_or_404(
             session,
             organization_id=current_user.organization_id,
             run_id=run_id,
@@ -229,6 +296,8 @@ async def approve_agent_run(
             session_factory=session_factory,
             settings=settings,
             llm_gateway=llm_gateway,
+            embedding_provider=embedding_provider,
+            graph_version=run_row.graph_version,
         ) as runner:
             snapshot = await runner.graph.aget_state(_run_config(run_id))
             decision = ApprovalDecisionInput(

@@ -43,7 +43,8 @@ def _render_candidates(candidates: list[AccountCandidate]) -> str:
     return "\n\n".join(blocks)
 
 
-_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v1.md"
+_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v2.md"
+_LEGACY_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v1.md"
 
 
 def load_agent_tool_runtime_prompt(
@@ -52,7 +53,25 @@ def load_agent_tool_runtime_prompt(
     evidence: tuple[RuntimeToolEvidence, ...],
 ) -> str:
     """Fence untrusted request/context and expose only sanitized prior evidence."""
-    template = _RUNTIME_PROMPT_PATH.read_text(encoding="utf-8")
+    return _load_runtime_prompt(_RUNTIME_PROMPT_PATH, request_text, context_text, evidence)
+
+
+def load_legacy_agent_tool_runtime_prompt(
+    request_text: str,
+    context_text: str,
+    evidence: tuple[RuntimeToolEvidence, ...],
+) -> str:
+    """Load the SPEC-009 contract for checkpoints created before SPEC-010."""
+    return _load_runtime_prompt(_LEGACY_RUNTIME_PROMPT_PATH, request_text, context_text, evidence)
+
+
+def _load_runtime_prompt(
+    path: Path,
+    request_text: str,
+    context_text: str,
+    evidence: tuple[RuntimeToolEvidence, ...],
+) -> str:
+    template = path.read_text(encoding="utf-8")
     rendered_evidence = "\n".join(
         f"- sequence={item.sequence} tool={item.tool_name} risk={item.risk} outcome={item.outcome}"
         for item in evidence

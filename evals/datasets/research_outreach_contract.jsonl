@@ -1,0 +1,4 @@
+{"id":"authorized_english_facts","authorized":true,"source_ids":["home"],"fact_source_ids":["home"],"facts":["segment"],"expected_complete":true,"expected_pass":true}
+{"id":"authorized_portuguese_partial","authorized":true,"source_ids":["about"],"fact_source_ids":[],"facts":[],"expected_complete":false,"expected_pass":true}
+{"id":"foreign_source_reference","authorized":true,"source_ids":["home"],"fact_source_ids":["foreign"],"facts":["segment"],"expected_complete":true,"expected_pass":false}
+{"id":"unauthorized_host","authorized":false,"source_ids":["home"],"fact_source_ids":["home"],"facts":["segment"],"expected_complete":true,"expected_pass":false}

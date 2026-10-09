@@ -103,3 +103,15 @@ class AgentGraphState(TypedDict, total=False):
     runtime_tool_result: dict[str, Any]
     runtime_evidence: list[RuntimeEvidenceSnapshot]
     runtime_failure: RuntimeFailureSnapshot
+    runtime_lifecycle_step: str
+    runtime_call_count: int
+    runtime_write_count: int
+    runtime_selected_outcome: str
+    runtime_selected_tool_name: str
+    runtime_selected_arguments: dict[str, Any]
+    runtime_selected_continue_after: bool
+    runtime_selected_usage: dict[str, Any]
+    runtime_execution_result: dict[str, Any]
+    runtime_execution_outcome: str
+    runtime_execution_requires_approval: bool
+    runtime_prior_results: dict[str, Any]
