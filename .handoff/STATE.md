@@ -1,10 +1,10 @@
 ---
 agent: codex
-updated_at: 2026-10-07
+updated_at: 2026-10-08
 branch: develop
 spec: SPEC-010-research-and-outreach
-phase: "SPEC-010 merged into develop; awaiting user publication"
-status: integrated
+phase: "SPEC-010 merged and published on origin/develop"
+status: published
 ---
 
 # Current state
@@ -46,8 +46,8 @@ needed for this spec because there are no remaining implementation tasks.
 
 ## Next
 
-1. Publish `develop` only through the user's explicit `git push`; agents do not push.
-2. Before any next autonomous loop, materialize and approve the next spec, plan, and tasks. Do not infer SPEC-011+ scope from the roadmap.
+1. Decide the next product scope with the user; SPEC-011 is only the current roadmap candidate.
+2. Materialize and approve the next spec, plan, and tasks before any implementation or autonomous loop. Do not infer SPEC-011+ scope from the roadmap.
 
 ## Gotchas
 
