@@ -1,10 +1,10 @@
 ---
 agent: codex
 updated_at: 2026-10-07
-branch: feature/SPEC-010-research-and-outreach
+branch: develop
 spec: SPEC-010-research-and-outreach
-phase: "SPEC-010 implementation and bounded closeout verification complete"
-status: ready_for_merge
+phase: "SPEC-010 merged into develop; awaiting user publication"
+status: integrated
 ---
 
 # Current state
@@ -16,7 +16,7 @@ the approved PDF-aligned SPEC-010 scope, without sending messages or changing CR
 
 ## Now
 
-SPEC-010 implementation is complete on `feature/SPEC-010-research-and-outreach`. The v2 runtime
+SPEC-010 implementation is complete and merged into `develop`. The v2 runtime
 uses checkpointed selection, reservation, execution, and completion nodes; v1 resume behavior is
 preserved. The approved closeout queue is complete. No overnight development loop is running or
 needed for this spec because there are no remaining implementation tasks.
@@ -46,11 +46,8 @@ needed for this spec because there are no remaining implementation tasks.
 
 ## Next
 
-1. Run `python scripts/autonomous_gate.py` on the clean tree and record its final `GOAL ACHIEVED` output.
-2. Run the complete `docs/playbooks/verify-before-done.md` command set once more if the gate requires it.
-3. Review the feature diff against `develop`, then merge this feature branch into `develop` after user confirmation.
-4. Publish `develop` only through the user's explicit `git push`; agents do not push.
-5. Before any next autonomous loop, materialize and approve the next spec, plan, and tasks. Do not infer SPEC-011+ scope from the roadmap.
+1. Publish `develop` only through the user's explicit `git push`; agents do not push.
+2. Before any next autonomous loop, materialize and approve the next spec, plan, and tasks. Do not infer SPEC-011+ scope from the roadmap.
 
 ## Gotchas
 
@@ -67,7 +64,7 @@ needed for this spec because there are no remaining implementation tasks.
 
 ```powershell
 Set-Location -LiteralPath "C:\Dev\SISTEMA_PORTFOLIO_AI_ENG"
-git switch feature/SPEC-010-research-and-outreach
+git switch develop
 $env:PYTHONPATH = (Join-Path (Get-Location).Path 'packages\core') + ';' + (Get-Location).Path
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
