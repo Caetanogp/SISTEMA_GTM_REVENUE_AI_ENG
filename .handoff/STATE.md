@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-10
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 1 implemented; awaiting supervisor commit and autonomous gate"
-status: ready_for_gate
+phase: "Item 1 pilot passed; ready to launch the long supervisor"
+status: in_progress
 ---
 
 # Current state
@@ -15,19 +15,19 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Item 1 has an uncommitted pure-domain implementation and focused verification. The supervisor must review and commit this item before running the autonomous gate.
+Item 1 domain policy is implemented and committed by the supervisor; the next active queue item is Item 2.
 
 ## Done
 
 - Reply policy is implemented in `packages/core/revops/domain/values/reply.py`; it contains the nine-category mapping, finite `[0, 1]` confidence validation, inclusive `0.80` threshold, `en`/`pt` language compatibility, bounded half-open evidence offsets, conservative opt-out precedence, and manual-review fallback.
 - Focused contract coverage is in `tests/unit/domain/values/test_reply.py`; `pytest tests/unit/domain -q` passed (193 passed), `ruff check packages/core/revops/domain tests/unit/domain` passed, `ruff format --check packages/core/revops/domain tests/unit/domain` passed, `mypy packages/core/revops/domain` passed, and `lint-imports` kept all 4 contracts.
-- The first SPEC-011 checkbox is ticked in `docs/specs/SPEC-011-reply-intelligence/tasks.md` after observed evidence. No commit was created by this executor.
+- The first SPEC-011 checkbox is ticked in `docs/specs/SPEC-011-reply-intelligence/tasks.md` after observed evidence. Pilot commit `a3f954c` is on the feature branch and the gate advanced to Item 2.
 
 ## Next
 
-1. Supervisor: inspect the Item 1 diff and create its single logical commit.
-2. Supervisor: run the autonomous gate from the clean parent process; do not run it before the commit.
-3. If the gate advances, begin only Item 2 through the autonomous supervisor.
+1. Launch the full supervisor with `MaxTurns 100` from this clean feature branch.
+2. Monitor executor commits, gate progress, `.handoff/STATE.md`, and external artifact logs.
+3. Stop on gate exit 0 or 2; do not bypass a human or architecture escalation.
 
 ## Gotchas
 
