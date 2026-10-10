@@ -727,6 +727,74 @@ class Task(Base):
     status: Mapped[str] = mapped_column(String(32), default="open")
 
 
+class Reply(Base):
+    """Immutable authenticated inbound reply; raw text is retained only in this record."""
+
+    __tablename__ = "replies"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_replies_org_idempotency"),
+        UniqueConstraint("organization_id", "id", name="uq_replies_org_id"),
+        ForeignKeyConstraint(
+            ["organization_id", "account_id"], ["accounts.organization_id", "accounts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "contact_id"], ["contacts.organization_id", "contacts.id"]
+        ),
+        Index("ix_replies_organization_account", "organization_id", "account_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    account_id: Mapped[UUID] = mapped_column(index=True)
+    contact_id: Mapped[UUID | None] = mapped_column(default=None, index=True)
+    submitted_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    text: Mapped[str] = mapped_column(String(8_000))
+    language: Mapped[str] = mapped_column(String(2))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime]
+
+
+class ReplyClassificationRequest(Base):
+    """One immutable reservation joining an inbound reply to its unique agent run."""
+
+    __tablename__ = "reply_classification_requests"
+    __table_args__ = (
+        UniqueConstraint("reply_id", name="uq_reply_classification_requests_reply"),
+        UniqueConstraint("run_id", name="uq_reply_classification_requests_run"),
+        ForeignKeyConstraint(
+            ["organization_id", "reply_id"], ["replies.organization_id", "replies.id"]
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    reply_id: Mapped[UUID] = mapped_column(index=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
+    requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime]
+
+
+class ReplyFeedback(Base):
+    """Append-only correction history for a reply classification run."""
+
+    __tablename__ = "reply_feedback"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "idempotency_key", name="uq_reply_feedback_org_idempotency"
+        ),
+        Index("ix_reply_feedback_organization_run", "organization_id", "run_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
+    corrected_category: Mapped[str] = mapped_column(String(32))
+    comment: Mapped[str | None] = mapped_column(String(2_000), default=None)
+    submitted_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime]
+
+
 class AgentRun(Base):
     """One agent invocation. Infrastructure-only — no domain entity (ADR-0002).
 
