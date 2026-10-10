@@ -4,6 +4,8 @@ This queue is the only source of unattended work for the approved SPEC-011 imple
 run in order, each item closes exactly one checkbox in `docs/specs/SPEC-011-reply-intelligence/tasks.md`,
 and `scripts/autonomous_gate.py` is the completion judge.
 
+- **Tasks file:** `docs/specs/SPEC-011-reply-intelligence/tasks.md`
+
 ## Item 1 - Reply domain policy
 - **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
