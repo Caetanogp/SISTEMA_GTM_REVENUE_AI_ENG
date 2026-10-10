@@ -49,9 +49,10 @@ async def _seed_reply_subjects(
     session: AsyncSession,
 ) -> tuple[UUID, UUID, UUID, UUID]:
     organization_id, actor_id, account_id, contact_id = (uuid4() for _ in range(4))
+    session.add(Organization(id=organization_id, name="Reply persistence", demo_mode=True))
+    await session.flush()
     session.add_all(
         [
-            Organization(id=organization_id, name="Reply persistence", demo_mode=True),
             User(
                 id=actor_id,
                 organization_id=organization_id,

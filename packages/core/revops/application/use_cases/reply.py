@@ -143,9 +143,9 @@ class ReserveReplyClassification:
                 model_config_json=run_config.model_config_json,
                 metadata={"reply_id": str(reply.id)},
             )
-            await uow.classification_requests.add(request)
             await uow.runs.add(run)
             await uow.runs.add_event(event)
+            await uow.classification_requests.add(request)
             await uow.commit()
             return ReplyClassificationReservation(reply=reply, request=request)
 

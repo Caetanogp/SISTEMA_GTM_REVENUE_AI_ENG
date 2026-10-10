@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-10
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 3 persistence and idempotency implemented; PostgreSQL verification pending"
+phase: "Item 3 verified; ready to resume the autonomous supervisor at Item 4"
 status: in_progress
 ---
 
@@ -15,8 +15,8 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Item 3 persistence and idempotency are implemented in the worktree. PostgreSQL integration evidence
-is pending because the local Docker daemon is unavailable to this sandbox.
+Item 3 persistence and idempotency are implemented and verified against the local PostgreSQL service.
+The supervisor can resume at Item 4 after the verification commit.
 
 ## Done
 
@@ -32,13 +32,13 @@ is pending because the local Docker daemon is unavailable to this sandbox.
   `tests/integration/test_reply_persistence.py`. Transactional advisory locks serialize the existing
   read-then-create contracts for reply registration, classification reservation, and feedback replay.
 - Observed non-PostgreSQL verification for Item 3: `ruff check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed; `ruff format --check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed (28 files); `python -m py_compile` passed for all changed Python files; `lint-imports` kept all 4 contracts; `git diff --check` passed; the focused test collected one integration test.
-- Item 3 cannot yet be checked: `docker compose ps` could not connect to the Docker daemon, and therefore no reachable PostgreSQL exists for the required migration/concurrency test. `alembic upgrade head --sql` also cannot serve as a substitute because historical migration `6d7c8e9f0a11` performs an online data backfill.
+- Item 3 verification was subsequently completed after Docker became available: `docker compose up -d` started healthy PostgreSQL/Redis; migration `c4d5e6f7a8b9` applied; `pytest tests/integration/test_reply_persistence.py -q` -> 1 passed; Ruff, format check, mypy, and `git diff --check` passed. The reservation order was corrected to persist the run and started event before its FK-backed classification request.
 
 ## Next
 
-1. Start or make the repository PostgreSQL service reachable, then run `pytest tests/integration/test_reply_persistence.py -q` with the documented `PYTHONPATH`.
-2. If that passes, tick only Item 3's checkbox, update this handoff with the observed result, and let the supervisor commit and run `python scripts/autonomous_gate.py` from the clean parent process.
-3. Do not begin Item 4 until the Item 3 commit and gate advancement exist.
+1. Commit the Item 3 verification fix and evidence, then run the gate from the clean parent process.
+2. Resume the supervisor at Item 4 with the long-loop command.
+3. Monitor executor commits, gate progress, and external artifacts; stop on exit 0 or 2.
 
 ## Gotchas
 
@@ -47,8 +47,7 @@ is pending because the local Docker daemon is unavailable to this sandbox.
 - Do not delete or reset `.handoff/.autonomous_gate_state.json`; the gate reboots its baseline when the task count changes.
 - The queue uses exact required paths so the gate can reject false task completion.
 - Pytest reports a non-fatal warning because the restricted sandbox cannot update `.pytest_cache`; test execution itself passed.
-- Docker is unavailable to this executor (`//./pipe/docker_engine` cannot be opened), so integration
-  tests that require PostgreSQL cannot currently produce passing evidence here.
+- Docker must remain running while integration items execute; current Docker services are healthy.
 
 ## Resume
 
@@ -62,3 +61,9 @@ $env:PYTHONIOENCODING = 'utf-8'
 ## Open questions
 
 None for the approved SPEC-011 scope. A newly discovered product or security choice must stop the queue and be brought back for deliberate design.
+
+## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. A reachable PostgreSQL service is required to run the mandatory migration and concurrency/idempotency evidence. Making that external service available requires human action in this sandbox.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
