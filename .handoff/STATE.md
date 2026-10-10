@@ -50,3 +50,15 @@ $env:PYTHONIOENCODING = 'utf-8'
 ## Open questions
 
 None for the approved SPEC-011 scope. A newly discovered product or security choice must stop the queue and be brought back for deliberate design.
+
+## Autonomous loop HALT (2026-10-10T21:19:14+00:00)
+
+Autonomous queue configuration is invalid: queue is missing its `- **Tasks file:** `...`` metadata line
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-10T21:19:42+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
