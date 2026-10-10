@@ -68,3 +68,15 @@ The loop stopped itself. Do not restart it against the same queue item without a
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. human_required: Item 1 requires inventing public reply-policy contract values (confidence/evidence boundaries and deterministic next-action enum/mapping). The spec, plan, ADR-0019, PDF traceability, and existing domain contracts do not select a dominant safe mapping or thresholds. No files were edited.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-10T21:21:31+00:00)
+
+Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md', 'docs/decisions/ADR-0019-reply-intelligence-runtime.md', 'docs/specs/SPEC-011-reply-intelligence/plan.md', 'docs/specs/SPEC-011-reply-intelligence/spec.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-10T21:22:03+00:00)
+
+Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/', 'docs/specs/SPEC-011-reply-intelligence/', 'docs/decisions/ADR-0019-reply-intelligence-runtime.md'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
