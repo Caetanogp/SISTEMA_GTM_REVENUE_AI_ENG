@@ -1,70 +1,47 @@
 ---
 agent: codex
-updated_at: 2026-10-08
-branch: develop
-spec: SPEC-010-research-and-outreach
-phase: "SPEC-010 merged and published on origin/develop"
-status: published
+updated_at: 2026-10-10
+branch: feature/SPEC-011-reply-intelligence
+spec: SPEC-011-reply-intelligence
+phase: "approved docs materialized; preparing real item 1 pilot"
+status: in_progress
 ---
 
 # Current state
 
 ## Goal
 
-Implement bounded, tenant-safe company research and bilingual grounded follow-up preparation from
-the approved PDF-aligned SPEC-010 scope, without sending messages or changing CRM records.
+Implement bounded bilingual reply classification, recommended next actions, immutable feedback, and offline evidence without adding external writes or changing existing runtimes.
 
 ## Now
 
-SPEC-010 implementation is complete and merged into `develop`. The v2 runtime
-uses checkpointed selection, reservation, execution, and completion nodes; v1 resume behavior is
-preserved. The approved closeout queue is complete. No overnight development loop is running or
-needed for this spec because there are no remaining implementation tasks.
+The approved SPEC-011 documents, ADR-0019, eight-item autonomous queue, and roadmap status are materialized on this feature branch. No SPEC-011 product code has been implemented or verified yet. The first real pilot is Item 1, domain policy, before the long supervisor run.
 
 ## Done
 
-- Implementation commit: `c4ca593 feat(spec-010): checkpoint research runtime lifecycle`.
-- Queue/closeout commit: `567eb3a docs(spec-010): add bounded closeout queue`.
-- SPEC-010 scope, plan, ADR-0018, tasks, security boundaries, and PDF traceability are materialized.
-- External research is disabled by default and only permits explicitly configured HTTPS company
-  pages with bounded response/text/deadline limits, DNS/IP validation, no redirects, and no proxy
-  trust.
-- Follow-up drafts are bilingual, structured, evidence-referenced, and verifier-gated. No send,
-  calendar, CRM mutation, or automatic sequence is in scope.
-- Existing SPEC-009 v1 runs remain on the legacy graph composition; new runs use
-  `single-agent-tool-runtime.v2`.
-
-## Verification evidence
-
-- Pilot: `pytest tests/integration/test_agent_runs_api.py tests/unit/infrastructure/agent/test_runtime_nodes.py tests/unit/application/use_cases/test_agent_tool_runtime.py -q` -> 15 passed.
-- Unit: `pytest tests/unit -q` -> 467 passed.
-- Integration: `pytest tests/integration -q` -> 47 passed, 3 known SQLAlchemy connection-cleanup warnings.
-- Adversarial: `pytest tests/adversarial -q` -> 30 passed.
-- Evals: `python -m evals.run --suite all` -> all 8 suites passed at 1.00; research and grounded-generation contracts are mandatory and green.
-- Static/security: `ruff check .`, `ruff format --check .`, `mypy .` (188 files), `lint-imports` (4 contracts kept), `python scripts/check_agent_docs.py`, `python scripts/check_pdf_traceability.py` (86 rows), and `gitleaks detect --no-git` all passed.
-- Docker integration dependency: Docker Server `27.5.1`, 2 containers running.
+- Repository baseline confirmed clean on `develop`, HEAD `42068fa`, Docker server `27.5.1`.
+- SPEC-010 closeout is merged and published; prior evidence remains in git history and the archived handoff.
+- Approved scope decisions are recorded in `docs/specs/SPEC-011-reply-intelligence/spec.md` and `plan.md`.
 
 ## Next
 
-1. Decide the next product scope with the user; SPEC-011 is only the current roadmap candidate.
-2. Materialize and approve the next spec, plan, and tasks before any implementation or autonomous loop. Do not infer SPEC-011+ scope from the roadmap.
+1. Validate the new docs, queue, task count, traceability, and ordinary gate on the feature branch.
+2. Commit the documentation baseline, then run the real bounded Item 1 pilot with `StopAfterItem 1`.
+3. If Item 1 creates a commit and the gate advances, launch the full supervisor with `MaxTurns 100`.
+4. Monitor the supervisor output, git log, gate state, and external artifact log; stop on exit 0 or 2.
 
 ## Gotchas
 
-- The PDF at `docs/Agentic_GTM_Revenue_Operations_Platform_Guia_Projeto.pdf` remains the product
-  source of truth.
-- New research requires explicit authorized hosts and paths; an account domain alone never grants
-  network access.
-- Research content, CRM text, RAG passages, prior tool results, and model output are untrusted data.
-  Tenant identity, permissions, risk, and HITL remain deterministic.
-- The SPEC-010 queue is a bounded closeout queue, not an overnight feature-development queue. A
-  long loop is appropriate only after a future approved spec has real unchecked implementation work.
+- The authoritative checkout is `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive checkout is stale and must not be used.
+- Set `PYTHONPATH` to `packages\\core;repo-root` before Python checks to avoid stale editable imports.
+- Do not delete or reset `.handoff/.autonomous_gate_state.json`; the gate reboots its baseline when the task count changes.
+- The queue uses exact required paths so the gate can reject false task completion.
+- Unexpected public-contract, dependency, destructive, security, or non-dominant architecture choices remain HUMAN_REQUIRED.
 
 ## Resume
 
 ```powershell
 Set-Location -LiteralPath "C:\Dev\SISTEMA_PORTFOLIO_AI_ENG"
-git switch develop
 $env:PYTHONPATH = (Join-Path (Get-Location).Path 'packages\core') + ';' + (Get-Location).Path
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
@@ -72,5 +49,4 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-No product question is open for SPEC-010. Any architectural choice outside the approved plan
-requires a deliberate design pass before coding.
+None for the approved SPEC-011 scope. A newly discovered product or security choice must stop the queue and be brought back for deliberate design.
