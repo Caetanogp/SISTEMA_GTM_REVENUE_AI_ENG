@@ -7,11 +7,14 @@ and `scripts/autonomous_gate.py` is the completion judge.
 - **Tasks file:** `docs/specs/SPEC-011-reply-intelligence/tasks.md`
 
 ## Item 1 - Reply domain policy
-- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`, `docs/specs/SPEC-011-reply-intelligence/`, `docs/decisions/ADR-0019-reply-intelligence-runtime.md`, `.handoff/AUTONOMOUS_QUEUE.md`
+- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`, `docs/specs/SPEC-011-reply-intelligence/`, `docs/decisions/ADR-0019-reply-intelligence-runtime.md`, `.handoff/AUTONOMOUS_QUEUE.md`, `scripts/codex_loop_supervisor.py`, `tests/unit/scripts/test_codex_loop_supervisor.py`
 - **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Closes:** 1 tasks.md checkbox
 - **What:** implement immutable reply values, nine categories, the approved category-to-action mapping, confidence threshold `0.80`, bilingual policy, evidence boundaries, and unsubscribe precedence.
 - **Done when:** focused domain tests pass, the item commit is created by the supervisor, and the gate advances.
+
+The supervisor paths above are bootstrap-only changes already reviewed and committed before the
+pilot; executors remain prohibited from editing supervisor controls.
 
 ## Item 2 - Application contracts
 - **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
