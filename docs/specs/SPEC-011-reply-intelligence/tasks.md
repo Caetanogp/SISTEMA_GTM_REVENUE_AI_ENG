@@ -1,7 +1,7 @@
 # SPEC-011: Reply Intelligence Tasks
 
 - [x] Add reply domain values and deterministic classification policy for nine bilingual categories — verified by focused domain tests
-- [ ] Add reply DTOs, ports, use cases, and canonical tenant/contact validation — verified by application unit tests and mypy
+- [x] Add reply DTOs, ports, use cases, and canonical tenant/contact validation — verified by application unit tests and mypy
 - [ ] Add additive replies, classification requests, and feedback persistence with atomic reservation/idempotency — verified by migration and PostgreSQL integration tests
 - [ ] Add versioned prompt, low-risk tool, dedicated checkpointed reply graph, and bounded artifacts — verified by runtime unit tests and prompt contract tests
 - [ ] Add authenticated reply/classification/result/feedback APIs without changing existing graph compositions — verified by API integration tests

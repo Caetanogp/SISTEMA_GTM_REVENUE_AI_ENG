@@ -37,6 +37,13 @@ from revops.domain.entities.knowledge import (
     KnowledgeVersionStatus,
 )
 from revops.domain.values.outreach import DraftLanguage, FollowupStatus, ResearchStatus
+from revops.domain.values.reply import (
+    ReplyCategory,
+    ReplyClassificationStatus,
+    ReplyLanguage,
+    ReplyNextAction,
+    ReplyText,
+)
 from revops.domain.values.retrieval import RetrievalProvenance, RetrievalScore, RetrievedPassage
 from revops.domain.values.runtime import RuntimeFailureCode, RuntimeOutcome
 from revops.domain.values.score import ScoreTier
@@ -417,6 +424,74 @@ class AgentRunArtifactDTO(BaseModel):
     followup: FollowupResultDTO | None = None
     status: str = Field(min_length=1, max_length=64)
     limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+class RegisterReplyArgs(BaseModel):
+    """Untrusted reply fields; organization and author come from authentication."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    contact_id: UUID | None = None
+    text: str = Field(min_length=1, max_length=8_000)
+    language: ReplyLanguage
+
+    def to_domain(self) -> ReplyText:
+        return ReplyText(value=self.text, language=self.language)
+
+
+class ReplyEvidenceDTO(BaseModel):
+    """One half-open evidence range into the authorized current reply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(ge=1)
+
+
+class ReplyClassificationOutput(BaseModel):
+    """Strict provider output; domain policy decides whether it is safe to use."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: ReplyCategory
+    confidence: float = Field(ge=0, le=1)
+    language: ReplyLanguage
+    evidence: tuple[ReplyEvidenceDTO, ...] = Field(default_factory=tuple, max_length=32)
+    ambiguous: bool = False
+    limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyResultDTO:
+    """Typed, sanitized classification result stored in a run artifact."""
+
+    category: ReplyCategory
+    status: ReplyClassificationStatus
+    recommended_action: ReplyNextAction
+    confidence: float
+    language: ReplyLanguage
+    evidence: tuple[ReplyEvidenceDTO, ...]
+    limitations: tuple[str, ...]
+
+
+class AppendReplyFeedbackArgs(BaseModel):
+    """A correction is append-only and may not replace the original result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    corrected_category: ReplyCategory
+    comment: str | None = Field(default=None, min_length=1, max_length=2_000)
+
+
+class ReplyRunConfig(BaseModel):
+    """Trusted runtime provenance required before a classification run is reserved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    graph_version: str = Field(min_length=1, max_length=128)
+    prompt_version: str = Field(min_length=1, max_length=128)
+    model_config_json: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class LLMUsage(BaseModel):

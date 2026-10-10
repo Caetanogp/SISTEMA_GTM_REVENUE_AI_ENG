@@ -57,6 +57,7 @@ from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersion
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
 from revops.domain.entities.touchpoint import Touchpoint
+from revops.domain.values.reply import ReplyCategory, ReplyText
 from revops.domain.values.retrieval import EmbeddingSpace
 from revops.domain.values.risk import RiskLevel
 
@@ -309,6 +310,83 @@ class AgentArtifactReader(Protocol):
     ) -> AgentRunArtifactDTO | None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ReplyRecord:
+    """An immutable authenticated inbound reply, scoped to one organization."""
+
+    id: UUID
+    organization_id: UUID
+    account_id: UUID
+    contact_id: UUID | None
+    submitted_by: UUID
+    reply: ReplyText
+    idempotency_key: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyClassificationRequestRecord:
+    """The one durable reservation that binds a reply to an agent run."""
+
+    id: UUID
+    organization_id: UUID
+    reply_id: UUID
+    run_id: UUID
+    requested_by: UUID
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyFeedbackRecord:
+    """One immutable human correction linked to the classification run."""
+
+    id: UUID
+    organization_id: UUID
+    run_id: UUID
+    corrected_category: ReplyCategory
+    comment: str | None
+    submitted_by: UUID
+    idempotency_key: str
+    created_at: datetime
+
+
+@runtime_checkable
+class ReplyRepository(Protocol):
+    async def get(self, organization_id: UUID, reply_id: UUID) -> ReplyRecord | None: ...
+
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> ReplyRecord | None: ...
+
+    async def add(self, reply: ReplyRecord) -> None: ...
+
+
+@runtime_checkable
+class ReplyClassificationRequestRepository(Protocol):
+    async def get_by_reply_id(
+        self, organization_id: UUID, reply_id: UUID
+    ) -> ReplyClassificationRequestRecord | None: ...
+
+    async def get_by_run_id(
+        self, organization_id: UUID, run_id: UUID
+    ) -> ReplyClassificationRequestRecord | None: ...
+
+    async def add(self, request: ReplyClassificationRequestRecord) -> None: ...
+
+
+@runtime_checkable
+class ReplyFeedbackRepository(Protocol):
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> ReplyFeedbackRecord | None: ...
+
+    async def append(self, feedback: ReplyFeedbackRecord) -> None: ...
+
+    async def list_for_run(
+        self, organization_id: UUID, run_id: UUID
+    ) -> Sequence[ReplyFeedbackRecord]: ...
+
+
 T = TypeVar("T")
 
 
@@ -379,6 +457,35 @@ class UnitOfWork(Protocol):
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+
+@runtime_checkable
+class ReplyUnitOfWork(Protocol):
+    """Reply-specific transaction boundary; it is deliberately separate from ingestion."""
+
+    accounts: AccountRepository
+    contacts: ContactRepository
+    canonical: CanonicalResolver
+    replies: ReplyRepository
+    classification_requests: ReplyClassificationRequestRepository
+    feedback: ReplyFeedbackRepository
+    runs: AgentRunRepository
+
+    async def __aenter__(self) -> ReplyUnitOfWork: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+type ReplyUnitOfWorkFactory = Callable[[], ReplyUnitOfWork]
 
 
 @runtime_checkable
