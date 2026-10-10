@@ -80,3 +80,9 @@ The loop stopped itself. Do not restart it against the same queue item without a
 Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/', 'docs/specs/SPEC-011-reply-intelligence/', 'docs/decisions/ADR-0019-reply-intelligence-runtime.md'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md']. Revert the out-of-scope changes or stop and ask.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-10T21:27:06+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. The workspace is read-only, so implementation files, tasks.md, and .handoff/STATE.md cannot be updated. The approved contract itself has no remaining architecture decision for Item 1.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
