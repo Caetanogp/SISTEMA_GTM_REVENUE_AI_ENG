@@ -6,7 +6,7 @@ Implement from the inside out: pure reply values and policy, application DTOs/po
 
 ## Layers and contracts
 
-- Domain: immutable reply identity, nine-category policy, confidence/evidence validation, language and unsubscribe precedence. No framework or I/O imports.
+- Domain: immutable reply identity, nine-category policy, confidence/evidence validation, language and unsubscribe precedence. Confidence below `0.80`, ambiguity, incompatible language, or invalid offsets produces `review_required` and `manual_review`. The fixed category-to-action mapping is recorded in `spec.md`. No framework or I/O imports.
 - Application: reply DTOs, repositories and ports, artifact reader extensions, canonical resolver use, and reply-specific use cases.
 - Infrastructure: SQLAlchemy models/repositories/migration, `classify_reply.v1` prompt, strict tool catalog entry, structured gateway adapter, and `reply-intelligence.v1` graph/checkpointer.
 - API: authenticated reply registration, classification request, typed run result, and immutable feedback endpoints. Apps remain composition roots; no business logic in routers.

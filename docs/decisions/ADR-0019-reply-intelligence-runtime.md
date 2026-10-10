@@ -6,7 +6,7 @@
 
 ## Decision
 
-Reply intelligence uses a dedicated fixed-tool `reply-intelligence.v1` graph with a low-risk `classify_reply` operation. It stores an immutable reply, reserves a classification request and agent run atomically, executes one bounded structured classification, and persists a sanitized typed artifact. Uncertainty becomes `review_required` with a correction API, not an external write approval.
+Reply intelligence uses a dedicated fixed-tool `reply-intelligence.v1` graph with a low-risk `classify_reply` operation. It stores an immutable reply, reserves a classification request and agent run atomically, executes one bounded structured classification, and persists a sanitized typed artifact. Confidence below `0.80`, ambiguity, incompatible language, or invalid evidence becomes `review_required` and `manual_review`; the fixed next-action mapping is part of the approved contract. Uncertainty uses a correction API, not an external write approval.
 
 ## Context
 

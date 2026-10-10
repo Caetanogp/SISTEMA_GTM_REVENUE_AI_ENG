@@ -32,6 +32,16 @@ can automate follow-up work.
 - Offline synthetic dataset with five examples per category and language, contract and baseline evals.
 - API result and feedback endpoints, adversarial coverage, restart coverage, and PDF traceability.
 
+The deterministic next-action mapping is: `interested` -> `prepare_followup`, `not_interested` ->
+`end_followup`, `objection` -> `review_objection`, `question` -> `answer_question`,
+`out_of_office` -> `wait_for_return`, `wrong_person` -> `review_contact`, `unsubscribe` ->
+`honor_opt_out`, `automatic_response` -> `review_automatic_response`, and `unknown` ->
+`manual_review`.
+
+Confidence is finite and must be in `[0, 1]`. A result below `0.80`, with ambiguity, incompatible
+language, or invalid evidence is `review_required` and maps to `manual_review`. Provider confidence is
+not calibrated and never authorizes an external write.
+
 ## Out of scope
 
 - Mailbox or inbox connectors, polling, webhooks, or provider-specific credentials.

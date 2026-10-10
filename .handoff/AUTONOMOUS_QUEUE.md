@@ -10,7 +10,7 @@ and `scripts/autonomous_gate.py` is the completion judge.
 - **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** implement immutable reply values, nine categories, bilingual policy, evidence/confidence boundaries, and unsubscribe precedence.
+- **What:** implement immutable reply values, nine categories, the approved category-to-action mapping, confidence threshold `0.80`, bilingual policy, evidence boundaries, and unsubscribe precedence.
 - **Done when:** focused domain tests pass, the item commit is created by the supervisor, and the gate advances.
 
 ## Item 2 - Application contracts
