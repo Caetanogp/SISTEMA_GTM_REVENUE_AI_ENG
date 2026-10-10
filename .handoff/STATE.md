@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-10
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "pilot halted on underspecified policy documentation; correcting approved contract"
-status: in_progress
+phase: "Item 1 implemented; awaiting supervisor commit and autonomous gate"
+status: ready_for_gate
 ---
 
 # Current state
@@ -15,20 +15,19 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-The approved SPEC-011 documents, ADR-0019, eight-item autonomous queue, and roadmap status are materialized on this feature branch. No SPEC-011 product code has been implemented or verified yet. The first pilot stopped before editing because the approved threshold and category-to-action mapping were not explicit in the materialized documents; those values are now being recorded before relaunch.
+Item 1 has an uncommitted pure-domain implementation and focused verification. The supervisor must review and commit this item before running the autonomous gate.
 
 ## Done
 
-- Repository baseline confirmed clean on `develop`, HEAD `42068fa`, Docker server `27.5.1`.
-- SPEC-010 closeout is merged and published; prior evidence remains in git history and the archived handoff.
-- Approved scope decisions are recorded in `docs/specs/SPEC-011-reply-intelligence/spec.md` and `plan.md`.
+- Reply policy is implemented in `packages/core/revops/domain/values/reply.py`; it contains the nine-category mapping, finite `[0, 1]` confidence validation, inclusive `0.80` threshold, `en`/`pt` language compatibility, bounded half-open evidence offsets, conservative opt-out precedence, and manual-review fallback.
+- Focused contract coverage is in `tests/unit/domain/values/test_reply.py`; `pytest tests/unit/domain -q` passed (193 passed), `ruff check packages/core/revops/domain tests/unit/domain` passed, `ruff format --check packages/core/revops/domain tests/unit/domain` passed, `mypy packages/core/revops/domain` passed, and `lint-imports` kept all 4 contracts.
+- The first SPEC-011 checkbox is ticked in `docs/specs/SPEC-011-reply-intelligence/tasks.md` after observed evidence. No commit was created by this executor.
 
 ## Next
 
-1. Commit the explicit policy-contract correction and validate docs, queue, task count, traceability, and ordinary gate.
-2. Run the real bounded Item 1 pilot with `StopAfterItem 1`.
-3. If Item 1 creates a commit and the gate advances, launch the full supervisor with `MaxTurns 100`.
-4. Monitor the supervisor output, git log, gate state, and external artifact log; stop on exit 0 or 2.
+1. Supervisor: inspect the Item 1 diff and create its single logical commit.
+2. Supervisor: run the autonomous gate from the clean parent process; do not run it before the commit.
+3. If the gate advances, begin only Item 2 through the autonomous supervisor.
 
 ## Gotchas
 
@@ -36,7 +35,7 @@ The approved SPEC-011 documents, ADR-0019, eight-item autonomous queue, and road
 - Set `PYTHONPATH` to `packages\\core;repo-root` before Python checks to avoid stale editable imports.
 - Do not delete or reset `.handoff/.autonomous_gate_state.json`; the gate reboots its baseline when the task count changes.
 - The queue uses exact required paths so the gate can reject false task completion.
-- Unexpected public-contract, dependency, destructive, security, or non-dominant architecture choices remain HUMAN_REQUIRED.
+- Pytest reports a non-fatal warning because the restricted sandbox cannot update `.pytest_cache`; test execution itself passed.
 
 ## Resume
 
@@ -50,39 +49,3 @@ $env:PYTHONIOENCODING = 'utf-8'
 ## Open questions
 
 None for the approved SPEC-011 scope. A newly discovered product or security choice must stop the queue and be brought back for deliberate design.
-
-## Autonomous loop HALT (2026-10-10T21:19:14+00:00)
-
-Autonomous queue configuration is invalid: queue is missing its `- **Tasks file:** `...`` metadata line
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T21:19:42+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. The supervisor must start from a clean worktree
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T21:20:40+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. human_required: Item 1 requires inventing public reply-policy contract values (confidence/evidence boundaries and deterministic next-action enum/mapping). The spec, plan, ADR-0019, PDF traceability, and existing domain contracts do not select a dominant safe mapping or thresholds. No files were edited.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T21:21:31+00:00)
-
-Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md', 'docs/decisions/ADR-0019-reply-intelligence-runtime.md', 'docs/specs/SPEC-011-reply-intelligence/plan.md', 'docs/specs/SPEC-011-reply-intelligence/spec.md']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T21:22:03+00:00)
-
-Item 1 declares scope ('packages/core/revops/domain/', 'tests/unit/domain/', 'docs/specs/SPEC-011-reply-intelligence/', 'docs/decisions/ADR-0019-reply-intelligence-runtime.md'), but changes touch files outside it: ['.handoff/AUTONOMOUS_QUEUE.md']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T21:27:06+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. The workspace is read-only, so implementation files, tasks.md, and .handoff/STATE.md cannot be updated. The approved contract itself has no remaining architecture decision for Item 1.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
