@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 5 API and artifact reader implemented; ready for supervisor gate"
+phase: "Item 6 dataset and eval gates implemented; ready for supervisor gate"
 status: in_progress
 ---
 
@@ -15,7 +15,7 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Items 1-5 are implemented and verified locally. Item 5 awaits the supervisor commit and gate;
+Items 1-6 are implemented and verified locally. Item 6 awaits the supervisor commit and gate;
 do not run the autonomous gate from this dirty executor worktree.
 
 ## Done
@@ -58,11 +58,16 @@ do not run the autonomous gate from this dirty executor worktree.
   initialize a provider. `tests/integration/test_reply_api.py` proves the terminal read makes no
   second gateway call, including when a live embedding provider is intentionally unconfigured.
 - Observed Item 5 evidence: `ruff check apps/api packages/core/revops/infrastructure/agent/reply_runtime.py tests/integration/test_reply_api.py`, format check, and `mypy apps/api packages/core/revops/infrastructure/agent/reply_runtime.py` passed; focused integration command passed 8 tests; `lint-imports` kept all 4 contracts; `git diff --check` passed.
+- Item 6 adds 90 synthetic bilingual examples (five per category/language), a deterministic
+  independent lexical baseline, five policy-contract cases, and multi-metric gate support. The
+  gate enforces baseline accuracy >= 0.85, macro-F1 >= 0.80, unsubscribe recall = 1.00, and the
+  reply classification contract at 1.00; `docs/evals/reply-classification.md` records the scope.
+- Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
 
 ## Next
 
-1. Supervisor: validate the Item 5 diff, commit it, and run the autonomous gate from the clean parent process.
-2. Continue only with Item 6 if the gate advances.
+1. Supervisor: validate the Item 6 diff, commit it, and run the autonomous gate from the clean parent process.
+2. Continue only with Item 7 if the gate advances.
 3. Stop on `GOAL ACHIEVED`, `architecture_required`, `HUMAN_REQUIRED`, or a deterministic gate failure.
 
 ## Gotchas

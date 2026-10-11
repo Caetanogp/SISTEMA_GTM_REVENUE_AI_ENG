@@ -28,3 +28,11 @@ min_exact_match = 1.00
 
 [reply_runtime_contract]
 min_exact_match = 1.00
+
+[reply_classification_contract]
+min_exact_match = 1.00
+
+[reply_classification]
+min_accuracy = 0.85
+min_macro_f1 = 0.80
+min_unsubscribe_recall = 1.00
