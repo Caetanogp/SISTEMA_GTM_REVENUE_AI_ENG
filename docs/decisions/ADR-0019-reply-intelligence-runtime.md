@@ -53,6 +53,22 @@ runtime and narrow ports, but makes transaction, checkpoint, replay, and evidenc
 explicit. Item 4 proves the runtime contract; later items add API, 90-case evaluation,
 adversarial, restart, and traceability coverage.
 
+## Public API contract
+
+Item 5 uses the existing API conventions and does not create a second result model:
+
+- `POST /replies` and `GET /replies/{reply_id}` manage the authenticated organization-scoped reply.
+- `POST /replies/{reply_id}/classify` starts or replays classification.
+- `GET /agent/runs/{run_id}/result` reads the typed terminal artifact.
+- `POST` and `GET /agent/runs/{run_id}/reply-feedback` append and list corrections.
+
+All mutating POST requests require the `Idempotency-Key` header. The key is not accepted in the
+body or query string. Tenant identity is derived from authentication. A classification response
+contains `run_id`, `status`, `replayed`, and an optional result; `status` is one of
+`in_progress`, `completed`, `failed`, or `recovery_required`. Replays return the original run
+identity and artifact. Result reads use the direct artifact reader and never initialize a graph,
+provider, or RAG component.
+
 ## Alternatives rejected
 
 - Mailbox integration, automatic CRM mutation, and sending: deferred because they add

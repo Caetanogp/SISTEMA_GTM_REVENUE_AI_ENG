@@ -73,9 +73,20 @@ usage, and metadata are persisted; raw reply text is never placed in run journal
 
 ## API, tests, and evaluation
 
-Item 5 reads terminal artifacts directly from the authenticated checkpoint reader and must not
-construct a graph, initialize a provider, or perform RAG I/O. Existing runtime behavior remains
-covered by regression tests.
+The approved public contract for Item 5 is:
+
+- `POST /replies` creates an organization-scoped reply; `GET /replies/{reply_id}` reads it.
+- `POST /replies/{reply_id}/classify` reserves or replays one classification run.
+- `GET /agent/runs/{run_id}/result` reuses the existing result route for the typed terminal artifact.
+- `POST` and `GET /agent/runs/{run_id}/reply-feedback` append and list immutable corrections.
+- Every mutating `POST` requires `Idempotency-Key` in the header, bounded to the existing 128-character
+  convention. Organization identity comes only from authentication; it is never accepted from the body.
+- Classification responses expose `run_id`, `status`, `replayed`, and an optional typed result. The
+  status values are `in_progress`, `completed`, `failed`, and `recovery_required`; a replay returns the
+  existing identity and artifact rather than creating a second run. Terminal reads use the direct
+  authenticated artifact reader and do not construct a graph, initialize a provider, or perform RAG I/O.
+
+Existing runtime behavior remains covered by regression tests.
 
 Item 4 adds the mandatory offline runtime contract evaluation with a target of 1.00. Item 6
 adds the 90 synthetic bilingual cases (five per category per language), independent baseline

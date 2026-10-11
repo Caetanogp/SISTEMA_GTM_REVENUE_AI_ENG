@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 4 verified; Item 5 is next"
+phase: "Item 5 public API contract approved; ready to resume loop"
 status: in_progress
 ---
 
@@ -15,8 +15,8 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Items 1-4 are implemented and verified. The clean feature branch is ready for the unattended
-supervisor to implement Item 5 (authenticated reply APIs and direct artifact reads).
+Items 1-4 are implemented and verified. The Item 5 public API contract is now approved and
+recorded; the unattended supervisor may implement authenticated reply APIs and direct artifact reads.
 
 ## Done
 
@@ -48,10 +48,13 @@ supervisor to implement Item 5 (authenticated reply APIs and direct artifact rea
   persistence, eval, unit, and integration paths; `mypy` passed (50 source files); focused pytest
   passed (54 passed); `python -m evals.gate` passed all nine suites; `lint-imports` kept all four
   contracts; `git diff --check` passed. The fourth SPEC-011 checkbox is ticked.
+- Item 5 contract approved: `POST/GET /replies`, `POST /replies/{reply_id}/classify`, existing
+  `GET /agent/runs/{run_id}/result`, feedback `POST/GET`, header `Idempotency-Key`, and explicit
+  `in_progress`/`completed`/`failed`/`recovery_required` response states, recorded in plan/ADR.
 
 ## Next
 
-1. Launch the real long loop from the clean feature branch with `MaxTurns 100` for Items 5-8.
+1. Commit the approved Item 5 contract documentation and launch the real long loop with `MaxTurns 100` for Items 5-8.
 2. Attach the external watcher to the new supervisor PID and stdout log.
 3. Stop on `GOAL ACHIEVED`, `architecture_required`, `HUMAN_REQUIRED`, or a deterministic gate failure.
 
@@ -92,5 +95,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-11T22:59:01+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Executor changes outside Item 4 scope cannot be committed: ['tests/unit/evals/test_gate.py']
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-11T23:03:15+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. A implementação exigiria inventar um contrato público de API; pelas instruções, isso requer decisão humana antes de editar qualquer arquivo.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
