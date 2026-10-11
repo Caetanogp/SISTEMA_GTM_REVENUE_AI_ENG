@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-10
+updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 3 verified; ready to resume the autonomous supervisor at Item 4"
+phase: "Item 4 approved architecture materialized; preparing the focused pilot"
 status: in_progress
 ---
 
@@ -16,7 +16,8 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 ## Now
 
 Item 3 persistence and idempotency are implemented and verified against the local PostgreSQL service.
-The supervisor can resume at Item 4 after the verification commit.
+The Item 4 architecture decision is approved and recorded in the implementation plan and ADR.
+Documentation/control preparation is being committed before the focused pilot.
 
 ## Done
 
@@ -33,12 +34,13 @@ The supervisor can resume at Item 4 after the verification commit.
   read-then-create contracts for reply registration, classification reservation, and feedback replay.
 - Observed non-PostgreSQL verification for Item 3: `ruff check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed; `ruff format --check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed (28 files); `python -m py_compile` passed for all changed Python files; `lint-imports` kept all 4 contracts; `git diff --check` passed; the focused test collected one integration test.
 - Item 3 verification was subsequently completed after Docker became available: `docker compose up -d` started healthy PostgreSQL/Redis; migration `c4d5e6f7a8b9` applied; `pytest tests/integration/test_reply_persistence.py -q` -> 1 passed; Ruff, format check, mypy, and `git diff --check` passed. The reservation order was corrected to persist the run and started event before its FK-backed classification request.
+- Approved Item 4 architecture is recorded in `docs/specs/SPEC-011-reply-intelligence/plan.md` and `docs/decisions/ADR-0019-reply-intelligence-runtime.md`; the queue requires the real package prompt path and the Item 4 cross-layer/runtime evidence.
 
 ## Next
 
-1. Commit the Item 3 verification fix and evidence, then run the gate from the clean parent process.
-2. Resume the supervisor at Item 4 with the long-loop command.
-3. Monitor executor commits, gate progress, and external artifacts; stop on exit 0 or 2.
+1. Commit the approved Item 4 documentation/control preparation and obtain the explicit baseline-rollover authorization for the changed paths.
+2. Start the real bounded Item 4 pilot with PostgreSQL available and the authoritative `C:\Dev` environment.
+3. Verify the Item 4 commit and gate advancement, then launch the remaining-items loop and attach the external watcher.
 
 ## Gotchas
 
@@ -65,5 +67,11 @@ None for the approved SPEC-011 scope. A newly discovered product or security cho
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. A reachable PostgreSQL service is required to run the mandatory migration and concurrency/idempotency evidence. Making that external service available requires human action in this sandbox.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-10T22:40:39+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture plan was not approved after 2 attempts
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

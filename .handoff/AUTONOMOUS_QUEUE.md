@@ -31,17 +31,18 @@ pilot; executors remain prohibited from editing supervisor controls.
 - **Done when:** PostgreSQL migration and concurrency/idempotency tests pass without changing prior data.
 
 ## Item 4 - Prompt, tool, and graph
-- **Scope:** `packages/core/revops/infrastructure/agent/`, `infrastructure/agent/prompts/`, `tests/unit/infrastructure/agent/`
-- **Requires:** `packages/core/revops/infrastructure/agent/`, `infrastructure/agent/prompts/`, `tests/unit/infrastructure/agent/`
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`, `tests/unit/domain/`, `tests/unit/application/`, `tests/unit/infrastructure/agent/`, `tests/integration/`, `evals/`
+- **Requires:** `packages/core/revops/domain/values/reply.py`, `packages/core/revops/application/dto.py`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/reply.py`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/agent/prompts/classify_reply.v1.md`, `packages/core/revops/infrastructure/persistence/`, `tests/unit/domain/values/test_reply.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/infrastructure/agent/`, `tests/integration/`, `evals/`
 - **Closes:** 1 tasks.md checkbox
-- **What:** add versioned structured prompt, allowlisted low-risk tool, dedicated graph lifecycle, bounded artifact, and usage journal.
+- **What:** add the versioned structured prompt, allowlisted low-risk tool, dedicated checkpointed graph lifecycle, bounded typed artifact, same-connection advisory lock, restart-safe replay, and usage journal. Keep existing v1/v2 compositions unchanged; add the minimum offline runtime-contract eval.
 - **Done when:** graph lifecycle, schema, prompt, and no-side-effect tests pass.
 
 ## Item 5 - API and artifact reader
-- **Scope:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`
-- **Requires:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`
+- **Scope:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`
+- **Requires:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`
 - **Closes:** 1 tasks.md checkbox
 - **What:** expose reply registration, classify, typed result, and immutable feedback endpoints with authenticated organization scope.
+- **What:** expose reply registration, classify, typed result, and immutable feedback endpoints with authenticated organization scope. Read terminal artifacts through the direct checkpoint/artifact reader without constructing a graph or initializing provider/RAG components.
 - **Done when:** API integration tests pass and terminal reads do not initialize graph/provider/RAG components.
 
 ## Item 6 - Dataset and eval gates
