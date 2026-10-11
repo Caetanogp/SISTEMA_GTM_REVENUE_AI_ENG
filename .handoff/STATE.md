@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-11
+updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 6 dataset and eval gates implemented; ready for supervisor gate"
+phase: "Item 7 adversarial and restart regression implemented; ready for supervisor gate"
 status: in_progress
 ---
 
@@ -15,7 +15,7 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Items 1-6 are implemented and verified locally. Item 6 awaits the supervisor commit and gate;
+Items 1-7 are implemented and verified locally. Item 7 awaits the supervisor commit and gate;
 do not run the autonomous gate from this dirty executor worktree.
 
 ## Done
@@ -63,11 +63,13 @@ do not run the autonomous gate from this dirty executor worktree.
   gate enforces baseline accuracy >= 0.85, macro-F1 >= 0.80, unsubscribe recall = 1.00, and the
   reply classification contract at 1.00; `docs/evals/reply-classification.md` records the scope.
 - Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
+- Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
+- Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
 
 ## Next
 
-1. Supervisor: validate the Item 6 diff, commit it, and run the autonomous gate from the clean parent process.
-2. Continue only with Item 7 if the gate advances.
+1. Supervisor: validate the Item 7 diff, commit it, and run the autonomous gate from the clean parent process.
+2. Continue only with Item 8 if the gate advances.
 3. Stop on `GOAL ACHIEVED`, `architecture_required`, `HUMAN_REQUIRED`, or a deterministic gate failure.
 
 ## Gotchas

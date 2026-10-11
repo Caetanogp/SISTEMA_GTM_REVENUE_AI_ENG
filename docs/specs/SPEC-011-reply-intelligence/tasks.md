@@ -6,5 +6,5 @@
 - [x] Add versioned prompt, low-risk tool, dedicated checkpointed reply graph, and bounded artifacts — verified by runtime unit/integration tests, prompt contract tests, and `python -m evals.gate`
 - [x] Add authenticated reply/classification/result/feedback APIs without changing existing graph compositions — verified by `pytest tests/integration/test_reply_api.py tests/integration/test_agent_runs_api.py tests/integration/test_reply_persistence.py tests/integration/test_reply_runtime_lock.py -q` (8 passed), Ruff, format check, mypy, `lint-imports`, and `git diff --check`
 - [x] Add the 90-case bilingual dataset and additive contract/baseline metric gates — verified by `python -m evals.gate` (contract 5/5; baseline 90/90, accuracy 1.00, macro-F1 1.00, unsubscribe recall 1.00)
-- [ ] Add adversarial, authorization, concurrency, restart, and regression coverage — verified by adversarial and integration suites
+- [x] Add adversarial, authorization, concurrency, restart, and regression coverage — verified by `pytest tests/adversarial -q` (32 passed) and `pytest tests/integration -q` (52 passed)
 - [ ] Complete PDF traceability, security review, full verification, and handoff evidence — verified by the full gate and clean tree

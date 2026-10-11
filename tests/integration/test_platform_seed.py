@@ -325,5 +325,5 @@ def test_platform_seed_migration_allows_pre_seed_downgrade_and_blocks_post_seed(
             connection.execute(
                 text(f'SELECT version_num FROM "{schema}".alembic_version')
             ).scalar_one()
-            == "b3c4d5e6f7a8"
+            == "c4d5e6f7a8b9"
         )

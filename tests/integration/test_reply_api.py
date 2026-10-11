@@ -132,3 +132,157 @@ async def test_reply_api_reads_terminal_artifact_without_a_second_provider_call(
                 assert len(history.json()) == 1
     finally:
         await engine.dispose()
+
+
+@pytest.mark.integration
+async def test_reply_api_rejects_cross_tenant_reply_and_run_access(
+    database_url: str,
+) -> None:
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    organization_id, actor_id, account_id, contact_id = await _seed_subjects(sessions)
+    other_organization_id, other_actor_id, _, _ = await _seed_subjects(sessions)
+    settings = ApiSettings(
+        database_url=database_url,
+        jwt_secret="test-secret-test-secret-test-secret-test-secret",
+    )
+    gateway = FakeLLMGateway(
+        responses=[
+            ReplyClassificationOutput(
+                category=ReplyCategory.INTERESTED,
+                confidence=0.95,
+                language=ReplyLanguage.ENGLISH,
+                evidence=(ReplyEvidenceDTO(start_offset=0, end_offset=9),),
+            )
+        ]
+    )
+    app = create_app(settings=settings, llm_gateway=gateway)
+    owner_token = create_access_token(
+        subject=actor_id,
+        organization_id=organization_id,
+        email="owner@example.test",
+        role="rep",
+        settings=settings,
+    )
+    other_token = create_access_token(
+        subject=other_actor_id,
+        organization_id=other_organization_id,
+        email="other@example.test",
+        role="rep",
+        settings=settings,
+    )
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+    try:
+        async with app.router.lifespan_context(app):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                registered = await client.post(
+                    "/replies",
+                    headers={**owner_headers, "Idempotency-Key": "tenant-register"},
+                    json={
+                        "account_id": str(account_id),
+                        "contact_id": str(contact_id),
+                        "text": "Interested in your pricing.",
+                        "language": "en",
+                    },
+                )
+                assert registered.status_code == 201, registered.text
+                reply_id = UUID(registered.json()["id"])
+                classified = await client.post(
+                    f"/replies/{reply_id}/classify",
+                    headers={**owner_headers, "Idempotency-Key": "tenant-classify"},
+                )
+                assert classified.status_code == 200, classified.text
+                run_id = UUID(classified.json()["run_id"])
+                assert len(gateway.calls) == 1
+
+                assert (
+                    await client.get(f"/replies/{reply_id}", headers=other_headers)
+                ).status_code == 404
+                assert (
+                    await client.post(
+                        f"/replies/{reply_id}/classify",
+                        headers={**other_headers, "Idempotency-Key": "other-classify"},
+                    )
+                ).status_code == 404
+                assert (
+                    await client.get(f"/agent/runs/{run_id}/result", headers=other_headers)
+                ).status_code == 403
+                assert (
+                    await client.get(f"/agent/runs/{run_id}/reply-feedback", headers=other_headers)
+                ).status_code == 404
+                assert len(gateway.calls) == 1
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+async def test_reply_api_restart_replays_checkpoint_without_a_second_provider_call(
+    database_url: str,
+) -> None:
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    organization_id, actor_id, account_id, contact_id = await _seed_subjects(sessions)
+    settings = ApiSettings(
+        database_url=database_url,
+        jwt_secret="test-secret-test-secret-test-secret-test-secret",
+    )
+    first_gateway = FakeLLMGateway(
+        responses=[
+            ReplyClassificationOutput(
+                category=ReplyCategory.INTERESTED,
+                confidence=0.95,
+                language=ReplyLanguage.ENGLISH,
+                evidence=(ReplyEvidenceDTO(start_offset=0, end_offset=9),),
+            )
+        ]
+    )
+    token = create_access_token(
+        subject=actor_id,
+        organization_id=organization_id,
+        email="restart@example.test",
+        role="rep",
+        settings=settings,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        first_app = create_app(settings=settings, llm_gateway=first_gateway)
+        async with first_app.router.lifespan_context(first_app):
+            transport = ASGITransport(app=first_app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                registered = await client.post(
+                    "/replies",
+                    headers={**headers, "Idempotency-Key": "restart-register"},
+                    json={
+                        "account_id": str(account_id),
+                        "contact_id": str(contact_id),
+                        "text": "Interested in your pricing.",
+                        "language": "en",
+                    },
+                )
+                assert registered.status_code == 201, registered.text
+                reply_id = UUID(registered.json()["id"])
+                first = await client.post(
+                    f"/replies/{reply_id}/classify",
+                    headers={**headers, "Idempotency-Key": "restart-first"},
+                )
+                assert first.status_code == 200, first.text
+                assert first.json()["status"] == "completed"
+                assert len(first_gateway.calls) == 1
+
+        restarted_gateway = FakeLLMGateway()
+        restarted_app = create_app(settings=settings, llm_gateway=restarted_gateway)
+        async with restarted_app.router.lifespan_context(restarted_app):
+            transport = ASGITransport(app=restarted_app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                replay = await client.post(
+                    f"/replies/{reply_id}/classify",
+                    headers={**headers, "Idempotency-Key": "restart-replay"},
+                )
+                assert replay.status_code == 200, replay.text
+                assert replay.json()["status"] == "completed"
+                assert replay.json()["replayed"] is True
+                assert restarted_gateway.calls == []
+    finally:
+        await engine.dispose()
