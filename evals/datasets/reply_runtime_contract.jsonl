@@ -1,0 +1,4 @@
+{"id":"prompt_preserves_unicode_data","contract":"prompt_data_fencing"}
+{"id":"artifact_is_canonical_and_bounded","contract":"artifact_bounds"}
+{"id":"provider_output_is_strict","contract":"strict_schema"}
+{"id":"tool_is_analysis_only","contract":"low_risk_tool"}

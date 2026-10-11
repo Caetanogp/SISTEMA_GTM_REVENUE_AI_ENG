@@ -13,6 +13,7 @@ def test_load_thresholds_declares_all_configured_suites() -> None:
         "llm_gateway_contract",
         "research_outreach_contract",
         "grounded_generation_contract",
+        "reply_runtime_contract",
     }
     assert thresholds["lead_scoring"]["min_exact_match"] == 1.0
     assert thresholds["tool_selection"]["min_accuracy"] == 0.80

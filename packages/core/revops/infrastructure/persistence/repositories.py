@@ -461,5 +461,38 @@ class SqlAlchemyAgentRunJournal:
 
     async def append(self, event: AgentRunEventRecord) -> None:
         async with self._session_factory() as session:
+            existing = await session.get(AgentRunEventModel, event.id)
+            if existing is not None:
+                existing_payload = {
+                    "run_id": existing.run_id,
+                    "organization_id": existing.organization_id,
+                    "event_type": existing.event_type,
+                    "graph_version": existing.graph_version,
+                    "prompt_version": existing.prompt_version,
+                    "model_config_json": existing.model_config_json,
+                    "latency_ms": existing.latency_ms,
+                    "input_tokens": existing.input_tokens,
+                    "output_tokens": existing.output_tokens,
+                    "token_cost_usd": existing.token_cost_usd,
+                    "error": existing.error,
+                    "metadata": existing.event_metadata,
+                }
+                incoming_payload = {
+                    "run_id": event.run_id,
+                    "organization_id": event.organization_id,
+                    "event_type": event.event_type,
+                    "graph_version": event.graph_version,
+                    "prompt_version": event.prompt_version,
+                    "model_config_json": dict(event.model_config_json),
+                    "latency_ms": event.latency_ms,
+                    "input_tokens": event.input_tokens,
+                    "output_tokens": event.output_tokens,
+                    "token_cost_usd": event.token_cost_usd,
+                    "error": event.error,
+                    "metadata": dict(event.metadata) if event.metadata is not None else None,
+                }
+                if existing_payload != incoming_payload:
+                    raise ValueError("conflicting immutable agent run event")
+                return
             await SqlAlchemyAgentRunRepository(session).add_event(event)
             await session.commit()

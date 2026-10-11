@@ -25,3 +25,6 @@ min_exact_match = 1.00
 
 [grounded_generation_contract]
 min_exact_match = 1.00
+
+[reply_runtime_contract]
+min_exact_match = 1.00
