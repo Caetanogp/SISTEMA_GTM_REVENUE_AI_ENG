@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 5 public API contract approved; ready to resume loop"
+phase: "Item 5 API and artifact reader implemented; ready for supervisor gate"
 status: in_progress
 ---
 
@@ -15,8 +15,8 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Items 1-4 are implemented and verified. The Item 5 public API contract is now approved and
-recorded; the unattended supervisor may implement authenticated reply APIs and direct artifact reads.
+Items 1-5 are implemented and verified locally. Item 5 awaits the supervisor commit and gate;
+do not run the autonomous gate from this dirty executor worktree.
 
 ## Done
 
@@ -51,11 +51,18 @@ recorded; the unattended supervisor may implement authenticated reply APIs and d
 - Item 5 contract approved: `POST/GET /replies`, `POST /replies/{reply_id}/classify`, existing
   `GET /agent/runs/{run_id}/result`, feedback `POST/GET`, header `Idempotency-Key`, and explicit
   `in_progress`/`completed`/`failed`/`recovery_required` response states, recorded in plan/ADR.
+- Item 5 adds authenticated reply registration/read/classification/feedback endpoints and composes
+  only the bounded reply runtime. `ReplyArtifactReader` reads completed typed artifacts directly
+  from the checkpoint store; the existing result route dispatches reply runs before constructing
+  legacy graph, provider, or RAG components. Embeddings are lazy so reply-only requests do not
+  initialize a provider. `tests/integration/test_reply_api.py` proves the terminal read makes no
+  second gateway call, including when a live embedding provider is intentionally unconfigured.
+- Observed Item 5 evidence: `ruff check apps/api packages/core/revops/infrastructure/agent/reply_runtime.py tests/integration/test_reply_api.py`, format check, and `mypy apps/api packages/core/revops/infrastructure/agent/reply_runtime.py` passed; focused integration command passed 8 tests; `lint-imports` kept all 4 contracts; `git diff --check` passed.
 
 ## Next
 
-1. Commit the approved Item 5 contract documentation and launch the real long loop with `MaxTurns 100` for Items 5-8.
-2. Attach the external watcher to the new supervisor PID and stdout log.
+1. Supervisor: validate the Item 5 diff, commit it, and run the autonomous gate from the clean parent process.
+2. Continue only with Item 6 if the gate advances.
 3. Stop on `GOAL ACHIEVED`, `architecture_required`, `HUMAN_REQUIRED`, or a deterministic gate failure.
 
 ## Gotchas

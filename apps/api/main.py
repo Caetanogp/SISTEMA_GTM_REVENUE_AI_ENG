@@ -7,7 +7,6 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import FastAPI
 from revops.application.ports import LLMGateway
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -18,7 +17,7 @@ from .routes.deduplication import router as deduplication_router
 from .routes.health import router as health_router
 from .routes.ingestion import router as ingestion_router
 from .routes.knowledge import router as knowledge_router
-from .runtime import build_embedding_provider
+from .routes.replies import router as replies_router
 from .settings import ApiSettings
 
 
@@ -33,17 +32,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_async_engine(settings.database_url)
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    embedding_client: httpx.AsyncClient | None = None
+    app.state.embedding_provider = None
+    app.state.embedding_client = None
     try:
-        if settings.knowledge_embedding_provider == "openai":
-            embedding_client = httpx.AsyncClient()
-        app.state.embedding_provider = build_embedding_provider(settings, client=embedding_client)
         yield
     finally:
         gateway = app.state.llm_gateway
         close = getattr(gateway, "aclose", None)
         if close is not None:
             await close()
+        embedding_client = app.state.embedding_client
         if embedding_client is not None:
             await embedding_client.aclose()
         await engine.dispose()
@@ -61,6 +59,7 @@ def create_app(
     app.include_router(agent_runs_router)
     app.include_router(ingestion_router)
     app.include_router(knowledge_router)
+    app.include_router(replies_router)
     app.include_router(deduplication_router)
     app.include_router(health_router)
     return app

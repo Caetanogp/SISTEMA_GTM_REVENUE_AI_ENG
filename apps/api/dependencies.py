@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Annotated, cast
 
+import httpx
 from fastapi import Depends, Request
 from revops.application.ports import (
     DeduplicationUnitOfWork,
@@ -26,7 +27,7 @@ from revops.infrastructure.persistence.knowledge_unit_of_work import SqlAlchemyK
 from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicationUnitOfWork
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .runtime import UnconfiguredLLMGateway
+from .runtime import UnconfiguredLLMGateway, build_embedding_provider
 from .settings import ApiSettings
 
 
@@ -45,7 +46,14 @@ async def get_llm_gateway(request: Request) -> LLMGateway:
 
 
 async def get_embedding_provider(request: Request) -> EmbeddingProvider:
-    return cast(EmbeddingProvider, request.app.state.embedding_provider)
+    provider = request.app.state.embedding_provider
+    if provider is None:
+        settings = await get_settings(request)
+        client = httpx.AsyncClient() if settings.knowledge_embedding_provider == "openai" else None
+        request.app.state.embedding_client = client
+        provider = build_embedding_provider(settings, client=client)
+        request.app.state.embedding_provider = provider
+    return cast(EmbeddingProvider, provider)
 
 
 async def get_session(

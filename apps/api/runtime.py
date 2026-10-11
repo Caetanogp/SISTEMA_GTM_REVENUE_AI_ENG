@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import httpx
 from revops.application.dto import LLMGatewayHealth, LLMHealthStatus
-from revops.application.ports import Clock, EmbeddingProvider, LLMGateway
+from revops.application.ports import Clock, EmbeddingProvider, LLMGateway, ReplyUnitOfWork
 from revops.application.use_cases.agent_tool_runtime import BoundedAgentToolRuntime
 from revops.application.use_cases.deduplication import (
     DismissDeduplicationCandidate,
@@ -45,6 +45,12 @@ from revops.infrastructure.agent.prompt_loader import (
     load_agent_tool_runtime_prompt,
     load_legacy_agent_tool_runtime_prompt,
 )
+from revops.infrastructure.agent.reply_classifier import BoundedReplyClassifier
+from revops.infrastructure.agent.reply_runtime import (
+    ReplyArtifactReader,
+    ReplyGraphDependencies,
+    ReplyGraphRunner,
+)
 from revops.infrastructure.agent.research import (
     AuthorizedCompanyPage,
     BoundedCompanyResearcher,
@@ -58,7 +64,10 @@ from revops.infrastructure.embeddings.providers import (
     OpenAIEmbeddingProvider,
 )
 from revops.infrastructure.persistence.repositories import SqlAlchemyAgentRunJournal
-from revops.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
+from revops.infrastructure.persistence.unit_of_work import (
+    SqlAlchemyReplyUnitOfWork,
+    SqlAlchemyUnitOfWork,
+)
 from revops.infrastructure.queue import (
     CeleryDeduplicationDispatcher,
     CeleryIngestionDispatcher,
@@ -208,6 +217,34 @@ def knowledge_services(
         RetireKnowledgeVersion(uow_factory),
         ActivateKnowledgeRevision(uow_factory, clock),
     )
+
+
+def reply_runner(
+    *,
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: ApiSettings,
+    llm_gateway: LLMGateway,
+) -> ReplyGraphRunner:
+    """Compose only the reply runtime; it has no RAG or legacy graph dependencies."""
+    clock: Clock = UtcClock()
+    return ReplyGraphRunner(
+        dsn=settings.postgres_dsn,
+        dependencies=ReplyGraphDependencies(
+            uow_factory=lambda: cast(
+                ReplyUnitOfWork,
+                SqlAlchemyReplyUnitOfWork(session_factory(), close_on_exit=True),
+            ),
+            classifier=BoundedReplyClassifier(llm_gateway),
+        ),
+        journal=SqlAlchemyAgentRunJournal(session_factory),
+        clock=clock,
+        model_config_json=dict(llm_gateway.configuration_snapshot()),
+    )
+
+
+def reply_artifact_reader(settings: ApiSettings) -> ReplyArtifactReader:
+    """Compose the checkpoint reader without any graph, model, or retrieval component."""
+    return ReplyArtifactReader(settings.postgres_dsn)
 
 
 @asynccontextmanager

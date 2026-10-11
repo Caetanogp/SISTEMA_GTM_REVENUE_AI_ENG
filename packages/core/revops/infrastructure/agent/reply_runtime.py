@@ -183,6 +183,42 @@ class ReplyRunResult:
     outcome: str
     artifact: Mapping[str, object] | None = None
     failure_code: str | None = None
+    replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyArtifactReader:
+    """Read a typed reply artifact without composing a graph or provider."""
+
+    dsn: str
+
+    async def get_result(
+        self, *, organization_id: UUID, run_id: UUID
+    ) -> Mapping[str, object] | None:
+        # The caller establishes tenant visibility from the authoritative run record before this
+        # checkpoint lookup. Checkpoint rows contain only the run thread id.
+        del organization_id
+        serializer = JsonPlusSerializer(
+            pickle_fallback=False, allowed_json_modules=True, allowed_msgpack_modules=True
+        )
+        async with AsyncPostgresSaver.from_conn_string(self.dsn, serde=serializer) as checkpointer:
+            checkpoint = await checkpointer.aget_tuple({"configurable": {"thread_id": str(run_id)}})
+        if checkpoint is None:
+            return None
+        values = checkpoint.checkpoint.get("channel_values")
+        if not isinstance(values, Mapping) or values.get("lifecycle_step") != "completed":
+            return None
+        artifact_json = values.get("artifact_json")
+        if (
+            not isinstance(artifact_json, str)
+            or len(artifact_json.encode("utf-8")) > _ARTIFACT_LIMIT_BYTES
+        ):
+            return None
+        try:
+            artifact = json.loads(artifact_json)
+        except json.JSONDecodeError:
+            return None
+        return artifact if isinstance(artifact, dict) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,7 +252,9 @@ class ReplyGraphRunner:
                 self.dsn, organization_id=organization_id, run_id=run_id
             ) as checkpointer:
                 if checkpointer is None:
-                    return ReplyRunResult(run_id, str(run_id), "in_progress")
+                    return ReplyRunResult(
+                        run_id, str(run_id), "in_progress", replayed=reservation.replayed
+                    )
                 graph = cast(ReplyGraphRuntime, build_reply_graph(self.dependencies, checkpointer))
                 config: RunnableConfig = {"configurable": {"thread_id": str(run_id)}}
                 snapshot = await graph.aget_state(config)
@@ -224,7 +262,11 @@ class ReplyGraphRunner:
                 existing_step = values.get("lifecycle_step")
                 if existing_step == "reserved":
                     return ReplyRunResult(
-                        run_id, str(run_id), "checkpoint_recovery_required", failure_code="reserved"
+                        run_id,
+                        str(run_id),
+                        "checkpoint_recovery_required",
+                        failure_code="reserved",
+                        replayed=reservation.replayed,
                     )
                 if existing_step in {"completed", "failed", "refused"}:
                     result = self._result(run_id, values)
@@ -242,7 +284,14 @@ class ReplyGraphRunner:
                     await graph.ainvoke(state, config, durability="sync")
                     result = self._result(run_id, dict((await graph.aget_state(config)).values))
                 await self._append_terminal(organization_id, result)
-                return result
+                return ReplyRunResult(
+                    run_id=result.run_id,
+                    thread_id=result.thread_id,
+                    outcome=result.outcome,
+                    artifact=result.artifact,
+                    failure_code=result.failure_code,
+                    replayed=reservation.replayed,
+                )
 
     @staticmethod
     def _result(run_id: UUID, values: Mapping[str, object]) -> ReplyRunResult:
