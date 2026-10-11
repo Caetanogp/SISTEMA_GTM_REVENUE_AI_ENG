@@ -47,6 +47,17 @@ class ReplyClassificationStatus(StrEnum):
     REVIEW_REQUIRED = "review_required"
 
 
+class ReplyReviewReason(StrEnum):
+    """Closed reasons why a classification must be reviewed by a person."""
+
+    LOW_CONFIDENCE = "low_confidence"
+    AMBIGUOUS = "ambiguous"
+    LANGUAGE_MISMATCH = "language_mismatch"
+    MISSING_EVIDENCE = "missing_evidence"
+    INVALID_EVIDENCE = "invalid_evidence"
+    UNKNOWN_CATEGORY = "unknown_category"
+
+
 _CATEGORY_ACTIONS: dict[ReplyCategory, ReplyNextAction] = {
     ReplyCategory.INTERESTED: ReplyNextAction.PREPARE_FOLLOWUP,
     ReplyCategory.NOT_INTERESTED: ReplyNextAction.END_FOLLOWUP,
@@ -141,6 +152,7 @@ class ReplyClassificationOutcome:
     category: ReplyCategory
     status: ReplyClassificationStatus
     recommended_action: ReplyNextAction
+    review_reasons: tuple[ReplyReviewReason, ...] = ()
 
 
 def mapped_next_action(category: ReplyCategory) -> ReplyNextAction:
@@ -163,21 +175,36 @@ def evaluate_reply_classification(
         if has_explicit_unsubscribe_intent(reply)
         else classification.category
     )
-    requires_review = (
-        classification.confidence < REPLY_CONFIDENCE_THRESHOLD
-        or classification.ambiguous
-        or classification.language is not reply.language
-        or not classification.evidence
-        or not all(evidence.is_valid_for(reply) for evidence in classification.evidence)
-    )
-    if requires_review:
+    reasons = review_reasons_for(reply, classification)
+    if reasons:
         return ReplyClassificationOutcome(
             category=category,
             status=ReplyClassificationStatus.REVIEW_REQUIRED,
             recommended_action=ReplyNextAction.MANUAL_REVIEW,
+            review_reasons=reasons,
         )
     return ReplyClassificationOutcome(
         category=category,
         status=ReplyClassificationStatus.CLASSIFIED,
         recommended_action=mapped_next_action(category),
     )
+
+
+def review_reasons_for(
+    reply: ReplyText, classification: ReplyClassification
+) -> tuple[ReplyReviewReason, ...]:
+    """Return ordered, deterministic review reasons for a structured proposal."""
+    reasons: list[ReplyReviewReason] = []
+    if classification.confidence < REPLY_CONFIDENCE_THRESHOLD:
+        reasons.append(ReplyReviewReason.LOW_CONFIDENCE)
+    if classification.ambiguous:
+        reasons.append(ReplyReviewReason.AMBIGUOUS)
+    if classification.language is not reply.language:
+        reasons.append(ReplyReviewReason.LANGUAGE_MISMATCH)
+    if not classification.evidence:
+        reasons.append(ReplyReviewReason.MISSING_EVIDENCE)
+    elif not all(evidence.is_valid_for(reply) for evidence in classification.evidence):
+        reasons.append(ReplyReviewReason.INVALID_EVIDENCE)
+    if classification.category is ReplyCategory.UNKNOWN:
+        reasons.append(ReplyReviewReason.UNKNOWN_CATEGORY)
+    return tuple(reasons)

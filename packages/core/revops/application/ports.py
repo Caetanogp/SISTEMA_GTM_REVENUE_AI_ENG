@@ -37,6 +37,7 @@ from revops.application.dto import (
     LLMFailureKind,
     LLMGatewayHealth,
     LLMResult,
+    ReplyClassificationOutput,
     RuntimeResult,
     StagedIngestionItem,
     StagedIngestionJob,
@@ -405,6 +406,13 @@ class LLMGateway(Protocol):
     def configuration_snapshot(self) -> Mapping[str, object]: ...
 
     def health_snapshot(self) -> LLMGatewayHealth: ...
+
+
+@runtime_checkable
+class ReplyClassifier(Protocol):
+    """One bounded structured inference over a persisted authorized reply."""
+
+    async def classify(self, reply: ReplyRecord) -> LLMResult[ReplyClassificationOutput]: ...
 
 
 class LLMGatewayError(RuntimeError):

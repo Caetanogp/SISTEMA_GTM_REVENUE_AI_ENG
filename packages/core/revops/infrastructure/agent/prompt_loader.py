@@ -6,6 +6,7 @@ from html import escape
 from pathlib import Path
 
 from revops.application.dto import AccountCandidate, RuntimeToolEvidence
+from revops.application.ports import ReplyRecord
 
 _PROMPT_PATH = Path(__file__).with_name("prompts") / "prioritize_accounts.v2.md"
 
@@ -45,6 +46,10 @@ def _render_candidates(candidates: list[AccountCandidate]) -> str:
 
 _RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v2.md"
 _LEGACY_RUNTIME_PROMPT_PATH = Path(__file__).with_name("prompts") / "agent_tool_runtime.v1.md"
+_REPLY_PROMPT_PATH = Path(__file__).with_name("prompts") / "classify_reply.v1.md"
+_REPLY_OPEN = "<untrusted_reply>"
+_REPLY_CLOSE = "</untrusted_reply>"
+_REPLY_CONTEXT_LIMIT_BYTES = 4_096
 
 
 def load_agent_tool_runtime_prompt(
@@ -63,6 +68,20 @@ def load_legacy_agent_tool_runtime_prompt(
 ) -> str:
     """Load the SPEC-009 contract for checkpoints created before SPEC-010."""
     return _load_runtime_prompt(_LEGACY_RUNTIME_PROMPT_PATH, request_text, context_text, evidence)
+
+
+def load_classify_reply_prompt(reply: ReplyRecord) -> str:
+    """Render the fixed reply prompt without changing authorized evidence offsets."""
+    text = reply.reply.value
+    if _REPLY_OPEN in text or _REPLY_CLOSE in text:
+        raise ValueError("reply contains a reserved deterministic prompt delimiter")
+    template = _REPLY_PROMPT_PATH.read_text(encoding="utf-8")
+    rendered = template.replace("{{language}}", reply.reply.language.value).replace(
+        "{{reply_text}}", text
+    )
+    if len(rendered.encode("utf-8")) > _REPLY_CONTEXT_LIMIT_BYTES:
+        raise ValueError("reply classification context exceeds the 4096-byte limit")
+    return rendered
 
 
 def _load_runtime_prompt(

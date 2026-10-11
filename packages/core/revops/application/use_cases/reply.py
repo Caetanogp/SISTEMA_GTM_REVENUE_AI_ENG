@@ -8,6 +8,9 @@ from uuid import UUID, uuid4
 from revops.application.dto import (
     AppendReplyFeedbackArgs,
     RegisterReplyArgs,
+    ReplyClassificationOutput,
+    ReplyEvidenceDTO,
+    ReplyResultDTO,
     ReplyRunConfig,
 )
 from revops.application.ports import (
@@ -15,6 +18,7 @@ from revops.application.ports import (
     AgentRunRecord,
     Clock,
     ReplyClassificationRequestRecord,
+    ReplyClassifier,
     ReplyFeedbackRecord,
     ReplyRecord,
     ReplyUnitOfWork,
@@ -22,6 +26,11 @@ from revops.application.ports import (
 )
 from revops.domain.entities.deduplication import DeduplicationRecordType
 from revops.domain.errors import PolicyViolationError
+from revops.domain.values.reply import (
+    ReplyClassification,
+    ReplyEvidence,
+    evaluate_reply_classification,
+)
 
 _MAX_IDEMPOTENCY_KEY_LENGTH = 128
 
@@ -46,6 +55,31 @@ class ReplyClassificationReservation:
 @dataclass(frozen=True, slots=True)
 class ReplyFeedbackHistory:
     records: tuple[ReplyFeedbackRecord, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifiedReply:
+    """A validated outcome plus truthful usage for the append-only run journal."""
+
+    result: ReplyResultDTO
+    usage: object
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifyReply:
+    """Validate one provider result against the authorized immutable reply."""
+
+    uow_factory: ReplyUnitOfWorkFactory
+    classifier: ReplyClassifier
+
+    async def execute(self, *, organization_id: UUID, reply_id: UUID) -> ClassifiedReply:
+        async with self.uow_factory() as uow:
+            reply = await uow.replies.get(organization_id, reply_id)
+            if reply is None:
+                raise PermissionError("reply is unavailable")
+            provider_result = await self.classifier.classify(reply)
+        result = _reply_result(reply.reply, provider_result.output)
+        return ClassifiedReply(result=result, usage=provider_result.usage)
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,3 +306,36 @@ def _assert_same_feedback(
         or existing.submitted_by != actor_id
     ):
         raise ReplyConflictError("idempotency key conflicts with reply feedback")
+
+
+def _reply_result(reply: object, output: ReplyClassificationOutput) -> ReplyResultDTO:
+    """Convert strict schema output into domain policy without leaking provider data."""
+    from revops.domain.values.reply import ReplyText
+
+    if not isinstance(reply, ReplyText):
+        raise TypeError("reply must be an authorized ReplyText")
+    classification = ReplyClassification(
+        category=output.category,
+        confidence=output.confidence,
+        language=output.language,
+        evidence=tuple(
+            ReplyEvidence(item.start_offset, item.end_offset) for item in output.evidence
+        ),
+        ambiguous=output.ambiguous,
+    )
+    outcome = evaluate_reply_classification(reply, classification)
+    valid_evidence = tuple(
+        ReplyEvidenceDTO(start_offset=item.start_offset, end_offset=item.end_offset)
+        for item in classification.evidence
+        if item.is_valid_for(reply)
+    )
+    return ReplyResultDTO(
+        category=outcome.category,
+        status=outcome.status,
+        recommended_action=outcome.recommended_action,
+        confidence=classification.confidence,
+        language=classification.language,
+        evidence=valid_evidence,
+        limitations=output.limitations,
+        review_reasons=outcome.review_reasons,
+    )

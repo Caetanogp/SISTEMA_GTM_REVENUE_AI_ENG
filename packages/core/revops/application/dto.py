@@ -42,6 +42,7 @@ from revops.domain.values.reply import (
     ReplyClassificationStatus,
     ReplyLanguage,
     ReplyNextAction,
+    ReplyReviewReason,
     ReplyText,
 )
 from revops.domain.values.retrieval import RetrievalProvenance, RetrievalScore, RetrievedPassage
@@ -445,8 +446,8 @@ class ReplyEvidenceDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    start_offset: int = Field(ge=0)
-    end_offset: int = Field(ge=1)
+    start_offset: int = Field(ge=0, strict=True)
+    end_offset: int = Field(ge=1, strict=True)
 
 
 class ReplyClassificationOutput(BaseModel):
@@ -455,15 +456,14 @@ class ReplyClassificationOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     category: ReplyCategory
-    confidence: float = Field(ge=0, le=1)
+    confidence: float = Field(ge=0, le=1, strict=True, allow_inf_nan=False)
     language: ReplyLanguage
     evidence: tuple[ReplyEvidenceDTO, ...] = Field(default_factory=tuple, max_length=32)
     ambiguous: bool = False
     limitations: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
 
 
-@dataclass(frozen=True, slots=True)
-class ReplyResultDTO:
+class ReplyResultDTO(BaseModel):
     """Typed, sanitized classification result stored in a run artifact."""
 
     category: ReplyCategory
@@ -473,6 +473,15 @@ class ReplyResultDTO:
     language: ReplyLanguage
     evidence: tuple[ReplyEvidenceDTO, ...]
     limitations: tuple[str, ...]
+    review_reasons: tuple[ReplyReviewReason, ...] = Field(default_factory=tuple, max_length=6)
+
+
+class ClassifyReplyArgs(BaseModel):
+    """The only untrusted argument accepted by the fixed reply tool."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reply_id: UUID
 
 
 class AppendReplyFeedbackArgs(BaseModel):
@@ -883,3 +892,4 @@ class CorpusRevision:
     manifest_hash: str
     activated_by: UUID
     created_at: datetime
+    model_config = ConfigDict(extra="forbid", frozen=True)

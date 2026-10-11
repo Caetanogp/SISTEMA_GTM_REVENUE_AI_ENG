@@ -17,7 +17,10 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 Item 3 persistence and idempotency are implemented and verified against the local PostgreSQL service.
 The Item 4 architecture decision is approved and recorded in the implementation plan and ADR.
-Documentation/control preparation is being committed before the focused pilot.
+The focused Item 4 implementation has started: strict typed reply output/result contracts,
+ordered review reasons, the versioned fenced prompt loader, the bounded classifier adapter, and
+the analysis-only tool are present. The dedicated graph, checkpoint lifecycle, journal
+reconciliation, and runtime-contract evidence are still outstanding.
 
 ## Done
 
@@ -35,12 +38,17 @@ Documentation/control preparation is being committed before the focused pilot.
 - Observed non-PostgreSQL verification for Item 3: `ruff check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed; `ruff format --check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed (28 files); `python -m py_compile` passed for all changed Python files; `lint-imports` kept all 4 contracts; `git diff --check` passed; the focused test collected one integration test.
 - Item 3 verification was subsequently completed after Docker became available: `docker compose up -d` started healthy PostgreSQL/Redis; migration `c4d5e6f7a8b9` applied; `pytest tests/integration/test_reply_persistence.py -q` -> 1 passed; Ruff, format check, mypy, and `git diff --check` passed. The reservation order was corrected to persist the run and started event before its FK-backed classification request.
 - Approved Item 4 architecture is recorded in `docs/specs/SPEC-011-reply-intelligence/plan.md` and `docs/decisions/ADR-0019-reply-intelligence-runtime.md`; the queue requires the real package prompt path and the Item 4 cross-layer/runtime evidence.
+- Item 4 partial implementation adds `ReplyReviewReason`, strict reply output/result DTOs,
+  `ClassifyReply`, the versioned `classify_reply.v1` prompt, `BoundedReplyClassifier`, and the
+  low-risk `ClassifyReplyTool`. Focused pre-graph checks passed: Ruff, format, `py_compile`, and
+  `git diff --check`; existing reply/domain/application/tool tests passed (32 passed).
 
 ## Next
 
-1. Commit the approved Item 4 documentation/control preparation and obtain the explicit baseline-rollover authorization for the changed paths.
-2. Start the real bounded Item 4 pilot with PostgreSQL available and the authoritative `C:\Dev` environment.
-3. Verify the Item 4 commit and gate advancement, then launch the remaining-items loop and attach the external watcher.
+1. Finish the Item 4 dedicated graph, same-connection advisory lock, checkpoint artifact,
+   terminal journal reconciliation, and targeted runtime/eval tests.
+2. Verify Item 4 against PostgreSQL with the authoritative `C:\Dev` environment.
+3. Only then tick the Item 4 checkbox, have the supervisor commit, and validate gate advancement.
 
 ## Gotchas
 
