@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 4 implemented and evidenced; ready for supervisor gate"
+phase: "Item 4 verified; Item 5 is next"
 status: in_progress
 ---
 
@@ -15,9 +15,8 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Item 3 persistence and idempotency are implemented and verified against the local PostgreSQL service.
-Item 4 is implemented with the approved dedicated reply graph, PostgreSQL execution fence,
-bounded checkpoint artifact, replay-safe terminal journal behavior, and offline contract evidence.
+Items 1-4 are implemented and verified. The clean feature branch is ready for the unattended
+supervisor to implement Item 5 (authenticated reply APIs and direct artifact reads).
 
 ## Done
 
@@ -35,11 +34,6 @@ bounded checkpoint artifact, replay-safe terminal journal behavior, and offline 
 - Observed non-PostgreSQL verification for Item 3: `ruff check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed; `ruff format --check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed (28 files); `python -m py_compile` passed for all changed Python files; `lint-imports` kept all 4 contracts; `git diff --check` passed; the focused test collected one integration test.
 - Item 3 verification was subsequently completed after Docker became available: `docker compose up -d` started healthy PostgreSQL/Redis; migration `c4d5e6f7a8b9` applied; `pytest tests/integration/test_reply_persistence.py -q` -> 1 passed; Ruff, format check, mypy, and `git diff --check` passed. The reservation order was corrected to persist the run and started event before its FK-backed classification request.
 - Approved Item 4 architecture is recorded in `docs/specs/SPEC-011-reply-intelligence/plan.md` and `docs/decisions/ADR-0019-reply-intelligence-runtime.md`; the queue requires the real package prompt path and the Item 4 cross-layer/runtime evidence.
-- Item 4 partial implementation adds `ReplyReviewReason`, strict reply output/result DTOs,
-  `ClassifyReply`, the versioned `classify_reply.v1` prompt, `BoundedReplyClassifier`, and the
-  low-risk `ClassifyReplyTool`. Focused pre-graph checks passed: Ruff, format, `py_compile`, and
-  `git diff --check`; existing reply/domain/application/tool tests passed (32 passed).
-
 - Item 4 now adds `reply_runtime.py`: fixed `select`/`reserve`/`execute`/`complete` lifecycle,
   a canonical compact 128 KiB typed artifact, 30-second runtime/20-second inference bounds,
   durable synchronous checkpoints, fail-closed reserved-state recovery, and deterministic terminal
@@ -51,15 +45,15 @@ bounded checkpoint artifact, replay-safe terminal journal behavior, and offline 
   acquisition returns `in_progress` and the lock releases correctly. The new
   `reply_runtime_contract` offline suite passed 4/4 and is mandatory in `evals.gate`.
 - Observed final Item 4 evidence: `ruff check` and format check passed for all touched runtime,
-  persistence, eval, unit, and integration paths; `mypy` passed (15 source files); focused pytest
-  passed (53 passed); `python -m evals.gate` passed all nine suites; `lint-imports` kept all four
+  persistence, eval, unit, and integration paths; `mypy` passed (50 source files); focused pytest
+  passed (54 passed); `python -m evals.gate` passed all nine suites; `lint-imports` kept all four
   contracts; `git diff --check` passed. The fourth SPEC-011 checkbox is ticked.
 
 ## Next
 
-1. The supervisor must validate the Item 4 diff, commit this executor increment, and run the
-   autonomous gate from its clean parent process.
-2. Do not begin Item 5 in this executor turn.
+1. Launch the real long loop from the clean feature branch with `MaxTurns 100` for Items 5-8.
+2. Attach the external watcher to the new supervisor PID and stdout log.
+3. Stop on `GOAL ACHIEVED`, `architecture_required`, `HUMAN_REQUIRED`, or a deterministic gate failure.
 
 ## Gotchas
 
@@ -98,11 +92,5 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-11T22:59:01+00:00)
 
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. Executor changes outside Item 4 scope cannot be committed: ['tests/unit/evals/test_gate.py']
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-11T23:00:37+00:00)
-
-Invalid baseline rollover authorization: baseline rollover requires a clean worktree
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
