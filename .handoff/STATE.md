@@ -1,6 +1,6 @@
 ---
 agent: codex
-updated_at: 2026-10-12
+updated_at: 2026-10-11
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
 phase: "Item 8 traceability recorded; full verification blocked by existing type and environment failures"
@@ -15,10 +15,12 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Item 8 documentation is prepared, but its mapped checkbox remains open. Full verification found
-28 `mypy .` errors in the pre-existing Reply Intelligence test doubles, 50 `tmp_path` setup errors
-because the sandbox denies the user temp directory, and unavailable/blocked security checks.
-Do not run the autonomous gate from this dirty executor worktree.
+Item 8 traceability and security-review evidence is recorded, but its mapped checkbox remains open.
+Full verification found 28 `mypy .` errors in existing Reply Intelligence test doubles and 50
+`tmp_path` setup errors because the sandbox denies the user temp directory. Security closure is also
+blocked by `.pytest_cache` access for Gitleaks, unavailable Semgrep, four existing Bandit B101
+findings in ingestion, and denied PyPI access for `pip-audit`. Do not run the autonomous gate from
+this dirty executor worktree.
 
 ## Done
 
@@ -67,7 +69,7 @@ Do not run the autonomous gate from this dirty executor worktree.
 - Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
 - Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
 - Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
-- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. Observed closeout checks: Ruff and format passed; `lint-imports` kept all 4 contracts; integration passed (52); adversarial passed (32); `python -m evals.run --suite all` and `python -m evals.gate` passed (reply classification 90/90, all metrics 1.00); PDF traceability and agent-doc checks passed; `git diff --check` passed. Full closure remains blocked by `mypy .` (28 test typing errors), unit temporary-directory permission errors (455 passed, 50 errors), `gitleaks` unable to read `.pytest_cache`, missing `semgrep`, pre-existing Bandit B101 findings in ingestion, and `pip-audit` network denial.
+- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. On 2026-10-11, `ruff check .`, format check (275 files), `lint-imports` (4 contracts), integration (52), adversarial (32), evals (all 11 suites; reply 90/90), PDF traceability (86 rows/pages 1-20), and agent-doc checks passed. Full closure remains blocked by `mypy .` (28 test typing errors), unit temporary-directory permission errors (455 passed, 50 errors), Gitleaks unable to read `.pytest_cache`, missing Semgrep, pre-existing Bandit B101 findings in ingestion, and `pip-audit` network denial.
 
 ## Next
 

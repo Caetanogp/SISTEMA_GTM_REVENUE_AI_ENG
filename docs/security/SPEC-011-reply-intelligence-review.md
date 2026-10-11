@@ -1,6 +1,6 @@
 # SPEC-011 Reply Intelligence Security Review
 
-Reviewed: 2026-10-12
+Reviewed: 2026-10-11
 
 ## Scope
 
@@ -23,6 +23,12 @@ No new security finding was identified in the reviewed scope.
 
 ## Automated evidence
 
-The closeout command results are recorded in `.handoff/STATE.md` after they are observed. No
-dependency, credential, MCP server, external write, or security relaxation was introduced by
-SPEC-011.
+Observed closeout results on 2026-10-11: `pytest tests/adversarial -q` passed (32 tests),
+`python -m evals.run --suite all` passed (including reply classification 90/90), and
+`python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20). `gitleaks detect
+--no-git` reported no leaks but exited unsuccessfully because the sandbox denied access to
+`.pytest_cache`; `semgrep` was unavailable on `PATH`; `bandit -r packages apps -q` reported four
+pre-existing low-severity B101 findings in `packages/core/revops/application/use_cases/ingestion.py`;
+and `pip-audit` could not reach PyPI because sandbox networking is denied. Full closeout therefore
+remains open. No dependency, credential, MCP server, external write, or security relaxation was
+introduced by SPEC-011.

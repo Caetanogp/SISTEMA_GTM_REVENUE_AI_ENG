@@ -2,7 +2,7 @@
 
 Source of truth: `docs/Agentic_GTM_Revenue_Operations_Platform_Guia_Projeto.pdf`
 PDF SHA-256: `8C294C58019722357B98BEF75B2E3CA7B52D3BE21891FF9D9F7C7D0B4D86E42A`
-Reviewed: 2026-09-12
+Reviewed: 2026-10-11
 
 This matrix records the current repository state against the project guide. `implemented` means
 there is concrete evidence in this repository, not merely a dependency, placeholder or roadmap
