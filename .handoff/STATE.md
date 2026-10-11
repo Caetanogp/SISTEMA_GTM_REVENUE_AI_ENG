@@ -103,3 +103,9 @@ The loop stopped itself. Do not restart it against the same queue item without a
 HUMAN_REQUIRED: autonomous architecture supervisor stopped. A implementação exigiria inventar um contrato público de API; pelas instruções, isso requer decisão humana antes de editar qualquer arquivo.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-11T23:10:08+00:00)
+
+Item 5 declares scope ('apps/api/', 'tests/integration/', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/agent/', 'packages/core/revops/infrastructure/persistence/'), but changes touch files outside it: ['docs/decisions/ADR-0019-reply-intelligence-runtime.md', 'docs/specs/SPEC-011-reply-intelligence/plan.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
