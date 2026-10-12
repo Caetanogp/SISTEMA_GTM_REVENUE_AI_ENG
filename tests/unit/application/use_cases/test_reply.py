@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -74,7 +74,7 @@ class _Contacts:
 
 class _Canonical:
     def __init__(
-        self, groups: Mapping[tuple[DeduplicationRecordType, UUID], CanonicalRecordGroup]
+        self, groups: dict[tuple[DeduplicationRecordType, UUID], CanonicalRecordGroup]
     ) -> None:
         self.groups = groups
         self.writes: list[tuple[DeduplicationRecordType, UUID]] = []
@@ -407,8 +407,13 @@ async def test_feedback_is_append_only_tenant_scoped_and_idempotent() -> None:
 def test_reply_dtos_forbid_tenant_identity_and_invalid_untrusted_fields() -> None:
     assert "organization_id" not in RegisterReplyArgs.model_fields
     with pytest.raises(ValidationError):
-        RegisterReplyArgs(
-            account_id=uuid4(), text="", language=ReplyLanguage.ENGLISH, organization_id=uuid4()
+        RegisterReplyArgs.model_validate(
+            {
+                "account_id": uuid4(),
+                "text": "Reply text",
+                "language": ReplyLanguage.ENGLISH,
+                "organization_id": uuid4(),
+            }
         )
     with pytest.raises(ValidationError):
         AppendReplyFeedbackArgs(corrected_category=ReplyCategory.QUESTION, comment="")

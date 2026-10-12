@@ -16,11 +16,12 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 ## Now
 
 Item 8 traceability and security-review evidence is recorded, but its mapped checkbox remains open.
-Full verification found 28 `mypy .` errors in existing Reply Intelligence test doubles and 50
-`tmp_path` setup errors because the sandbox denies the user temp directory. Security closure is also
-blocked by `.pytest_cache` access for Gitleaks, unavailable Semgrep, four existing Bandit B101
-findings in ingestion, and denied PyPI access for `pip-audit`. Do not run the autonomous gate from
-this dirty executor worktree.
+The Reply Intelligence test-double typing issue is fixed within the authorized scope; `mypy .`
+now passes. Full verification is currently blocked only by missing Semgrep, four pre-existing
+Bandit B101 findings in ingestion, and `pip-audit` reporting vulnerable pinned dependencies.
+The focused unit, integration, adversarial, eval, traceability, Ruff, import, docs, and Gitleaks
+checks pass. Do not mark Item 8 complete until the security findings are resolved or explicitly
+accepted through the repository's security decision process.
 
 ## Done
 
@@ -70,11 +71,13 @@ this dirty executor worktree.
 - Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
 - Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
 - Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. On 2026-10-11, `ruff check .`, format check (275 files), `lint-imports` (4 contracts), integration (52), adversarial (32), evals (all 11 suites; reply 90/90), PDF traceability (86 rows/pages 1-20), and agent-doc checks passed. Full closure remains blocked by `mypy .` (28 test typing errors), unit temporary-directory permission errors (455 passed, 50 errors), Gitleaks unable to read `.pytest_cache`, missing Semgrep, pre-existing Bandit B101 findings in ingestion, and `pip-audit` network denial.
+- The authorized verification repair adds narrow reply ports and corrects three test-only typing/platform annotations in `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, and `tests/integration/test_reply_persistence.py`; `mypy .` passed (201 files), unit tests passed (505), and integration tests passed (52).
+- Re-run security evidence: Gitleaks passed with no leaks; Semgrep is unavailable; Bandit reports the four existing ingestion B101 findings; `pip-audit` reports 196 known dependency vulnerabilities. No security check was weakened.
 
 ## Next
 
-1. Repair the existing Reply Intelligence test-double protocol typing failures, within the appropriate implementation scope.
-2. Resolve the sandbox/environment limitations affecting `tmp_path`, `.pytest_cache`, Semgrep, and PyPI access, then rerun the full verification sequence.
+1. Decide the security remediation path for the four pre-existing ingestion assertions and the vulnerable dependency set; install Semgrep in the approved tool environment.
+2. Rerun the full security/verification sequence after remediation, without weakening thresholds or suppressing findings.
 3. Once every closeout command passes, tick Item 8, commit the documentation, and run the autonomous gate from the clean parent process.
 
 ## Gotchas
@@ -126,5 +129,11 @@ The loop stopped itself. Do not restart it against the same queue item without a
 ## Autonomous loop HALT (2026-10-11T23:10:08+00:00)
 
 Item 5 declares scope ('apps/api/', 'tests/integration/', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/agent/', 'packages/core/revops/infrastructure/persistence/'), but changes touch files outside it: ['docs/decisions/ADR-0019-reply-intelligence-runtime.md', 'docs/specs/SPEC-011-reply-intelligence/plan.md']. Revert the out-of-scope changes or stop and ask.
+
+The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+
+## Autonomous loop HALT (2026-10-11T23:45:41+00:00)
+
+HUMAN_REQUIRED: autonomous architecture supervisor stopped. Closing Item 8 requires changes outside its approved queue scope plus resolution of sandbox-restricted security and temporary-directory checks. Authorizing either would expand the item; no safe autonomous choice is available.
 
 The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.

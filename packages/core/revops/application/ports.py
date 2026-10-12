@@ -388,6 +388,38 @@ class ReplyFeedbackRepository(Protocol):
     ) -> Sequence[ReplyFeedbackRecord]: ...
 
 
+@runtime_checkable
+class ReplyAccountReader(Protocol):
+    """Narrow account read port required by reply relationship validation."""
+
+    async def get(self, organization_id: UUID, account_id: UUID) -> Account: ...
+
+
+@runtime_checkable
+class ReplyContactReader(Protocol):
+    """Narrow contact read port required by reply relationship validation."""
+
+    async def get(self, organization_id: UUID, contact_id: UUID) -> Contact | None: ...
+
+
+@runtime_checkable
+class ReplyCanonicalResolver(Protocol):
+    """Write-resolution seam required by reply relationship validation."""
+
+    async def resolve_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> CanonicalRecordGroup | None: ...
+
+
+@runtime_checkable
+class ReplyRunWriter(Protocol):
+    """Narrow run journal port required by reply reservation."""
+
+    async def add(self, run: AgentRunRecord) -> None: ...
+
+    async def add_event(self, event: AgentRunEventRecord) -> None: ...
+
+
 T = TypeVar("T")
 
 
@@ -471,13 +503,26 @@ class UnitOfWork(Protocol):
 class ReplyUnitOfWork(Protocol):
     """Reply-specific transaction boundary; it is deliberately separate from ingestion."""
 
-    accounts: AccountRepository
-    contacts: ContactRepository
-    canonical: CanonicalResolver
-    replies: ReplyRepository
-    classification_requests: ReplyClassificationRequestRepository
-    feedback: ReplyFeedbackRepository
-    runs: AgentRunRepository
+    @property
+    def accounts(self) -> ReplyAccountReader: ...
+
+    @property
+    def contacts(self) -> ReplyContactReader: ...
+
+    @property
+    def canonical(self) -> ReplyCanonicalResolver: ...
+
+    @property
+    def replies(self) -> ReplyRepository: ...
+
+    @property
+    def classification_requests(self) -> ReplyClassificationRequestRepository: ...
+
+    @property
+    def feedback(self) -> ReplyFeedbackRepository: ...
+
+    @property
+    def runs(self) -> ReplyRunWriter: ...
 
     async def __aenter__(self) -> ReplyUnitOfWork: ...
 

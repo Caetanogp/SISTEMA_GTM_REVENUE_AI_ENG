@@ -60,8 +60,8 @@ pilot; executors remain prohibited from editing supervisor controls.
 - **Done when:** focused and regression suites pass with no skipped or weakened checks.
 
 ## Item 8 - Traceability and verification
-- **Scope:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`
-- **Requires:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`
+- **Scope:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/integration/test_reply_persistence.py`
+- **Requires:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/integration/test_reply_persistence.py`
 - **Closes:** 1 tasks.md checkbox
 - **What:** record PDF file:line evidence, security review, final verification output, and handoff closeout.
 - **Done when:** full verification, eval gate, traceability checker, security checks, and clean-tree checks pass.

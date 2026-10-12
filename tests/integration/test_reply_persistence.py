@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -40,9 +40,13 @@ class _Clock:
 
 @pytest.fixture(scope="session")
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if sys.platform == "win32":
-        return asyncio.WindowsSelectorEventLoopPolicy()
-    return asyncio.get_event_loop_policy()
+    policy_factory = cast(
+        type[asyncio.AbstractEventLoopPolicy] | None,
+        getattr(asyncio, "WindowsSelectorEventLoopPolicy", None),
+    )
+    if policy_factory is None:
+        return asyncio.get_event_loop_policy()
+    return policy_factory()
 
 
 async def _seed_reply_subjects(
