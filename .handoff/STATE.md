@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 security closeout in progress; CI dependency fix prepared, required GitHub checks pending"
+phase: "SPEC-011 security closeout in progress; dependency fix pushed, CI has unrelated baseline blockers"
 status: in_progress
 ---
 
@@ -16,14 +16,15 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 ## Now
 
 Item 8 remains open. PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`.
-GitHub run `38207729211` passed security/SAST and frontend jobs, but Tests failed collection because
-the Linux lock omitted `greenlet`, required by SQLAlchemy asyncio; Ruff also found formatting drift
-in three docs that are unchanged from `origin/develop`. The branch now declares
-`sqlalchemy[asyncio]` and pins `greenlet==3.2.5`; the updated 140-pin inventory passed
-`pip-audit --strict --no-deps -r requirements-ci.txt` with no known vulnerabilities. This fix is
-not yet pushed, so GitHub has not rerun CI. Local `pytest tests/unit/apps/test_auth.py -q` passed
-(3), `python -m pip check` passed, and targeted pre-commit hooks passed. Do not mark Item 8 complete
-until required checks pass.
+Commit `a2e567a` pushed the `sqlalchemy[asyncio]` declaration and `greenlet==3.2.5` pin; the
+updated 140-pin inventory passed pip-audit, local auth tests (3), `pip check`, and targeted
+pre-commit. GitHub run `38208148189` confirmed locked installation, unit tests, security/SAST
+(including Semgrep), and frontend job passed. Integration has one failure in unchanged
+`tests/integration/test_deduplication_api.py`: FastAPI 0.143/Starlette 1.7 defer included routers,
+so introspection of `app.routes` misses registered endpoints; local reproduction with those pinned
+versions confirms the routes are present in OpenAPI. Ruff still fails only on the three docs files
+unchanged from `origin/develop`. These baseline cleanups are outside SPEC-011 and need approval.
+Do not mark Item 8 complete until required checks pass.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -31,8 +32,8 @@ adds regression coverage. Ruff, format, targeted mypy, the 10-test ingestion uni
 suite under `python -O`, and `bandit -r packages apps -q` passed. The pinned Linux requirements
 lock and CI changes are now present. Docker image pulls failed, so the lock was resolved through
 pip's cross-target Linux wheel options, not the stale global Windows editable install. The pinned
-Linux installation and eval workflow passed manually in GitHub run `38206913090`; the complete CI
-matrix and Semgrep still require a PR run.
+Linux installation and eval workflow passed manually in GitHub run `38206913090`; current PR CI
+results are summarized in `Now`.
 
 Closeout verification observed on 2026-10-12: Ruff and format passed (275 files); `mypy .` passed
 (201 source files); `pytest tests/unit tests/architecture -q` passed (508); adversarial tests passed
@@ -95,16 +96,15 @@ pending dependency correction are recorded above.
 - Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
 - Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
 - Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
-- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The earlier full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks. Security closeout now also has passing Bandit and pinned-inventory pip-audit evidence; GitHub CI installation/test and Semgrep results remain outstanding.
+- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The earlier full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks. Do not treat that earlier local full verification as overriding the current PR CI failures summarized in `Now`.
 - The authorized verification repair adds narrow reply ports and corrects three test-only typing/platform annotations in `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, and `tests/integration/test_reply_persistence.py`; `mypy .` passed (201 files), unit tests passed (505), and integration tests passed (52).
 - Security closeout update: `bandit -r packages apps -q` passes after commit `dc9e210`; focused ingestion tests pass normally and under `python -O`. `requirements-ci.txt` now pins 140 packages for CPython 3.12 Linux x86_64; the updated `pip-audit --strict --no-deps -r requirements-ci.txt` reports no known vulnerabilities. The previous 196-finding report was not reproduced against the current pinned inventory and must not be treated as its audit result.
 
 ## Next
 
-1. Commit and push the approved SQLAlchemy asyncio dependency/lock correction to PR #1.
-2. Recheck GitHub CI for the locked Linux install, unit/integration/adversarial tests, Semgrep, and eval gate.
-3. Treat the three Ruff formatting failures in unchanged `origin/develop` docs as a base-branch issue; do not silently expand SPEC-011 to modify them.
-4. Resolve remaining in-scope findings without suppressions. Only after required checks pass, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
+1. Obtain approval for the baseline CI repairs: update the deduplication route test to inspect OpenAPI and format the three unchanged Ruff docs.
+2. Apply only the approved baseline repairs and rerun the full PR checks.
+3. After every required check passes, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
 
@@ -126,7 +126,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-None for the approved SPEC-011 scope. A newly discovered product or security choice must stop the queue and be brought back for deliberate design.
+May Codex make the minimal baseline CI repairs described in `Now`, or should they be split into a follow-up PR?
 
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
