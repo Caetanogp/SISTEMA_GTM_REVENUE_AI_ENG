@@ -60,11 +60,11 @@ pilot; executors remain prohibited from editing supervisor controls.
 - **Done when:** focused and regression suites pass with no skipped or weakened checks.
 
 ## Item 8 - Traceability and verification
-- **Scope:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/integration/test_reply_persistence.py`
-- **Requires:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/integration/test_reply_persistence.py`
+- **Scope:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/ingestion.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/application/use_cases/test_ingestion.py`, `tests/integration/test_reply_persistence.py`, `requirements-ci.txt`, `pyproject.toml`, `.github/workflows/ci.yml`, `.github/workflows/evals.yml`
+- **Requires:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/ingestion.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/application/use_cases/test_ingestion.py`, `tests/integration/test_reply_persistence.py`, `requirements-ci.txt`, `pyproject.toml`, `.github/workflows/ci.yml`, `.github/workflows/evals.yml`
 - **Closes:** 1 tasks.md checkbox
-- **What:** record PDF file:line evidence, security review, final verification output, and handoff closeout.
-- **Done when:** full verification, eval gate, traceability checker, security checks, and clean-tree checks pass.
+- **What:** record PDF file:line evidence; replace the four ingestion B101 assertions with explicit invariant checks; establish an exact-version Python 3.12 Linux CI dependency input; run Semgrep, Bandit, dependency audit, full verification, and handoff closeout.
+- **Done when:** full verification, eval gate, traceability checker, Semgrep, Bandit, `pip-audit --strict --no-deps -r requirements-ci.txt`, and clean-tree checks pass without suppressions or weakened thresholds.
 
 ## Loop rules
 

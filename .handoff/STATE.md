@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 8 traceability recorded; security closeout blocked by baseline findings and non-reproducible dependency audit"
+phase: "SPEC-011 security closeout in progress; ingestion assertions fixed, Linux dependency lock and audit recorded; GitHub CI evidence pending"
 status: in_progress
 ---
 
@@ -17,14 +17,34 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 Item 8 traceability and security-review evidence is recorded, but its mapped checkbox remains open.
 The Reply Intelligence test-double typing issue is fixed within the authorized scope; `mypy .`
-passed on 2026-10-11. On 2026-10-12, Bandit reproduced four pre-existing B101 findings in
-`packages/core/revops/application/use_cases/ingestion.py`. Semgrep is not installed locally. The
-current `pip-audit --strict` run did not produce a vulnerability report: Python's global editable
-install points to the stale OneDrive checkout, and pip-audit fails collecting the unpublished
-local project even with `--skip-editable`. There is no Python lockfile in the authoritative checkout,
-despite `pyproject.toml` describing one as the source of exact versions. Do not mark Item 8 complete
-until a reproducible dependency audit is available and the security findings are resolved or
-explicitly accepted through the repository's security decision process.
+passed on 2026-10-11. Commit `dc9e210` replaced the four ingestion B101 assertions with explicit
+runtime guards and regression coverage; Bandit exits 0. `requirements-ci.txt` contains 139 exact
+pins resolved for CPython 3.12 Linux x86_64, and
+`pip-audit --strict --no-deps -r requirements-ci.txt` reported no known vulnerabilities. CI now
+installs from these pins and runs `pip check`; eval CI triggers on lock and project dependency
+metadata changes. Local Semgrep is unavailable, and GitHub has not yet produced CI evidence for
+Semgrep or the locked Linux install/test matrix. Do not mark Item 8 complete until those checks have
+an observed passing result.
+
+The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
+`dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
+adds regression coverage. Ruff, format, targeted mypy, the 10-test ingestion unit suite, the same
+suite under `python -O`, and `bandit -r packages apps -q` passed. The pinned Linux requirements
+lock and CI changes are now present. Docker image pulls failed, so the lock was resolved through
+pip's cross-target Linux wheel options, not the stale global Windows editable install. The lock
+audit passed; GitHub CI must still validate installation and jobs.
+
+Closeout verification observed on 2026-10-12: Ruff and format passed (275 files); `mypy .` passed
+(201 source files); `pytest tests/unit tests/architecture -q` passed (508); adversarial tests passed
+(32); all 11 eval suites passed; PDF traceability passed (86 rows, pages 1-20); agent-docs,
+Bandit, import contracts, Gitleaks, `git diff --check`, and the pinned-inventory pip-audit passed.
+Integration tests produced 51 passes and one unrelated failure in
+`tests/integration/test_attribution_migration_round_trip.py`: its downgrade cannot restore a unique
+constraint because the shared local database contains duplicate
+`knowledge_processing_events(delivery_id, attempt, event_type)` rows. No database records or
+migrations were changed to bypass that failure. The focused ingestion suite previously passed 10
+tests normally and under `python -O`. Local Semgrep and actual Linux CI installation remain
+unverified.
 
 ## Done
 
@@ -73,16 +93,16 @@ explicitly accepted through the repository's security decision process.
 - Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
 - Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
 - Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
-- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks; security closure remains open for unavailable Semgrep, four pre-existing Bandit findings, and pip-audit vulnerabilities.
+- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The earlier full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks. Security closeout now also has passing Bandit and pinned-inventory pip-audit evidence; GitHub CI installation/test and Semgrep results remain outstanding.
 - The authorized verification repair adds narrow reply ports and corrects three test-only typing/platform annotations in `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, and `tests/integration/test_reply_persistence.py`; `mypy .` passed (201 files), unit tests passed (505), and integration tests passed (52).
-- Re-run security evidence: Gitleaks passed with no leaks; Semgrep is unavailable; Bandit reports the four existing ingestion B101 findings; `pip-audit` reports 196 known dependency vulnerabilities. No security check was weakened.
+- Security closeout update: `bandit -r packages apps -q` passes after commit `dc9e210`; focused ingestion tests pass normally and under `python -O`. `requirements-ci.txt` pins 139 packages for CPython 3.12 Linux x86_64; `pip-audit --strict --no-deps -r requirements-ci.txt` reports no known vulnerabilities. The previous 196-finding report was not reproduced against the current pinned inventory and must not be treated as its audit result.
 
 ## Next
 
-1. Approve a bounded security follow-up for the four pre-existing ingestion assertions, which are outside the current Item 8 file scope, or record a formal waiver under the repository security policy.
-2. Establish a reproducible Python dependency input and run `pip-audit` against it; the repository currently has no Python lockfile and the global editable install points to the stale OneDrive checkout.
-3. Run Semgrep in an approved environment, then rerun the security checks without weakening thresholds or suppressing findings.
-4. Once every closeout command passes, tick Item 8, commit the documentation, and run the autonomous gate from the clean parent process.
+1. Review and publish the local closeout commit from `feature/SPEC-011-reply-intelligence`; the agent must not push.
+2. Inspect GitHub CI results for locked Linux installation, the full test matrix, and Semgrep rulesets.
+3. If CI reports integration failure, compare it against the local shared-database duplicate-key failure and diagnose without altering persistent local data or weakening checks.
+4. Resolve any CI findings without suppressions. Only after all required checks pass, record final evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
 

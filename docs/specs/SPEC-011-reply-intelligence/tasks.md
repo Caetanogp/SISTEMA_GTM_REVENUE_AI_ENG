@@ -1,5 +1,17 @@
 # SPEC-011: Reply Intelligence Tasks
 
+## Item 8 security closeout
+
+The final verification checkbox also requires the approved security closeout:
+
+- Replace the four ingestion B101 assertions with runtime invariant checks and focused regression
+  coverage.
+- Add a pinned `requirements-ci.txt` resolved from a clean Linux Python 3.12 environment; use it
+  for Python CI installation and pip-audit without suppressing findings.
+- Pass the existing CI Semgrep rulesets and all verification commands before closing Item 8.
+- Keep the autonomous Item 8 scope synchronized with the approved files and record observed
+  evidence in this task file and `.handoff/STATE.md`.
+
 ## Acceptance evidence
 
 | Mapping | Observed file:line evidence |
@@ -16,6 +28,7 @@
 | AC-10 existing runtime compatibility | `tests/integration/test_agent_runs_api.py:1`; `tests/integration/test_reply_api.py:62` |
 | AC-11 non-blocking same-connection checkpoint lock | `packages/core/revops/infrastructure/agent/reply_runtime.py:142`; `tests/integration/test_reply_runtime_lock.py:21` |
 | AC-12 bounded, typed, canonical persisted artifact | `packages/core/revops/infrastructure/agent/reply_runtime.py:45`; `tests/unit/infrastructure/agent/test_reply_runtime.py:116` |
+| AC-13 approved security closeout: runtime ingestion guards and pinned CI audit input | `packages/core/revops/application/use_cases/ingestion.py:116`; `tests/unit/application/use_cases/test_ingestion.py:325`; `.github/workflows/ci.yml:62`; `.github/workflows/ci.yml:72` |
 
 - [x] Add reply domain values and deterministic classification policy for nine bilingual categories — verified by focused domain tests
 - [x] Add reply DTOs, ports, use cases, and canonical tenant/contact validation — verified by application unit tests and mypy

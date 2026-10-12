@@ -11,6 +11,8 @@ on:
       - "apps/api/**"
       - "apps/mcp/**"
       - "evals/**"
+      - "requirements-ci.txt"
+      - "pyproject.toml"
       - "docs/requirements/PDF_TRACEABILITY.md"
       - "scripts/check_pdf_traceability.py"
       - "tests/unit/scripts/test_pdf_traceability.py"
@@ -36,7 +38,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -e ".[dev]"
+          cache-dependency-path: requirements-ci.txt
+      - name: Install locked Python dependencies
+        run: |
+          python -m pip install --no-deps -r requirements-ci.txt
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
 
       - name: Check PDF traceability
         run: python scripts/check_pdf_traceability.py

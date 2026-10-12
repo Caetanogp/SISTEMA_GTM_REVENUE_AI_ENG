@@ -95,6 +95,50 @@ Integration tests must use real PostgreSQL checkpoints and prove concurrency, re
 journal gap; in-memory fakes alone are insufficient. Unit, adversarial, security, and no-side
 effect tests remain required.
 
+## Security closeout plan
+
+### Ingestion invariant checks
+
+Replace the four Bandit-reported `assert` statements in
+`packages/core/revops/application/use_cases/ingestion.py` with explicit checks that raise a clear
+internal invariant error if the supposedly validated record is inconsistent. Keep the existing
+validation response for user input unchanged. Add regression coverage for normal staging and the
+inconsistent contact record path so optimized Python cannot remove these guards.
+
+### Reproducible Python dependency audit
+
+Use `requirements-ci.txt` as an exact-version snapshot for the existing Python 3.12 Linux CI
+environment. Resolve the declared runtime and dev dependencies with pip's cross-platform download
+options for CPython 3.12/Linux x86_64, excluding the local project package. Do not use the
+developer's global site-packages or OneDrive editable install. Update Python CI jobs to install the
+lock input, install the local project with `--no-deps --no-build-isolation`, and run `pip check`.
+The CI run validates actual Linux installation and execution. Run
+`pip-audit --strict --no-deps -r requirements-ci.txt` against the same input. Review and update
+vulnerable packages in bounded groups, checking compatibility with the project and rerunning the
+full verification gate after each group.
+
+The pip `requirements` format is selected over `pip lock`/`pylock.toml` because the official pip
+documentation currently labels `pip lock` and pylock input support experimental. This uses the
+existing pip workflow and introduces no lock-generation dependency. The lock is CI-platform
+specific; developer setup remains available through the documented editable install.
+
+Semgrep stays in its existing GitHub Actions security job with the current `p/default`, `p/python`,
+and `p/secrets` rulesets. Its successful CI result is required for security closeout; no local
+installation or ruleset change is proposed.
+
+### Files and checks
+
+- `packages/core/revops/application/use_cases/ingestion.py` and
+  `tests/unit/application/use_cases/test_ingestion.py`: preserve invariant behavior; Bandit passes.
+- `requirements-ci.txt`, `.github/workflows/ci.yml`, and `.github/workflows/evals.yml`: exact
+  resolved dependencies are used consistently; `pip check` and pip-audit pass.
+- `docs/security/SPEC-011-reply-intelligence-review.md`,
+  `docs/specs/SPEC-011-reply-intelligence/tasks.md`, `.handoff/STATE.md`, and
+  `.handoff/AUTONOMOUS_QUEUE.md`: record exact commands, evidence, and expanded Item 8 paths.
+- Run Ruff, mypy, import contracts, unit, integration, adversarial, eval, traceability, docs,
+  Gitleaks, Bandit, pip-audit, and the CI Semgrep job. Do not close Item 8 or restart the long loop
+  until all required security checks pass.
+
 ## Rollout evidence
 
 Run the focused Item 4 pilot before the unattended loop. Record graph/prompt versions, model

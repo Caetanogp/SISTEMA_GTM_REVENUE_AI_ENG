@@ -86,3 +86,37 @@ Add a synthetic 90-example bilingual dataset, contract cases, nine-class metrics
 - Text-only classification can be ambiguous; the explicit review state is the safety boundary.
 - Provider confidence is not calibrated and must not alone authorize an external action.
 - No product questions remain for the approved scope. Any new public contract, dependency, destructive migration, or non-dominant architecture choice requires a deliberate design pass.
+
+## Security closeout addendum (approved)
+
+SPEC-011 acceptance criterion 10 requires the full verification gate. Its closeout exposed existing
+Bandit findings and a dependency audit that cannot reliably identify the resolved project
+dependencies from the current global editable installation. This addendum proposes the bounded
+repository changes needed to produce meaningful security evidence.
+
+### Scope
+
+- Replace the four existing `assert` statements in the ingestion application use case with explicit
+  runtime invariant checks that remain active under optimized Python execution; preserve successful
+  ingestion behavior and add focused regression coverage.
+- Add a fully pinned `requirements-ci.txt` for the Python 3.12 Linux CI environment, generated from
+  a clean resolution of the declared runtime and development dependencies. Use this same file for
+  Python CI installs and `pip-audit`, excluding the unpublished local project package itself.
+- Resolve reported dependency vulnerabilities through reviewed version changes and verification;
+  do not suppress advisories or claim an audit pass when dependency collection fails.
+- Require the configured Semgrep CI job, Bandit, and dependency audit to complete without findings
+  or waivers before Item 8 closes.
+
+### Explicit exclusions
+
+- No runtime feature, public API, database change, or new runtime dependency.
+- No automatic bulk dependency upgrade and no security waiver as a substitute for a reproducible
+  audit.
+- No changes to authentication, agent policy, or the SPEC-011 product behavior.
+
+### Acceptance criterion
+
+11. The ingestion invariants remain enforced when Python assertions are disabled; every Python CI
+    job installs from the committed exact-version dependency input; and Semgrep, Bandit,
+    `pip-audit --strict --no-deps -r requirements-ci.txt`, and the existing verification gate
+    complete without unreviewed findings or weakened checks.
