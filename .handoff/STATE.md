@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 security closeout in progress; ingestion assertions fixed, Linux dependency lock and audit recorded; GitHub CI evidence pending"
+phase: "SPEC-011 security closeout in progress; CI dependency fix prepared, required GitHub checks pending"
 status: in_progress
 ---
 
@@ -15,17 +15,15 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 ## Now
 
-Item 8 traceability and security-review evidence is recorded, but its mapped checkbox remains open.
-The Reply Intelligence test-double typing issue is fixed within the authorized scope; `mypy .`
-passed on 2026-10-11. Commit `dc9e210` replaced the four ingestion B101 assertions with explicit
-runtime guards and regression coverage; Bandit exits 0. `requirements-ci.txt` contains 139 exact
-pins resolved for CPython 3.12 Linux x86_64, and
-`pip-audit --strict --no-deps -r requirements-ci.txt` reported no known vulnerabilities. CI now
-installs from these pins and runs `pip check`; eval CI triggers on lock and project dependency
-metadata changes. Manual GitHub `Eval gate` run `38206913090` passed on the published feature
-commit, including the locked Linux dependency installation, PDF traceability, all evals, and
-thresholds. Semgrep and the complete CI quality/test/security matrix still lack passing results;
-there is no open PR. Do not mark Item 8 complete until the remaining required checks pass.
+Item 8 remains open. PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`.
+GitHub run `38207729211` passed security/SAST and frontend jobs, but Tests failed collection because
+the Linux lock omitted `greenlet`, required by SQLAlchemy asyncio; Ruff also found formatting drift
+in three docs that are unchanged from `origin/develop`. The branch now declares
+`sqlalchemy[asyncio]` and pins `greenlet==3.2.5`; the updated 140-pin inventory passed
+`pip-audit --strict --no-deps -r requirements-ci.txt` with no known vulnerabilities. This fix is
+not yet pushed, so GitHub has not rerun CI. Local `pytest tests/unit/apps/test_auth.py -q` passed
+(3), `python -m pip check` passed, and targeted pre-commit hooks passed. Do not mark Item 8 complete
+until required checks pass.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -47,8 +45,8 @@ constraint because the shared local database contains duplicate
 migrations were changed to bypass that failure. The focused ingestion suite previously passed 10
 tests normally and under `python -O`. Manual GitHub `Eval gate` run `38206913090` passed on commit
 `ba7ec7eae8696637e66c67d3c0e1346b5707f2ae`, including locked Linux dependency installation, PDF
-traceability, all offline evals, and thresholds. Semgrep and complete CI quality/test/security jobs
-remain unverified because no PR is open.
+traceability, all offline evals, and thresholds. The PR is open; current full-CI findings and the
+pending dependency correction are recorded above.
 
 ## Done
 
@@ -99,14 +97,14 @@ remain unverified because no PR is open.
 - Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
 - Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The earlier full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks. Security closeout now also has passing Bandit and pinned-inventory pip-audit evidence; GitHub CI installation/test and Semgrep results remain outstanding.
 - The authorized verification repair adds narrow reply ports and corrects three test-only typing/platform annotations in `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, and `tests/integration/test_reply_persistence.py`; `mypy .` passed (201 files), unit tests passed (505), and integration tests passed (52).
-- Security closeout update: `bandit -r packages apps -q` passes after commit `dc9e210`; focused ingestion tests pass normally and under `python -O`. `requirements-ci.txt` pins 139 packages for CPython 3.12 Linux x86_64; `pip-audit --strict --no-deps -r requirements-ci.txt` reports no known vulnerabilities. The previous 196-finding report was not reproduced against the current pinned inventory and must not be treated as its audit result.
+- Security closeout update: `bandit -r packages apps -q` passes after commit `dc9e210`; focused ingestion tests pass normally and under `python -O`. `requirements-ci.txt` now pins 140 packages for CPython 3.12 Linux x86_64; the updated `pip-audit --strict --no-deps -r requirements-ci.txt` reports no known vulnerabilities. The previous 196-finding report was not reproduced against the current pinned inventory and must not be treated as its audit result.
 
 ## Next
 
-1. Review and publish the local closeout commit from `feature/SPEC-011-reply-intelligence`; the agent must not push.
-2. Inspect GitHub CI results for locked Linux installation, the full test matrix, and Semgrep rulesets.
-3. If CI reports integration failure, compare it against the local shared-database duplicate-key failure and diagnose without altering persistent local data or weakening checks.
-4. Resolve any CI findings without suppressions. Only after all required checks pass, record final evidence, tick Item 8, and run the autonomous gate from a clean parent process.
+1. Commit and push the approved SQLAlchemy asyncio dependency/lock correction to PR #1.
+2. Recheck GitHub CI for the locked Linux install, unit/integration/adversarial tests, Semgrep, and eval gate.
+3. Treat the three Ruff formatting failures in unchanged `origin/develop` docs as a base-branch issue; do not silently expand SPEC-011 to modify them.
+4. Resolve remaining in-scope findings without suppressions. Only after required checks pass, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
 

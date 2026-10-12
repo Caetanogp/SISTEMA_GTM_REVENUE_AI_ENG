@@ -38,9 +38,11 @@ Security-tool rerun on 2026-10-12:
 - `pytest tests/unit/application/use_cases/test_ingestion.py -q` passed (10 tests), and the same
   test file passed under `python -O -m pytest ... -q` (10 tests). Ruff, format check, and targeted
   mypy also passed for the changed use case and test.
-- `requirements-ci.txt` pins 139 distributions resolved for CPython 3.12 on Linux x86_64. It was
+- `requirements-ci.txt` pins 140 distributions resolved for CPython 3.12 on Linux x86_64. It was
   generated with pip's cross-target wheel resolution, not from the stale Windows editable install;
   see the official [pip download target options](https://pip.pypa.io/en/stable/cli/pip_download/).
+  SQLAlchemy's `asyncio` extra is declared in `pyproject.toml`, and its resolved `greenlet` runtime
+  dependency is explicitly pinned in this inventory.
 - `pip-audit --strict --no-deps -r requirements-ci.txt` passed on 2026-10-12 with no known
   vulnerabilities reported for that pinned inventory. This does not guarantee future advisories
   will not affect it.
