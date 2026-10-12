@@ -50,9 +50,10 @@ Security-tool rerun on 2026-10-12:
 - The configured Semgrep rulesets (`p/default`, `p/python`, and `p/secrets`) have not yet produced
   an observed CI result. Local `semgrep` is unavailable.
 
-Full security closeout remains open pending observed GitHub CI evidence for the locked Linux
-installation, complete test matrix, and Semgrep. No dependency, credential, MCP server, external
-write, or security relaxation was introduced by SPEC-011.
+Full security closeout remains open pending observed GitHub CI evidence for the complete test
+matrix and Semgrep. The manually dispatched Eval gate passed the locked Linux installation, PDF
+traceability, evals, and thresholds. No dependency, credential, MCP server, external write, or
+security relaxation was introduced by SPEC-011.
 
 ## Closeout verification
 

@@ -22,17 +22,19 @@ runtime guards and regression coverage; Bandit exits 0. `requirements-ci.txt` co
 pins resolved for CPython 3.12 Linux x86_64, and
 `pip-audit --strict --no-deps -r requirements-ci.txt` reported no known vulnerabilities. CI now
 installs from these pins and runs `pip check`; eval CI triggers on lock and project dependency
-metadata changes. Local Semgrep is unavailable, and GitHub has not yet produced CI evidence for
-Semgrep or the locked Linux install/test matrix. Do not mark Item 8 complete until those checks have
-an observed passing result.
+metadata changes. Manual GitHub `Eval gate` run `38206913090` passed on the published feature
+commit, including the locked Linux dependency installation, PDF traceability, all evals, and
+thresholds. Semgrep and the complete CI quality/test/security matrix still lack passing results;
+there is no open PR. Do not mark Item 8 complete until the remaining required checks pass.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
 adds regression coverage. Ruff, format, targeted mypy, the 10-test ingestion unit suite, the same
 suite under `python -O`, and `bandit -r packages apps -q` passed. The pinned Linux requirements
 lock and CI changes are now present. Docker image pulls failed, so the lock was resolved through
-pip's cross-target Linux wheel options, not the stale global Windows editable install. The lock
-audit passed; GitHub CI must still validate installation and jobs.
+pip's cross-target Linux wheel options, not the stale global Windows editable install. The pinned
+Linux installation and eval workflow passed manually in GitHub run `38206913090`; the complete CI
+matrix and Semgrep still require a PR run.
 
 Closeout verification observed on 2026-10-12: Ruff and format passed (275 files); `mypy .` passed
 (201 source files); `pytest tests/unit tests/architecture -q` passed (508); adversarial tests passed
@@ -43,8 +45,10 @@ Integration tests produced 51 passes and one unrelated failure in
 constraint because the shared local database contains duplicate
 `knowledge_processing_events(delivery_id, attempt, event_type)` rows. No database records or
 migrations were changed to bypass that failure. The focused ingestion suite previously passed 10
-tests normally and under `python -O`. Local Semgrep and actual Linux CI installation remain
-unverified.
+tests normally and under `python -O`. Manual GitHub `Eval gate` run `38206913090` passed on commit
+`ba7ec7eae8696637e66c67d3c0e1346b5707f2ae`, including locked Linux dependency installation, PDF
+traceability, all offline evals, and thresholds. Semgrep and complete CI quality/test/security jobs
+remain unverified because no PR is open.
 
 ## Done
 
