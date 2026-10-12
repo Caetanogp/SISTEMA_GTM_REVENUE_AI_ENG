@@ -1,6 +1,6 @@
 # SPEC-011 Reply Intelligence Security Review
 
-Reviewed: 2026-10-11
+Reviewed: 2026-10-12
 
 ## Scope
 
@@ -23,12 +23,28 @@ No new security finding was identified in the reviewed scope.
 
 ## Automated evidence
 
-Observed closeout results on 2026-10-11: `pytest tests/adversarial -q` passed (32 tests),
+Observed feature verification on 2026-10-11: `pytest tests/adversarial -q` passed (32 tests),
 `python -m evals.run --suite all` passed (including reply classification 90/90), and
-`python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20). `gitleaks detect
---no-git` reported no leaks but exited unsuccessfully because the sandbox denied access to
-`.pytest_cache`; `semgrep` was unavailable on `PATH`; `bandit -r packages apps -q` reported four
-pre-existing low-severity B101 findings in `packages/core/revops/application/use_cases/ingestion.py`;
-and `pip-audit` could not reach PyPI because sandbox networking is denied. Full closeout therefore
-remains open. No dependency, credential, MCP server, external write, or security relaxation was
-introduced by SPEC-011.
+`python scripts/check_pdf_traceability.py` passed (86 rows, pages 1-20). Gitleaks previously
+reported no leaks; its recorded run had a restricted `.pytest_cache` access warning.
+
+Security-tool rerun on 2026-10-12:
+
+- `semgrep --version` is unavailable on `PATH`; the CI workflow runs Semgrep with the configured
+  `p/default`, `p/python`, and `p/secrets` rulesets.
+- `bandit -r packages apps -q` exits 1 with four low-severity B101 findings at lines 115-116 and
+  389-390 of `packages/core/revops/application/use_cases/ingestion.py`.
+- `pip-audit --strict` does not reach a vulnerability report: dependency collection fails because
+  the globally installed editable `agentic-revops-platform` distribution is not published on
+  PyPI. `pip show` reports that editable install points to the OneDrive checkout, not the
+  authoritative `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG` checkout. `--skip-editable` also fails while
+  collecting that editable distribution.
+- No Python lockfile is present in the repository root, although `pyproject.toml` describes a
+  lockfile as the source of exact dependency versions. CI installs from lower-bound requirements
+  with `pip install -e ".[dev]"`.
+
+Full security closeout remains open. No dependency, credential, MCP server, external write, or
+security relaxation was introduced by SPEC-011. The dependency set must be audited from a clean,
+reproducible environment before its risk can be characterized; the existing Bandit findings are
+outside SPEC-011's reply-specific behavior and require a separately authorized scope change or a
+documented security waiver.

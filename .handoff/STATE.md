@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-11
+updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 8 traceability recorded; full verification blocked by existing type and environment failures"
+phase: "Item 8 traceability recorded; security closeout blocked by baseline findings and non-reproducible dependency audit"
 status: in_progress
 ---
 
@@ -17,11 +17,14 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 Item 8 traceability and security-review evidence is recorded, but its mapped checkbox remains open.
 The Reply Intelligence test-double typing issue is fixed within the authorized scope; `mypy .`
-now passes. Full verification is currently blocked only by missing Semgrep, four pre-existing
-Bandit B101 findings in ingestion, and `pip-audit` reporting vulnerable pinned dependencies.
-The focused unit, integration, adversarial, eval, traceability, Ruff, import, docs, and Gitleaks
-checks pass. Do not mark Item 8 complete until the security findings are resolved or explicitly
-accepted through the repository's security decision process.
+passed on 2026-10-11. On 2026-10-12, Bandit reproduced four pre-existing B101 findings in
+`packages/core/revops/application/use_cases/ingestion.py`. Semgrep is not installed locally. The
+current `pip-audit --strict` run did not produce a vulnerability report: Python's global editable
+install points to the stale OneDrive checkout, and pip-audit fails collecting the unpublished
+local project even with `--skip-editable`. There is no Python lockfile in the authoritative checkout,
+despite `pyproject.toml` describing one as the source of exact versions. Do not mark Item 8 complete
+until a reproducible dependency audit is available and the security findings are resolved or
+explicitly accepted through the repository's security decision process.
 
 ## Done
 
@@ -76,9 +79,10 @@ accepted through the repository's security decision process.
 
 ## Next
 
-1. Decide the security remediation path for the four pre-existing ingestion assertions and the vulnerable dependency set; install Semgrep in the approved tool environment.
-2. Rerun the full security/verification sequence after remediation, without weakening thresholds or suppressing findings.
-3. Once every closeout command passes, tick Item 8, commit the documentation, and run the autonomous gate from the clean parent process.
+1. Approve a bounded security follow-up for the four pre-existing ingestion assertions, which are outside the current Item 8 file scope, or record a formal waiver under the repository security policy.
+2. Establish a reproducible Python dependency input and run `pip-audit` against it; the repository currently has no Python lockfile and the global editable install points to the stale OneDrive checkout.
+3. Run Semgrep in an approved environment, then rerun the security checks without weakening thresholds or suppressing findings.
+4. Once every closeout command passes, tick Item 8, commit the documentation, and run the autonomous gate from the clean parent process.
 
 ## Gotchas
 
