@@ -83,9 +83,7 @@ class AgentTool(Protocol):
 
 
 class AgentToolRuntime(Protocol):
-    async def run(
-        self, *, context: TrustedRunContext, request_text: str
-    ) -> RuntimeResult: ...
+    async def run(self, *, context: TrustedRunContext, request_text: str) -> RuntimeResult: ...
 ```
 
 The runtime may use narrower ports if that better matches current application style. A tool adapter

@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 security closeout in progress; dependency fix pushed, CI has unrelated baseline blockers"
+phase: "SPEC-011 security closeout in progress; authorized baseline CI repairs validated locally, remote rerun pending"
 status: in_progress
 ---
 
@@ -16,15 +16,17 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 ## Now
 
 Item 8 remains open. PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`.
-Commit `a2e567a` pushed the `sqlalchemy[asyncio]` declaration and `greenlet==3.2.5` pin; the
-updated 140-pin inventory passed pip-audit, local auth tests (3), `pip check`, and targeted
-pre-commit. GitHub run `38208148189` confirmed locked installation, unit tests, security/SAST
-(including Semgrep), and frontend job passed. Integration has one failure in unchanged
-`tests/integration/test_deduplication_api.py`: FastAPI 0.143/Starlette 1.7 defer included routers,
-so introspection of `app.routes` misses registered endpoints; local reproduction with those pinned
-versions confirms the routes are present in OpenAPI. Ruff still fails only on the three docs files
-unchanged from `origin/develop`. These baseline cleanups are outside SPEC-011 and need approval.
-Do not mark Item 8 complete until required checks pass.
+Commit `a2e567a` declares `sqlalchemy[asyncio]` and pins `greenlet==3.2.5`; the updated
+140-package inventory passed pip-audit. GitHub run `38208148189` confirmed locked installation,
+unit tests, security/SAST (including Semgrep), and frontend job passed; integration exposed one
+pre-existing route-inspection test incompatibility with FastAPI 0.143/Starlette 1.7, and Ruff
+found three pre-existing docs formatting issues. With user approval, the test now checks registered
+endpoints through OpenAPI and the three snippets were formatted. The exact-version isolated
+deduplication test passed (1); full Ruff passed (275 files), targeted mypy passed (1 file), import
+contracts passed (4), targeted pre-commit and `git diff --check` passed. Full local integration
+still has the known shared-DB duplicate-event failure in
+`test_attribution_migration_round_trip.py`; no database data was changed. These repairs are not
+yet pushed; wait for PR CI before closing Item 8.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -102,8 +104,8 @@ pending dependency correction are recorded above.
 
 ## Next
 
-1. Obtain approval for the baseline CI repairs: update the deduplication route test to inspect OpenAPI and format the three unchanged Ruff docs.
-2. Apply only the approved baseline repairs and rerun the full PR checks.
+1. Commit and push the authorized baseline CI repairs to PR #1.
+2. Inspect the new GitHub CI and eval-gate runs; resolve any remaining failure without weakening checks.
 3. After every required check passes, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
@@ -126,7 +128,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-May Codex make the minimal baseline CI repairs described in `Now`, or should they be split into a follow-up PR?
+None for the authorized repairs. Any new product or architecture decision remains subject to deliberate review.
 
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
