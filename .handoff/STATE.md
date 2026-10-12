@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 Item 8 local verification passed; PR CI pending"
+phase: "SPEC-011 Item 8 checks green; gate scope reconciliation required"
 status: in_progress
 ---
 
@@ -36,8 +36,17 @@ On the authoritative `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG` checkout, exact locked Li
 `mypy==2.4.0` passed (202 source files); Ruff and format passed (276 files); unit/architecture tests
 passed (508); adversarial tests passed (32); all 11 eval suites passed; PDF traceability passed (86
 rows/pages 1-20); `lint-imports` kept all 4 contracts; agent-docs, Bandit, Gitleaks, and targeted
-pre-commit passed. Docker Compose services are not running in this checkout, so integration and
-GitHub CI evidence remain pending. Item 8 is intentionally still open.
+pre-commit passed. Docker Compose services are not running in this checkout, so local Docker
+integration evidence is unavailable. GitHub CI has passed at commit `287e7d4`: run `38283237782`
+passed lint/types/architecture (including locked mypy 2.4, Ruff, and import contracts),
+security/SAST (Gitleaks, Semgrep, Bandit, dependency audit), unit/integration/adversarial tests,
+and frontend job; Eval gate run `38283237760` also passed. Item 8 remains open: the deterministic
+gate baseline is `af0f0df`, and its declared Item 8 scope does not include 17 changed paths. The
+read-only `scope_violation` check lists the out-of-scope files; critically, it includes
+`docs/playbooks/agent-tool.md`, which the supervisor policy explicitly forbids authorizing through
+a scope overlay. Do not tick Item 8, edit the queue to force green, or reset the gate baseline. The
+existing baseline/scope mismatch needs a deliberate control-plane reconciliation under the
+supervisor rules before Item 8 can close.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -115,9 +124,9 @@ pending dependency correction are recorded above.
 
 ## Next
 
-1. Commit and publish the authorized mypy repair on the feature branch to trigger PR workflows.
-2. Review all CI jobs, including clean-database integration and Semgrep; fix any remaining failures without weakening checks.
-3. Only after all required checks pass, record CI evidence, tick Item 8, and run the autonomous gate from a clean parent process.
+1. Deliberately reconcile the Item 8 baseline/scope mismatch, including the forbidden playbook path, through the supervisor's approved control-plane process; no overlay or baseline reset has been created.
+2. Only after reconciliation, complete the Item 8 task evidence and run `python scripts/autonomous_gate.py` from a clean checkout.
+3. After the gate passes, review PR #1 with the user; then materialize and approve the next spec before preparing another autonomous loop.
 
 ## Gotchas
 
@@ -139,7 +148,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-No open design question for the mypy correction; the user authorized the repair. PR CI remains the outstanding validation.
+No open design question for the mypy correction; the user authorized the repair. The remaining blocker is reconciling the saved Item 8 baseline and declared scope under the supervisor's control-plane rules, not CI or implementation.
 
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
