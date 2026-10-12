@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 security closeout in progress; authorized baseline CI repairs validated locally, remote rerun pending"
+phase: "SPEC-011 security closeout in progress; authorized CI repairs passed except locked mypy 2.4 findings"
 status: in_progress
 ---
 
@@ -17,16 +17,16 @@ Implement bounded bilingual reply classification, recommended next actions, immu
 
 Item 8 remains open. PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`.
 Commit `a2e567a` declares `sqlalchemy[asyncio]` and pins `greenlet==3.2.5`; the updated
-140-package inventory passed pip-audit. GitHub run `38208148189` confirmed locked installation,
-unit tests, security/SAST (including Semgrep), and frontend job passed; integration exposed one
-pre-existing route-inspection test incompatibility with FastAPI 0.143/Starlette 1.7, and Ruff
-found three pre-existing docs formatting issues. With user approval, the test now checks registered
-endpoints through OpenAPI and the three snippets were formatted. The exact-version isolated
-deduplication test passed (1); full Ruff passed (275 files), targeted mypy passed (1 file), import
-contracts passed (4), targeted pre-commit and `git diff --check` passed. Full local integration
-still has the known shared-DB duplicate-event failure in
-`test_attribution_migration_round_trip.py`; no database data was changed. These repairs are not
-yet pushed; wait for PR CI before closing Item 8.
+140-package inventory passed pip-audit. User-authorized baseline repairs are in commit `3781e3b`:
+the deduplication route contract now checks OpenAPI and three Ruff snippets are formatted. The
+targeted route test passes with the exact locked FastAPI/Starlette versions; full Ruff passed (275
+files), targeted mypy passed (1 file), import contracts passed (4), targeted pre-commit passed,
+and `git diff --check` passed. GitHub run `38209163359` at `3781e3b` passed unit, integration,
+adversarial, security/SAST (including Semgrep), eval, and Ruff. Its mypy step failed with 15
+diagnostics across 12 existing files (`mypy==2.4.0` in the lock); local mypy is 2.3.1, so local
+`mypy .` is not equivalent. Full local integration also has the known shared-DB duplicate-event
+failure in `test_attribution_migration_round_trip.py`; no database data was changed. Item 8 cannot
+close until the mypy discrepancy is resolved and all required checks pass.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -104,8 +104,8 @@ pending dependency correction are recorded above.
 
 ## Next
 
-1. Commit and push the authorized baseline CI repairs to PR #1.
-2. Inspect the new GitHub CI and eval-gate runs; resolve any remaining failure without weakening checks.
+1. Decide whether to authorize resolution of the 15 mypy diagnostics across the 12 reported files, or handle them as a separate baseline maintenance change.
+2. After the mypy approach is approved, rerun the full PR CI and eval gate without weakening checks.
 3. After every required check passes, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
@@ -128,7 +128,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-None for the authorized repairs. Any new product or architecture decision remains subject to deliberate review.
+May Codex fix the 15 mypy 2.4 diagnostics across the 12 existing files as follow-up baseline maintenance, without suppressions or downgrading the checker?
 
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
