@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import sys
+import platform
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -30,13 +30,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.worker.main import celery_app
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
 
 
 @pytest.fixture(scope="session")
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.get_event_loop_policy()
-    return asyncio.WindowsSelectorEventLoopPolicy()
+    return windows_selector_event_loop_policy()
 
 
 @pytest.mark.integration

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -40,6 +41,8 @@ from revops.infrastructure.queue.knowledge import KnowledgeWorkerProcessor
 from sqlalchemy import Connection, create_engine, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _PRE_SEED_REVISION = "f0a1b2c3d4e5"
 
@@ -51,8 +54,8 @@ class _Clock:
 
 @pytest.fixture
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
-        return asyncio.WindowsSelectorEventLoopPolicy()
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
     return asyncio.get_event_loop_policy()
 
 

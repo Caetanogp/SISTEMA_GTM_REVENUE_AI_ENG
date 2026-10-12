@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -85,7 +86,7 @@ async def run_platform_seed(
 
 def _run_async(*, settings: PlatformSeedSettings) -> PlatformSeedCliResult:
     coroutine = run_platform_seed(settings=settings)
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.run(coroutine)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         return runner.run(coroutine)

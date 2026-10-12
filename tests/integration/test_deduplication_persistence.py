@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import sys
+import platform
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -16,14 +16,14 @@ from revops.infrastructure.persistence.unit_of_work import SqlAlchemyDeduplicati
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 
 @pytest.fixture(scope="session")
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if sys.platform == "win32":
-        return asyncio.WindowsSelectorEventLoopPolicy()
-    return asyncio.get_event_loop_policy()  # type: ignore[unreachable]
-    # mypy specializes sys.platform to this Windows development host; the fallback keeps the
-    # integration fixture portable for Linux CI, where the branch is reachable.
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
+    return asyncio.get_event_loop_policy()
 
 
 @pytest.fixture

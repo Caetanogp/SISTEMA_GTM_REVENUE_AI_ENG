@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -36,6 +37,8 @@ from revops.infrastructure.queue.knowledge import KnowledgeWorkerProcessor
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 
 class FailingEmbeddingProvider:
     model = "test-failure"
@@ -52,8 +55,8 @@ class TestClock:
 
 @pytest.fixture
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
-        return asyncio.WindowsSelectorEventLoopPolicy()
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
     return asyncio.get_event_loop_policy()
 
 

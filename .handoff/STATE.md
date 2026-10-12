@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 security closeout in progress; authorized CI repairs passed except locked mypy 2.4 findings"
+phase: "SPEC-011 Item 8 local verification passed; PR CI pending"
 status: in_progress
 ---
 
@@ -27,6 +27,17 @@ diagnostics across 12 existing files (`mypy==2.4.0` in the lock); local mypy is 
 `mypy .` is not equivalent. Full local integration also has the known shared-DB duplicate-event
 failure in `test_attribution_migration_round_trip.py`; no database data was changed. Item 8 cannot
 close until the mypy discrepancy is resolved and all required checks pass.
+
+The user authorized fixing the locked mypy baseline without suppressions or downgrading. Platform
+guards now use runtime `platform.system()` checks, and integration fixtures share the typed
+`tests/integration/event_loop_policy.py` helper for the Windows-only selector policy. This removes
+the constant-folded unreachable branches and cross-platform `Any`/missing-attribute diagnostics.
+On the authoritative `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG` checkout, exact locked Linux
+`mypy==2.4.0` passed (202 source files); Ruff and format passed (276 files); unit/architecture tests
+passed (508); adversarial tests passed (32); all 11 eval suites passed; PDF traceability passed (86
+rows/pages 1-20); `lint-imports` kept all 4 contracts; agent-docs, Bandit, Gitleaks, and targeted
+pre-commit passed. Docker Compose services are not running in this checkout, so integration and
+GitHub CI evidence remain pending. Item 8 is intentionally still open.
 
 The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
 `dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
@@ -104,9 +115,9 @@ pending dependency correction are recorded above.
 
 ## Next
 
-1. Decide whether to authorize resolution of the 15 mypy diagnostics across the 12 reported files, or handle them as a separate baseline maintenance change.
-2. After the mypy approach is approved, rerun the full PR CI and eval gate without weakening checks.
-3. After every required check passes, record evidence, tick Item 8, and run the autonomous gate from a clean parent process.
+1. Commit and publish the authorized mypy repair on the feature branch to trigger PR workflows.
+2. Review all CI jobs, including clean-database integration and Semgrep; fix any remaining failures without weakening checks.
+3. Only after all required checks pass, record CI evidence, tick Item 8, and run the autonomous gate from a clean parent process.
 
 ## Gotchas
 
@@ -128,7 +139,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-May Codex fix the 15 mypy 2.4 diagnostics across the 12 existing files as follow-up baseline maintenance, without suppressions or downgrading the checker?
+No open design question for the mypy correction; the user authorized the repair. PR CI remains the outstanding validation.
 
 ## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
 
