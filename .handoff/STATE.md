@@ -15,16 +15,16 @@ Complete SPEC-011's approved security closeout and verify the feature branch for
 
 ## Now
 
-Item 8 is the sole unchecked task. The approved closeout records all 11 formal acceptance criteria;
-the checkpoint lock and bounded canonical artifact are supporting design invariants. The queue now
-names the exact 17 portability-repair paths found outside its original scope. The gate and saved
-baseline were not changed.
+All 8 task checkboxes are now complete. The approved closeout records all 11 formal acceptance
+criteria; the checkpoint lock and bounded canonical artifact are supporting design invariants. The
+queue names the exact 17 portability-repair paths found outside its original scope. The saved
+baseline remains unchanged.
 
 The ignored gate baseline remains `af0f0dfd1a995dd7680e4d9f4206b6272f05d444`, with 7 of 8 items
-complete. Before the final checkbox, run the open-item gate and independently confirm no scope
-violations or missing required evidence. Then run full verification with isolated PostgreSQL and
-Redis containers. If all checks pass, record evidence, tick Item 8, run the complete gate, and
-confirm PR checks.
+complete. The open-item gate reported all core checks OK and requested the final checkbox. The
+full quality sequence passed all 10 checks, including integration against disposable PostgreSQL
+and Redis containers. The PDF checker passed with 86 rows, Bandit exited 0, and pip-audit reported
+no known vulnerabilities. The final autonomous gate still needs to run after this task update.
 
 ## Done
 
@@ -37,14 +37,19 @@ confirm PR checks.
   tests/architecture -q` passed 508 tests with repository `PYTHONPATH` set.
 - Read-only gate scope probe at baseline `af0f0df`: exactly 17 violations and no missing evidence;
   the approved reconciliation names those exact files.
+- `python scripts/check_pdf_traceability.py`: passed, 86 rows and pages 1-20.
+- `bandit -r packages apps -q`: exit 0 (existing Bandit comment warnings only).
+- `pip-audit --strict --no-deps -r requirements-ci.txt`: exit 0, no known vulnerabilities.
+- `run_quality_gate(full=True)`: all 10 checks passed, including unit, integration, adversarial,
+  evals, and Gitleaks.
 
 ## Next
 
-1. Run and inspect the open Item 8 gate; preserve the 7/8 baseline and verify scope/evidence checks.
-2. Run full verification with fresh isolated PostgreSQL and Redis containers; remove only those
-   verification containers after recording results.
-3. If green, record observed evidence, tick Item 8, run the full autonomous gate, and verify PR #1.
-4. Present the completed diff and PR status for review; do not merge without an explicit request.
+1. Commit the verified Item 8 closeout and run `python scripts/autonomous_gate.py` to confirm the
+   exact goal-achieved result.
+2. Remove only the two disposable verification containers after the gate finishes.
+3. Publish the feature branch and wait for its latest CI/Eval workflows to pass.
+4. Present the final diff and PR #1 status for review; do not merge without an explicit request.
 5. Materialize and approve SPEC-012 before starting another autonomous development loop.
 
 ## Gotchas
