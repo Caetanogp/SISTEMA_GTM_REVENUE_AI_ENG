@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 gate achieved; PR publication pending"
+phase: "SPEC-011 complete; PR #1 checks green"
 status: complete
 ---
 
@@ -20,13 +20,17 @@ criteria; the checkpoint lock and bounded canonical artifact are supporting desi
 queue names the exact 17 portability-repair paths found outside its original scope. The saved gate
 baseline remains unchanged at `af0f0dfd1a995dd7680e4d9f4206b6272f05d444` (7 completed at baseline).
 The final `python scripts/autonomous_gate.py` run exited 0 and printed `GOAL ACHIEVED: all queue
-items done, full gate green.` All ten gate checks reported OK.
+items done, full gate green.` All ten gate checks reported OK. PR #1 is published and remains open;
+fresh CI and Eval workflows passed on commit `923111b`.
 
 ## Done
 
 - CI run `38283929452` at `9a77a81b827f8406fe7e32dc1b437558eadba89b`: passed quality, security,
   unit, integration, and adversarial jobs, including locked mypy 2.4, Semgrep, Bandit, and pip-audit.
 - Eval run `38283929458` at the same commit: passed all 11 suites and PDF traceability.
+- CI run `38327449741` and Eval run `38327449728` on published commit `923111b`: both passed;
+  Semgrep, Bandit, dependency audit, integration, adversarial, eval, and PDF traceability passed.
+- PR #1 remains open and GitHub reports `MERGEABLE`; no merge was performed.
 - The frontend workflow's setup/build steps were skipped because `apps/web/package.json` is absent;
   no frontend build result is claimed.
 - Local authoritative checkout `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`: `pytest tests/unit
@@ -46,11 +50,9 @@ items done, full gate green.` All ten gate checks reported OK.
 
 ## Next
 
-1. Push the two closeout documentation commits to the already published feature branch and wait
-   for fresh CI/Eval workflows.
-2. Review PR #1's final checks and report its merge readiness; do not merge without an explicit
-   request.
-3. Materialize and approve SPEC-012 before starting another autonomous development loop.
+1. Review the completed SPEC-011 diff in PR #1 and decide whether to merge it into `develop`.
+2. Materialize and approve SPEC-012 before writing implementation code or starting another
+   autonomous development loop.
 
 ## Gotchas
 
@@ -62,8 +64,8 @@ items done, full gate green.` All ten gate checks reported OK.
 - Docker Compose services in this checkout are not running. Use uniquely named disposable
   containers and loopback-only dynamic host ports for verification; leave unrelated containers and
   volumes untouched.
-- PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop` and was mergeable at last
-  observation. The latest CI and Eval runs above passed.
+- PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`; the latest CI and Eval
+  runs above passed. Review before merging.
 
 ## Resume
 
