@@ -139,6 +139,35 @@ installation or ruleset change is proposed.
   Gitleaks, Bandit, pip-audit, and the CI Semgrep job. Do not close Item 8 or restart the long loop
   until all required security checks pass.
 
+### Bounded Item 8 closeout reconciliation
+
+The approved verification repairs also changed existing platform-seed, worker, and integration-test
+files to make the integration suite portable across Windows and Linux. Item 8 may update its queue
+entry to include only these exact paths; this documents already reviewed repairs and does not
+authorize a broader directory prefix or a change to gate, baseline, executor, or security policy:
+
+- `apps/platform_seed.py`
+- `apps/worker/main.py`
+- `docs/playbooks/agent-tool.md`
+- `docs/specs/SPEC-008-context-retrieval/plan.md`
+- `docs/specs/SPEC-009-single-agent-tool-runtime/plan.md`
+- `tests/integration/event_loop_policy.py`
+- `tests/integration/test_attribution_behavior.py`
+- `tests/integration/test_deduplication_api.py`
+- `tests/integration/test_deduplication_persistence.py`
+- `tests/integration/test_deduplication_worker.py`
+- `tests/integration/test_ingestion_persistence.py`
+- `tests/integration/test_ingestion_worker.py`
+- `tests/integration/test_knowledge_retrieval.py`
+- `tests/integration/test_knowledge_revision_persistence.py`
+- `tests/integration/test_knowledge_worker.py`
+- `tests/integration/test_persistence_repositories.py`
+- `tests/integration/test_platform_seed.py`
+
+The spec contains ten product acceptance criteria plus security closeout criterion 11. The
+checkpoint-lock and canonical-artifact rows in the evidence table are implementation invariants
+supporting existing criteria, not extra acceptance criteria.
+
 ## Rollout evidence
 
 Run the focused Item 4 pilot before the unattended loop. Record graph/prompt versions, model

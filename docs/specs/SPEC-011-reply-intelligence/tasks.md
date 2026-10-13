@@ -11,6 +11,7 @@ The final verification checkbox also requires the approved security closeout:
 - Pass the existing CI Semgrep rulesets and all verification commands before closing Item 8.
 - Keep the autonomous Item 8 scope synchronized with the approved files and record observed
   evidence in this task file and `.handoff/STATE.md`.
+- The approved portability repair also changes only the exact paths listed under “Bounded Item 8 closeout reconciliation” in `plan.md`; Item 8 queue scope is limited to those paths.
 
 ## Acceptance evidence
 
@@ -26,9 +27,9 @@ The final verification checkbox also requires the approved security closeout:
 | AC-08 bilingual synthetic dataset and metric thresholds | `evals/datasets/reply_classification.jsonl:1`; `tests/unit/evals/test_reply_classification_scorer.py:38` |
 | AC-09 strict low-risk tool and auditable version/usage records | `packages/core/revops/infrastructure/agent/tools.py:63`; `tests/unit/infrastructure/agent/test_reply_runtime.py:203` |
 | AC-10 existing runtime compatibility | `tests/integration/test_agent_runs_api.py:1`; `tests/integration/test_reply_api.py:62` |
-| AC-11 non-blocking same-connection checkpoint lock | `packages/core/revops/infrastructure/agent/reply_runtime.py:142`; `tests/integration/test_reply_runtime_lock.py:21` |
-| AC-12 bounded, typed, canonical persisted artifact | `packages/core/revops/infrastructure/agent/reply_runtime.py:45`; `tests/unit/infrastructure/agent/test_reply_runtime.py:116` |
-| AC-13 approved security closeout: runtime ingestion guards and pinned CI audit input | `packages/core/revops/application/use_cases/ingestion.py:116`; `tests/unit/application/use_cases/test_ingestion.py:325`; `.github/workflows/ci.yml:62`; `.github/workflows/ci.yml:72` |
+| Design invariant: non-blocking same-connection checkpoint lock (supports AC-02/06) | `packages/core/revops/infrastructure/agent/reply_runtime.py:142`; `tests/integration/test_reply_runtime_lock.py:21` |
+| Design invariant: bounded, typed, canonical persisted artifact (supports AC-03/06) | `packages/core/revops/infrastructure/agent/reply_runtime.py:45`; `tests/unit/infrastructure/agent/test_reply_runtime.py:116` |
+| AC-11 approved security closeout: runtime ingestion guards and pinned CI audit input | `packages/core/revops/application/use_cases/ingestion.py:116`; `tests/unit/application/use_cases/test_ingestion.py:325`; `.github/workflows/ci.yml:62`; `.github/workflows/ci.yml:72` |
 
 - [x] Add reply domain values and deterministic classification policy for nine bilingual categories — verified by focused domain tests
 - [x] Add reply DTOs, ports, use cases, and canonical tenant/contact validation — verified by application unit tests and mypy

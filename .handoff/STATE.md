@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 Item 8 checks green; gate scope reconciliation required"
+phase: "Item 8 closeout verification"
 status: in_progress
 ---
 
@@ -11,136 +11,59 @@ status: in_progress
 
 ## Goal
 
-Implement bounded bilingual reply classification, recommended next actions, immutable feedback, and offline evidence without adding external writes or changing existing runtimes.
+Complete SPEC-011's approved security closeout and verify the feature branch for PR #1.
 
 ## Now
 
-Item 8 remains open. PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`.
-Commit `a2e567a` declares `sqlalchemy[asyncio]` and pins `greenlet==3.2.5`; the updated
-140-package inventory passed pip-audit. User-authorized baseline repairs are in commit `3781e3b`:
-the deduplication route contract now checks OpenAPI and three Ruff snippets are formatted. The
-targeted route test passes with the exact locked FastAPI/Starlette versions; full Ruff passed (275
-files), targeted mypy passed (1 file), import contracts passed (4), targeted pre-commit passed,
-and `git diff --check` passed. GitHub run `38209163359` at `3781e3b` passed unit, integration,
-adversarial, security/SAST (including Semgrep), eval, and Ruff. Its mypy step failed with 15
-diagnostics across 12 existing files (`mypy==2.4.0` in the lock); local mypy is 2.3.1, so local
-`mypy .` is not equivalent. Full local integration also has the known shared-DB duplicate-event
-failure in `test_attribution_migration_round_trip.py`; no database data was changed. Item 8 cannot
-close until the mypy discrepancy is resolved and all required checks pass.
+Item 8 is the sole unchecked task. The approved closeout records all 11 formal acceptance criteria;
+the checkpoint lock and bounded canonical artifact are supporting design invariants. The queue now
+names the exact 17 portability-repair paths found outside its original scope. The gate and saved
+baseline were not changed.
 
-The user authorized fixing the locked mypy baseline without suppressions or downgrading. Platform
-guards now use runtime `platform.system()` checks, and integration fixtures share the typed
-`tests/integration/event_loop_policy.py` helper for the Windows-only selector policy. This removes
-the constant-folded unreachable branches and cross-platform `Any`/missing-attribute diagnostics.
-On the authoritative `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG` checkout, exact locked Linux
-`mypy==2.4.0` passed (202 source files); Ruff and format passed (276 files); unit/architecture tests
-passed (508); adversarial tests passed (32); all 11 eval suites passed; PDF traceability passed (86
-rows/pages 1-20); `lint-imports` kept all 4 contracts; agent-docs, Bandit, Gitleaks, and targeted
-pre-commit passed. Docker Compose services are not running in this checkout, so local Docker
-integration evidence is unavailable. GitHub CI has passed at commit `287e7d4`: run `38283237782`
-passed lint/types/architecture (including locked mypy 2.4, Ruff, and import contracts),
-security/SAST (Gitleaks, Semgrep, Bandit, dependency audit), unit/integration/adversarial tests,
-and frontend job; Eval gate run `38283237760` also passed. Item 8 remains open: the deterministic
-gate baseline is `af0f0df`, and its declared Item 8 scope does not include 17 changed paths. The
-read-only `scope_violation` check lists the out-of-scope files; critically, it includes
-`docs/playbooks/agent-tool.md`, which the supervisor policy explicitly forbids authorizing through
-a scope overlay. Do not tick Item 8, edit the queue to force green, or reset the gate baseline. The
-existing baseline/scope mismatch needs a deliberate control-plane reconciliation under the
-supervisor rules before Item 8 can close.
-
-The user approved the SPEC-011 security closeout addendum in `spec.md` and `plan.md`. Commit
-`dc9e210` replaces the four ingestion B101 assertions with explicit runtime invariant checks and
-adds regression coverage. Ruff, format, targeted mypy, the 10-test ingestion unit suite, the same
-suite under `python -O`, and `bandit -r packages apps -q` passed. The pinned Linux requirements
-lock and CI changes are now present. Docker image pulls failed, so the lock was resolved through
-pip's cross-target Linux wheel options, not the stale global Windows editable install. The pinned
-Linux installation and eval workflow passed manually in GitHub run `38206913090`; current PR CI
-results are summarized in `Now`.
-
-Closeout verification observed on 2026-10-12: Ruff and format passed (275 files); `mypy .` passed
-(201 source files); `pytest tests/unit tests/architecture -q` passed (508); adversarial tests passed
-(32); all 11 eval suites passed; PDF traceability passed (86 rows, pages 1-20); agent-docs,
-Bandit, import contracts, Gitleaks, `git diff --check`, and the pinned-inventory pip-audit passed.
-Integration tests produced 51 passes and one unrelated failure in
-`tests/integration/test_attribution_migration_round_trip.py`: its downgrade cannot restore a unique
-constraint because the shared local database contains duplicate
-`knowledge_processing_events(delivery_id, attempt, event_type)` rows. No database records or
-migrations were changed to bypass that failure. The focused ingestion suite previously passed 10
-tests normally and under `python -O`. Manual GitHub `Eval gate` run `38206913090` passed on commit
-`ba7ec7eae8696637e66c67d3c0e1346b5707f2ae`, including locked Linux dependency installation, PDF
-traceability, all offline evals, and thresholds. The PR is open; current full-CI findings and the
-pending dependency correction are recorded above.
+The ignored gate baseline remains `af0f0dfd1a995dd7680e4d9f4206b6272f05d444`, with 7 of 8 items
+complete. Before the final checkbox, run the open-item gate and independently confirm no scope
+violations or missing required evidence. Then run full verification with isolated PostgreSQL and
+Redis containers. If all checks pass, record evidence, tick Item 8, run the complete gate, and
+confirm PR checks.
 
 ## Done
 
-- Reply policy is implemented in `packages/core/revops/domain/values/reply.py`; it contains the nine-category mapping, finite `[0, 1]` confidence validation, inclusive `0.80` threshold, `en`/`pt` language compatibility, bounded half-open evidence offsets, conservative opt-out precedence, and manual-review fallback.
-- Focused contract coverage is in `tests/unit/domain/values/test_reply.py`; `pytest tests/unit/domain -q` passed (193 passed), `ruff check packages/core/revops/domain tests/unit/domain` passed, `ruff format --check packages/core/revops/domain tests/unit/domain` passed, `mypy packages/core/revops/domain` passed, and `lint-imports` kept all 4 contracts.
-- The first SPEC-011 checkbox is ticked in `docs/specs/SPEC-011-reply-intelligence/tasks.md` after observed evidence. Pilot commit `a3f954c` is on the feature branch and the gate advanced to Item 2.
-- Reply application contracts now include tenant-injected registration DTOs, strict structured classification output, immutable reply/request/feedback records and ports, a reply-specific unit of work, canonical account/contact validation, one-run reservation with its started event, and append-only idempotent feedback use cases. The run journal contains only a reply identifier, never reply text.
-- `tests/unit/application/use_cases/test_reply.py` covers canonical alias replay, relationship rejection, single reservation, no raw-reply run metadata, tenant-scoped append-only feedback, idempotency conflict, DTO boundary validation, and the structural reply UoW port.
-- Observed verification for Item 2: `ruff check packages/core/revops/application tests/unit/application` passed; `ruff format --check packages/core/revops/application tests/unit/application` passed; `mypy packages/core/revops/application` passed; `pytest tests/unit/application -q` passed (105 passed, with only the known restricted `.pytest_cache` warning); `lint-imports` kept all 4 contracts; `git diff --check` passed.
-- Item 3 adds the additive `replies`, `reply_classification_requests`, and `reply_feedback`
-  SQLAlchemy models, migration `c4d5e6f7a8b9`, reply-specific repositories/unit of work, tenant-scoped
-  foreign keys and idempotency constraints, plus PostgreSQL concurrency coverage in
-  `tests/integration/test_reply_persistence.py`. Transactional advisory locks serialize the existing
-  read-then-create contracts for reply registration, classification reservation, and feedback replay.
-- Observed non-PostgreSQL verification for Item 3: `ruff check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed; `ruff format --check packages/core/revops/infrastructure/persistence tests/integration/test_reply_persistence.py` passed (28 files); `python -m py_compile` passed for all changed Python files; `lint-imports` kept all 4 contracts; `git diff --check` passed; the focused test collected one integration test.
-- Item 3 verification was subsequently completed after Docker became available: `docker compose up -d` started healthy PostgreSQL/Redis; migration `c4d5e6f7a8b9` applied; `pytest tests/integration/test_reply_persistence.py -q` -> 1 passed; Ruff, format check, mypy, and `git diff --check` passed. The reservation order was corrected to persist the run and started event before its FK-backed classification request.
-- Approved Item 4 architecture is recorded in `docs/specs/SPEC-011-reply-intelligence/plan.md` and `docs/decisions/ADR-0019-reply-intelligence-runtime.md`; the queue requires the real package prompt path and the Item 4 cross-layer/runtime evidence.
-- Item 4 now adds `reply_runtime.py`: fixed `select`/`reserve`/`execute`/`complete` lifecycle,
-  a canonical compact 128 KiB typed artifact, 30-second runtime/20-second inference bounds,
-  durable synchronous checkpoints, fail-closed reserved-state recovery, and deterministic terminal
-  event reconciliation. `locked_reply_checkpointer` obtains a non-blocking organization/run
-  PostgreSQL advisory lock and constructs `AsyncPostgresSaver` on that exact connection.
-- `tests/unit/infrastructure/agent/test_reply_runtime.py` covers lifecycle artifact sanitization,
-  Unicode prompt preservation/delimiter rejection, and usage-only terminal journal metadata.
-  `tests/integration/test_reply_runtime_lock.py` passed against PostgreSQL, proving concurrent
-  acquisition returns `in_progress` and the lock releases correctly. The new
-  `reply_runtime_contract` offline suite passed 4/4 and is mandatory in `evals.gate`.
-- Observed final Item 4 evidence: `ruff check` and format check passed for all touched runtime,
-  persistence, eval, unit, and integration paths; `mypy` passed (50 source files); focused pytest
-  passed (54 passed); `python -m evals.gate` passed all nine suites; `lint-imports` kept all four
-  contracts; `git diff --check` passed. The fourth SPEC-011 checkbox is ticked.
-- Item 5 contract approved: `POST/GET /replies`, `POST /replies/{reply_id}/classify`, existing
-  `GET /agent/runs/{run_id}/result`, feedback `POST/GET`, header `Idempotency-Key`, and explicit
-  `in_progress`/`completed`/`failed`/`recovery_required` response states, recorded in plan/ADR.
-- Item 5 adds authenticated reply registration/read/classification/feedback endpoints and composes
-  only the bounded reply runtime. `ReplyArtifactReader` reads completed typed artifacts directly
-  from the checkpoint store; the existing result route dispatches reply runs before constructing
-  legacy graph, provider, or RAG components. Embeddings are lazy so reply-only requests do not
-  initialize a provider. `tests/integration/test_reply_api.py` proves the terminal read makes no
-  second gateway call, including when a live embedding provider is intentionally unconfigured.
-- Observed Item 5 evidence: `ruff check apps/api packages/core/revops/infrastructure/agent/reply_runtime.py tests/integration/test_reply_api.py`, format check, and `mypy apps/api packages/core/revops/infrastructure/agent/reply_runtime.py` passed; focused integration command passed 8 tests; `lint-imports` kept all 4 contracts; `git diff --check` passed.
-- Item 6 adds 90 synthetic bilingual examples (five per category/language), a deterministic
-  independent lexical baseline, five policy-contract cases, and multi-metric gate support. The
-  gate enforces baseline accuracy >= 0.85, macro-F1 >= 0.80, unsubscribe recall = 1.00, and the
-  reply classification contract at 1.00; `docs/evals/reply-classification.md` records the scope.
-- Observed Item 6 evidence: `ruff check evals tests/unit/evals`, `ruff format --check evals tests/unit/evals docs/evals`, `mypy evals`, focused `pytest tests/unit/evals/test_reply_classification_scorer.py tests/unit/evals/test_gate.py -q` (10 passed), `python -m evals.gate` (all suites passed; reply contract 5/5; baseline 90/90 and all three metrics 1.00), and `git diff --check` passed. The complete eval unit suite reached 39 passed but its pre-existing `tmp_path` test cannot create its sandbox temporary directory.
-- Item 7 adds `tests/adversarial/test_reply_intelligence_security.py` for injection/PII fencing and fake-evidence manual review, extends `tests/integration/test_reply_api.py` with cross-tenant authorization and a real PostgreSQL checkpoint restart that makes no second provider call, and corrects migration-history regressions to the approved reply-migration head `c4d5e6f7a8b9`.
-- Observed Item 7 evidence: `ruff check tests/adversarial tests/integration tests/unit` and `ruff format --check tests/adversarial tests/integration tests/unit` passed (121 files); targeted `mypy` passed (4 files); `pytest tests/adversarial -q` passed (32); `pytest tests/integration -q` passed (52); `lint-imports` kept all 4 contracts; `git diff --check` passed. `pytest tests/unit -q` reached 455 passed but has 50 pre-existing `tmp_path` setup errors because the sandbox denies the user temp directory.
-- Item 8 records twelve SPEC-011 acceptance mappings in `docs/specs/SPEC-011-reply-intelligence/tasks.md`, updates PDF evidence in `docs/requirements/PDF_TRACEABILITY.md`, and adds `docs/security/SPEC-011-reply-intelligence-review.md`. The earlier full verification sequence passed Ruff, format, mypy, imports, unit (505), integration (52), adversarial (32), evals (11 suites), PDF traceability (86 rows/pages 1-20), agent-docs, and Gitleaks. Do not treat that earlier local full verification as overriding the current PR CI failures summarized in `Now`.
-- The authorized verification repair adds narrow reply ports and corrects three test-only typing/platform annotations in `packages/core/revops/application/ports.py`, `tests/unit/application/use_cases/test_reply.py`, and `tests/integration/test_reply_persistence.py`; `mypy .` passed (201 files), unit tests passed (505), and integration tests passed (52).
-- Security closeout update: `bandit -r packages apps -q` passes after commit `dc9e210`; focused ingestion tests pass normally and under `python -O`. `requirements-ci.txt` now pins 140 packages for CPython 3.12 Linux x86_64; the updated `pip-audit --strict --no-deps -r requirements-ci.txt` reports no known vulnerabilities. The previous 196-finding report was not reproduced against the current pinned inventory and must not be treated as its audit result.
+- CI run `38283929452` at `9a77a81b827f8406fe7e32dc1b437558eadba89b`: passed quality, security,
+  unit, integration, and adversarial jobs, including locked mypy 2.4, Semgrep, Bandit, and pip-audit.
+- Eval run `38283929458` at the same commit: passed all 11 suites and PDF traceability.
+- The frontend workflow's setup/build steps were skipped because `apps/web/package.json` is absent;
+  no frontend build result is claimed.
+- Local authoritative checkout `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`: `pytest tests/unit
+  tests/architecture -q` passed 508 tests with repository `PYTHONPATH` set.
+- Read-only gate scope probe at baseline `af0f0df`: exactly 17 violations and no missing evidence;
+  the approved reconciliation names those exact files.
 
 ## Next
 
-1. Deliberately reconcile the Item 8 baseline/scope mismatch, including the forbidden playbook path, through the supervisor's approved control-plane process; no overlay or baseline reset has been created.
-2. Only after reconciliation, complete the Item 8 task evidence and run `python scripts/autonomous_gate.py` from a clean checkout.
-3. After the gate passes, review PR #1 with the user; then materialize and approve the next spec before preparing another autonomous loop.
+1. Run and inspect the open Item 8 gate; preserve the 7/8 baseline and verify scope/evidence checks.
+2. Run full verification with fresh isolated PostgreSQL and Redis containers; remove only those
+   verification containers after recording results.
+3. If green, record observed evidence, tick Item 8, run the full autonomous gate, and verify PR #1.
+4. Present the completed diff and PR status for review; do not merge without an explicit request.
+5. Materialize and approve SPEC-012 before starting another autonomous development loop.
 
 ## Gotchas
 
-- The authoritative checkout is `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive checkout is stale and must not be used.
-- Set `PYTHONPATH` to `packages\\core;repo-root` before Python checks to avoid stale editable imports.
-- Do not delete or reset `.handoff/.autonomous_gate_state.json`; the gate reboots its baseline when the task count changes.
-- The queue uses exact required paths so the gate can reject false task completion.
-- Pytest reports a non-fatal warning because the restricted sandbox cannot update `.pytest_cache`; test execution itself passed.
-- Docker must remain running while integration items execute; current Docker services are healthy.
+- Use `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive clone is stale.
+- Set `PYTHONPATH` to `packages\core;<repo root>`, plus UTF-8 environment variables, for local
+  Python checks. This avoids the global editable install pointing into OneDrive.
+- Never delete or reset `.handoff/.autonomous_gate_state.json`; the 8-item baseline must remain
+  unchanged.
+- Docker Compose services in this checkout are not running. Use uniquely named disposable
+  containers and loopback-only dynamic host ports for verification; leave unrelated containers and
+  volumes untouched.
+- PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop` and was mergeable at last
+  observation. The latest CI and Eval runs above passed.
 
 ## Resume
 
 ```powershell
-Set-Location -LiteralPath "C:\Dev\SISTEMA_PORTFOLIO_AI_ENG"
+Set-Location -LiteralPath 'C:\Dev\SISTEMA_PORTFOLIO_AI_ENG'
 $env:PYTHONPATH = (Join-Path (Get-Location).Path 'packages\core') + ';' + (Get-Location).Path
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
@@ -148,40 +71,4 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-No open design question for the mypy correction; the user authorized the repair. The remaining blocker is reconciling the saved Item 8 baseline and declared scope under the supervisor's control-plane rules, not CI or implementation.
-
-## Autonomous loop HALT (2026-10-10T21:55:41+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. A reachable PostgreSQL service is required to run the mandatory migration and concurrency/idempotency evidence. Making that external service available requires human action in this sandbox.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-10T22:40:39+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. Architecture plan was not approved after 2 attempts
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-11T22:59:01+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. Executor changes outside Item 4 scope cannot be committed: ['tests/unit/evals/test_gate.py']
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-11T23:03:15+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. A implementação exigiria inventar um contrato público de API; pelas instruções, isso requer decisão humana antes de editar qualquer arquivo.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-11T23:10:08+00:00)
-
-Item 5 declares scope ('apps/api/', 'tests/integration/', 'packages/core/revops/application/', 'packages/core/revops/infrastructure/agent/', 'packages/core/revops/infrastructure/persistence/'), but changes touch files outside it: ['docs/decisions/ADR-0019-reply-intelligence-runtime.md', 'docs/specs/SPEC-011-reply-intelligence/plan.md']. Revert the out-of-scope changes or stop and ask.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
-
-## Autonomous loop HALT (2026-10-11T23:45:41+00:00)
-
-HUMAN_REQUIRED: autonomous architecture supervisor stopped. Closing Item 8 requires changes outside its approved queue scope plus resolution of sandbox-restricted security and temporary-directory checks. Authorizing either would expand the item; no safe autonomous choice is available.
-
-The loop stopped itself. Do not restart it against the same queue item without addressing the reason above first.
+None for the approved SPEC-011 closeout. SPEC-012 scope requires a separate product review.

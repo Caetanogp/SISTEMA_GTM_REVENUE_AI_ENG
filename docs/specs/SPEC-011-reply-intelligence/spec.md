@@ -61,7 +61,7 @@ not calibrated and never authorizes an external write.
 7. Feedback appends a correction and optional comment while preserving the original classification; history is organization-scoped and linked to the run.
 8. The synthetic offline dataset contains at least five examples per category per language; contract evaluation is 1.00 and the deterministic baseline reaches accuracy >=0.85, macro-F1 >=0.80, and unsubscribe recall 1.00.
 9. Every new tool has a strict schema, low-risk allowlist entry, unit test, and eval case; audit records contain graph/prompt versions and per-call usage without raw reply text.
-10. The full verification gate passes with twelve acceptance-evidence mappings recorded as file:line references, and no existing SPEC-009/010 behavior regresses.
+10. The full verification gate passes with evidence for all ten product acceptance criteria and the approved security addendum recorded as file:line references; no existing SPEC-009/010 behavior regresses. The non-blocking checkpoint lock and bounded canonical artifact are implementation invariants supporting criteria 2, 3, and 6, not additional acceptance criteria.
 
 ## Tools and risk
 
