@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from revops.application.dto import FollowupResultDTO, ResearchResultDTO
+from revops.application.dto import FollowupResultDTO, ReplyResultDTO, ResearchResultDTO
 from revops.domain.entities.knowledge import KnowledgeCategory, KnowledgeFormat, KnowledgeLanguage
+from revops.domain.values.reply import ReplyCategory, ReplyLanguage
 
 
 class CreateTaskDraftRequest(BaseModel):
@@ -53,7 +54,49 @@ class AgentRunResultResponse(BaseModel):
     status: str
     research: ResearchResultDTO | None = None
     followup: FollowupResultDTO | None = None
+    reply: ReplyResultDTO | None = None
     limitations: tuple[str, ...] = ()
+
+
+class RegisterReplyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+    contact_id: UUID | None = None
+    text: str = Field(min_length=1, max_length=8_000)
+    language: ReplyLanguage
+
+
+class ReplyResponse(BaseModel):
+    id: UUID
+    account_id: UUID
+    contact_id: UUID | None
+    language: ReplyLanguage
+    created_at: datetime
+    replayed: bool = False
+
+
+class ReplyClassificationResponse(BaseModel):
+    run_id: UUID
+    status: Literal["in_progress", "completed", "failed", "recovery_required"]
+    replayed: bool
+    result: ReplyResultDTO | None = None
+
+
+class ReplyFeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    corrected_category: ReplyCategory
+    comment: str | None = Field(default=None, min_length=1, max_length=2_000)
+
+
+class ReplyFeedbackResponse(BaseModel):
+    id: UUID
+    run_id: UUID
+    corrected_category: ReplyCategory
+    comment: str | None
+    submitted_by: UUID
+    created_at: datetime
 
 
 class ApprovalDecisionType(StrEnum):

@@ -1,0 +1,90 @@
+{"id":"interested_en_01","input":"I am interested in learning more.","expected":"interested","metadata":{"language":"en","synthetic":true}}
+{"id":"interested_en_02","input":"I would like a demonstration next week.","expected":"interested","metadata":{"language":"en","synthetic":true}}
+{"id":"interested_en_03","input":"Can we schedule a call on Tuesday?","expected":"interested","metadata":{"language":"en","synthetic":true}}
+{"id":"interested_en_04","input":"Let's talk about the platform.","expected":"interested","metadata":{"language":"en","synthetic":true}}
+{"id":"interested_en_05","input":"Please send a proposal for our team.","expected":"interested","metadata":{"language":"en","synthetic":true}}
+{"id":"interested_pt_01","input":"Estou interessado em saber mais.","expected":"interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"interested_pt_02","input":"Gostaria de ver uma demonstração.","expected":"interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"interested_pt_03","input":"Podemos agendar uma conversa na terça?","expected":"interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"interested_pt_04","input":"Vamos conversar sobre a plataforma.","expected":"interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"interested_pt_05","input":"Envie uma proposta para nossa equipe.","expected":"interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"not_interested_en_01","input":"I am not interested in this offering.","expected":"not_interested","metadata":{"language":"en","synthetic":true}}
+{"id":"not_interested_en_02","input":"We have no interest at this time.","expected":"not_interested","metadata":{"language":"en","synthetic":true}}
+{"id":"not_interested_en_03","input":"Please stop pitching this service.","expected":"not_interested","metadata":{"language":"en","synthetic":true}}
+{"id":"not_interested_en_04","input":"This is not a fit for our company.","expected":"not_interested","metadata":{"language":"en","synthetic":true}}
+{"id":"not_interested_en_05","input":"I must decline the invitation.","expected":"not_interested","metadata":{"language":"en","synthetic":true}}
+{"id":"not_interested_pt_01","input":"Não tenho interesse nesta oferta.","expected":"not_interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"not_interested_pt_02","input":"Estamos sem interesse neste momento.","expected":"not_interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"not_interested_pt_03","input":"Não quero receber esta proposta.","expected":"not_interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"not_interested_pt_04","input":"A solução não é adequada para nós.","expected":"not_interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"not_interested_pt_05","input":"Recuso o convite para uma reunião.","expected":"not_interested","metadata":{"language":"pt","synthetic":true}}
+{"id":"objection_en_01","input":"The subscription is too expensive for us.","expected":"objection","metadata":{"language":"en","synthetic":true}}
+{"id":"objection_en_02","input":"Our budget is already committed.","expected":"objection","metadata":{"language":"en","synthetic":true}}
+{"id":"objection_en_03","input":"I have a concern about implementation.","expected":"objection","metadata":{"language":"en","synthetic":true}}
+{"id":"objection_en_04","input":"We have a security concern before proceeding.","expected":"objection","metadata":{"language":"en","synthetic":true}}
+{"id":"objection_en_05","input":"The contract terms need review.","expected":"objection","metadata":{"language":"en","synthetic":true}}
+{"id":"objection_pt_01","input":"A assinatura está muito cara para nós.","expected":"objection","metadata":{"language":"pt","synthetic":true}}
+{"id":"objection_pt_02","input":"Nosso orçamento já foi comprometido.","expected":"objection","metadata":{"language":"pt","synthetic":true}}
+{"id":"objection_pt_03","input":"Tenho uma preocupação com a implantação.","expected":"objection","metadata":{"language":"pt","synthetic":true}}
+{"id":"objection_pt_04","input":"Precisamos discutir segurança antes de seguir.","expected":"objection","metadata":{"language":"pt","synthetic":true}}
+{"id":"objection_pt_05","input":"Os termos do contrato precisam de revisão.","expected":"objection","metadata":{"language":"pt","synthetic":true}}
+{"id":"question_en_01","input":"What is included in the plan?","expected":"question","metadata":{"language":"en","synthetic":true}}
+{"id":"question_en_02","input":"Could you explain the integration process?","expected":"question","metadata":{"language":"en","synthetic":true}}
+{"id":"question_en_03","input":"How does pricing work?","expected":"question","metadata":{"language":"en","synthetic":true}}
+{"id":"question_en_04","input":"Can you share the security documentation?","expected":"question","metadata":{"language":"en","synthetic":true}}
+{"id":"question_en_05","input":"What is the implementation timeline?","expected":"question","metadata":{"language":"en","synthetic":true}}
+{"id":"question_pt_01","input":"Qual é o valor do plano?","expected":"question","metadata":{"language":"pt","synthetic":true}}
+{"id":"question_pt_02","input":"Como funciona a integração?","expected":"question","metadata":{"language":"pt","synthetic":true}}
+{"id":"question_pt_03","input":"Vocês oferecem suporte em português?","expected":"question","metadata":{"language":"pt","synthetic":true}}
+{"id":"question_pt_04","input":"Pode enviar a documentação técnica?","expected":"question","metadata":{"language":"pt","synthetic":true}}
+{"id":"question_pt_05","input":"Qual é o prazo de implantação?","expected":"question","metadata":{"language":"pt","synthetic":true}}
+{"id":"out_of_office_en_01","input":"I am out of office until Monday.","expected":"out_of_office","metadata":{"language":"en","synthetic":true}}
+{"id":"out_of_office_en_02","input":"I am away until 14 October.","expected":"out_of_office","metadata":{"language":"en","synthetic":true}}
+{"id":"out_of_office_en_03","input":"I am on vacation this week.","expected":"out_of_office","metadata":{"language":"en","synthetic":true}}
+{"id":"out_of_office_en_04","input":"I will be back on Friday.","expected":"out_of_office","metadata":{"language":"en","synthetic":true}}
+{"id":"out_of_office_en_05","input":"Returning on 3 November.","expected":"out_of_office","metadata":{"language":"en","synthetic":true}}
+{"id":"out_of_office_pt_01","input":"Estou fora do escritório até segunda-feira.","expected":"out_of_office","metadata":{"language":"pt","synthetic":true}}
+{"id":"out_of_office_pt_02","input":"Estou de férias nesta semana.","expected":"out_of_office","metadata":{"language":"pt","synthetic":true}}
+{"id":"out_of_office_pt_03","input":"Retorno em 14 de outubro.","expected":"out_of_office","metadata":{"language":"pt","synthetic":true}}
+{"id":"out_of_office_pt_04","input":"Ficarei ausente até sexta-feira.","expected":"out_of_office","metadata":{"language":"pt","synthetic":true}}
+{"id":"out_of_office_pt_05","input":"Volto em 3 de novembro.","expected":"out_of_office","metadata":{"language":"pt","synthetic":true}}
+{"id":"wrong_person_en_01","input":"You have the wrong person for this topic.","expected":"wrong_person","metadata":{"language":"en","synthetic":true}}
+{"id":"wrong_person_en_02","input":"I am not responsible for procurement.","expected":"wrong_person","metadata":{"language":"en","synthetic":true}}
+{"id":"wrong_person_en_03","input":"Please contact someone else in operations.","expected":"wrong_person","metadata":{"language":"en","synthetic":true}}
+{"id":"wrong_person_en_04","input":"I am not the right person to decide.","expected":"wrong_person","metadata":{"language":"en","synthetic":true}}
+{"id":"wrong_person_en_05","input":"You have reached the wrong person.","expected":"wrong_person","metadata":{"language":"en","synthetic":true}}
+{"id":"wrong_person_pt_01","input":"Você falou com a pessoa errada.","expected":"wrong_person","metadata":{"language":"pt","synthetic":true}}
+{"id":"wrong_person_pt_02","input":"Não sou responsável por compras.","expected":"wrong_person","metadata":{"language":"pt","synthetic":true}}
+{"id":"wrong_person_pt_03","input":"Fale com alguém da área de operações.","expected":"wrong_person","metadata":{"language":"pt","synthetic":true}}
+{"id":"wrong_person_pt_04","input":"O contato correto é outra pessoa.","expected":"wrong_person","metadata":{"language":"pt","synthetic":true}}
+{"id":"wrong_person_pt_05","input":"Não é comigo essa decisão.","expected":"wrong_person","metadata":{"language":"pt","synthetic":true}}
+{"id":"unsubscribe_en_01","input":"Please unsubscribe me from these messages.","expected":"unsubscribe","metadata":{"language":"en","synthetic":true}}
+{"id":"unsubscribe_en_02","input":"Remove me from your list immediately.","expected":"unsubscribe","metadata":{"language":"en","synthetic":true}}
+{"id":"unsubscribe_en_03","input":"Do not contact me again.","expected":"unsubscribe","metadata":{"language":"en","synthetic":true}}
+{"id":"unsubscribe_en_04","input":"I want to opt out of future mail.","expected":"unsubscribe","metadata":{"language":"en","synthetic":true}}
+{"id":"unsubscribe_en_05","input":"Take me off the mailing list.","expected":"unsubscribe","metadata":{"language":"en","synthetic":true}}
+{"id":"unsubscribe_pt_01","input":"Quero me descadastrar destas mensagens.","expected":"unsubscribe","metadata":{"language":"pt","synthetic":true}}
+{"id":"unsubscribe_pt_02","input":"Remova-me da sua lista imediatamente.","expected":"unsubscribe","metadata":{"language":"pt","synthetic":true}}
+{"id":"unsubscribe_pt_03","input":"Não entre em contato novamente.","expected":"unsubscribe","metadata":{"language":"pt","synthetic":true}}
+{"id":"unsubscribe_pt_04","input":"Quero cancelar inscrição nos próximos emails.","expected":"unsubscribe","metadata":{"language":"pt","synthetic":true}}
+{"id":"unsubscribe_pt_05","input":"Tire meu endereço da lista de emails.","expected":"unsubscribe","metadata":{"language":"pt","synthetic":true}}
+{"id":"automatic_response_en_01","input":"This is an automatic reply while I am away.","expected":"automatic_response","metadata":{"language":"en","synthetic":true}}
+{"id":"automatic_response_en_02","input":"This automated message confirms receipt.","expected":"automatic_response","metadata":{"language":"en","synthetic":true}}
+{"id":"automatic_response_en_03","input":"Auto-reply: your email was received.","expected":"automatic_response","metadata":{"language":"en","synthetic":true}}
+{"id":"automatic_response_en_04","input":"Delivery notification: the mailbox accepted your message.","expected":"automatic_response","metadata":{"language":"en","synthetic":true}}
+{"id":"automatic_response_en_05","input":"This message was generated automatically.","expected":"automatic_response","metadata":{"language":"en","synthetic":true}}
+{"id":"automatic_response_pt_01","input":"Esta é uma resposta automática enquanto estou ausente.","expected":"automatic_response","metadata":{"language":"pt","synthetic":true}}
+{"id":"automatic_response_pt_02","input":"Esta mensagem automática confirma o recebimento.","expected":"automatic_response","metadata":{"language":"pt","synthetic":true}}
+{"id":"automatic_response_pt_03","input":"Aviso automático: seu email foi recebido.","expected":"automatic_response","metadata":{"language":"pt","synthetic":true}}
+{"id":"automatic_response_pt_04","input":"Esta mensagem foi gerada automaticamente.","expected":"automatic_response","metadata":{"language":"pt","synthetic":true}}
+{"id":"automatic_response_pt_05","input":"Este é um email automático de confirmação.","expected":"automatic_response","metadata":{"language":"pt","synthetic":true}}
+{"id":"unknown_en_01","input":"Hello.","expected":"unknown","metadata":{"language":"en","synthetic":true}}
+{"id":"unknown_en_02","input":"Thanks.","expected":"unknown","metadata":{"language":"en","synthetic":true}}
+{"id":"unknown_en_03","input":"Received.","expected":"unknown","metadata":{"language":"en","synthetic":true}}
+{"id":"unknown_en_04","input":"Ok.","expected":"unknown","metadata":{"language":"en","synthetic":true}}
+{"id":"unknown_en_05","input":"Noted.","expected":"unknown","metadata":{"language":"en","synthetic":true}}
+{"id":"unknown_pt_01","input":"Olá.","expected":"unknown","metadata":{"language":"pt","synthetic":true}}
+{"id":"unknown_pt_02","input":"Obrigado.","expected":"unknown","metadata":{"language":"pt","synthetic":true}}
+{"id":"unknown_pt_03","input":"Recebi.","expected":"unknown","metadata":{"language":"pt","synthetic":true}}
+{"id":"unknown_pt_04","input":"Ok.","expected":"unknown","metadata":{"language":"pt","synthetic":true}}
+{"id":"unknown_pt_05","input":"Anotado.","expected":"unknown","metadata":{"language":"pt","synthetic":true}}

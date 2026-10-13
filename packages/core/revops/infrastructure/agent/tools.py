@@ -6,8 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Protocol, cast
+from uuid import UUID
 
 from revops.application.dto import (
+    ClassifyReplyArgs,
     CreateTaskArgs,
     CreateTaskToolArgs,
     GetAccountContextArgs,
@@ -24,6 +26,8 @@ from revops.application.ports import (
     ContactRepository,
     LLMGateway,
     OutreachContextProvider,
+    ReplyClassifier,
+    ReplyUnitOfWorkFactory,
     ToolExecutionResult,
     TrustedRunContext,
     UnitOfWork,
@@ -31,6 +35,7 @@ from revops.application.ports import (
 from revops.application.use_cases.outreach import PrepareFollowup, ResearchCompany
 from revops.application.use_cases.prioritize_accounts import PrioritizeAccounts
 from revops.application.use_cases.propose_task import ProposeTask
+from revops.application.use_cases.reply import ClassifiedReply, ClassifyReply
 from revops.domain.values.risk import RiskLevel
 
 
@@ -46,6 +51,34 @@ class UnitOfWorkScope(Protocol):
 
 
 UowFactory = Callable[[], UnitOfWorkScope]
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifyReplyTool:
+    """The fixed, analysis-only reply tool; it cannot issue external writes."""
+
+    uow_factory: ReplyUnitOfWorkFactory
+    classifier: ReplyClassifier
+
+    name: str = "classify_reply"
+    risk: RiskLevel = RiskLevel.LOW
+    arguments_model: type[ClassifyReplyArgs] = ClassifyReplyArgs
+
+    async def classify(self, *, organization_id: UUID, reply_id: UUID) -> ClassifiedReply:
+        return await ClassifyReply(self.uow_factory, self.classifier).execute(
+            organization_id=organization_id, reply_id=reply_id
+        )
+
+    async def execute(
+        self, *, context: TrustedRunContext, arguments: ClassifyReplyArgs
+    ) -> ToolExecutionResult:
+        classified = await self.classify(
+            organization_id=context.organization_id, reply_id=arguments.reply_id
+        )
+        return ToolExecutionResult(
+            payload=classified.result.model_dump(mode="json"),
+            outcome=classified.result.status.value,
+        )
 
 
 @dataclass(frozen=True, slots=True)

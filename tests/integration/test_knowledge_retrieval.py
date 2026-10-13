@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 from datetime import UTC, datetime
 
 import pytest
@@ -26,6 +27,7 @@ from revops.infrastructure.persistence.knowledge_repositories import (
 from revops.infrastructure.persistence.models import KnowledgeCorpus
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
 from tests.integration.test_knowledge_revision_persistence import (
     _create_corpus,
     _ready_version,
@@ -34,8 +36,8 @@ from tests.integration.test_knowledge_revision_persistence import (
 
 @pytest.fixture
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
-        return asyncio.WindowsSelectorEventLoopPolicy()
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
     return asyncio.get_event_loop_policy()
 
 

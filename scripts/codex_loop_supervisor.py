@@ -430,6 +430,9 @@ def _codex_command(
     )
     if read_only:
         args.extend(("--sandbox", "read-only"))
+    else:
+        # Executors must edit only the repository workspace; the supervisor still owns commits.
+        args.extend(("--sandbox", "workspace-write"))
     args.append("-")
     return args
 

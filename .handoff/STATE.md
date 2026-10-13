@@ -1,70 +1,86 @@
 ---
 agent: codex
-updated_at: 2026-10-08
-branch: develop
-spec: SPEC-010-research-and-outreach
-phase: "SPEC-010 merged and published on origin/develop"
-status: published
+updated_at: 2026-10-12
+branch: feature/SPEC-011-reply-intelligence
+spec: SPEC-011-reply-intelligence
+phase: "PR #1 review fixes locally verified; refreshed CI pending"
+status: in_progress
 ---
 
 # Current state
 
 ## Goal
 
-Implement bounded, tenant-safe company research and bilingual grounded follow-up preparation from
-the approved PDF-aligned SPEC-010 scope, without sending messages or changing CRM records.
+Resolve two correctness findings from the PR #1 review and verify the refreshed feature branch.
 
 ## Now
 
-SPEC-010 implementation is complete and merged into `develop`. The v2 runtime
-uses checkpointed selection, reservation, execution, and completion nodes; v1 resume behavior is
-preserved. The approved closeout queue is complete. No overnight development loop is running or
-needed for this spec because there are no remaining implementation tasks.
+SPEC-011 remains complete and its eight task checkboxes are still checked. PR review identified two
+fixes: provider errors must become sanitized terminal checkpoint failures, and the persisted
+`AgentRun.thread_id` must match the checkpoint's `str(run_id)`. Both changes and regression tests are
+implemented locally. The local full autonomous gate is green; changes are not yet committed or
+published, so refreshed GitHub CI is pending. The saved gate baseline remains unchanged at
+`af0f0dfd1a995dd7680e4d9f4206b6272f05d444`.
 
 ## Done
 
-- Implementation commit: `c4ca593 feat(spec-010): checkpoint research runtime lifecycle`.
-- Queue/closeout commit: `567eb3a docs(spec-010): add bounded closeout queue`.
-- SPEC-010 scope, plan, ADR-0018, tasks, security boundaries, and PDF traceability are materialized.
-- External research is disabled by default and only permits explicitly configured HTTPS company
-  pages with bounded response/text/deadline limits, DNS/IP validation, no redirects, and no proxy
-  trust.
-- Follow-up drafts are bilingual, structured, evidence-referenced, and verifier-gated. No send,
-  calendar, CRM mutation, or automatic sequence is in scope.
-- Existing SPEC-009 v1 runs remain on the legacy graph composition; new runs use
-  `single-agent-tool-runtime.v2`.
-
-## Verification evidence
-
-- Pilot: `pytest tests/integration/test_agent_runs_api.py tests/unit/infrastructure/agent/test_runtime_nodes.py tests/unit/application/use_cases/test_agent_tool_runtime.py -q` -> 15 passed.
-- Unit: `pytest tests/unit -q` -> 467 passed.
-- Integration: `pytest tests/integration -q` -> 47 passed, 3 known SQLAlchemy connection-cleanup warnings.
-- Adversarial: `pytest tests/adversarial -q` -> 30 passed.
-- Evals: `python -m evals.run --suite all` -> all 8 suites passed at 1.00; research and grounded-generation contracts are mandatory and green.
-- Static/security: `ruff check .`, `ruff format --check .`, `mypy .` (188 files), `lint-imports` (4 contracts kept), `python scripts/check_agent_docs.py`, `python scripts/check_pdf_traceability.py` (86 rows), and `gitleaks detect --no-git` all passed.
-- Docker integration dependency: Docker Server `27.5.1`, 2 containers running.
+- CI run `38283929452` at `9a77a81b827f8406fe7e32dc1b437558eadba89b`: passed quality, security,
+  unit, integration, and adversarial jobs, including locked mypy 2.4, Semgrep, Bandit, and pip-audit.
+- Eval run `38283929458` at the same commit: passed all 11 suites and PDF traceability.
+- CI run `38327449741` and Eval run `38327449728` on published commit `923111b`: both passed;
+  Semgrep, Bandit, dependency audit, integration, adversarial, eval, and PDF traceability passed.
+- PR #1 remains open and GitHub reports `MERGEABLE`; no merge was performed.
+- Review fixes: `reply_runtime.py` checkpoints provider failure as fixed `provider_failure` and never
+  stores arbitrary exception text; `reply.py` persists the matching run thread id. Regression
+  evidence: `pytest tests/unit/infrastructure/agent/test_reply_runtime.py -q` passed 5 tests and
+  `pytest tests/integration/test_reply_api.py -q` passed 3 tests using the explicit C:\Dev checkout.
+- Refreshed local gate: `python scripts/autonomous_gate.py` exited 0 with
+  `GOAL ACHIEVED: all queue items done, full gate green.` Ruff, mypy, import contracts, pytest,
+  docs, formatting, integration, adversarial, evals, and Gitleaks all reported OK. It used
+  disposable PostgreSQL/Redis containers on loopback-only dynamic ports; both containers were
+  stopped and auto-removed. The standalone integration suite also passed 52 tests.
+- The frontend workflow's setup/build steps were skipped because `apps/web/package.json` is absent;
+  no frontend build result is claimed.
+- Local authoritative checkout `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`: `pytest tests/unit
+  tests/architecture -q` passed 508 tests with repository `PYTHONPATH` set.
+- Read-only gate scope probe at baseline `af0f0df`: exactly 17 violations and no missing evidence;
+  the approved reconciliation names those exact files.
+- `python scripts/check_pdf_traceability.py`: passed, 86 rows and pages 1-20.
+- `bandit -r packages apps -q`: exit 0 (existing Bandit comment warnings only).
+- `pip-audit --strict --no-deps -r requirements-ci.txt`: exit 0, no known vulnerabilities.
+- `run_quality_gate(full=True)`: all 10 checks passed, including unit, integration, adversarial,
+  evals, and Gitleaks.
+- `python scripts/autonomous_gate.py`: exit 0 with `GOAL ACHIEVED: all queue items done, full gate
+  green.` Ruff, mypy, import contracts, unit/architecture, docs, format, integration, adversarial,
+  evals, and Gitleaks all reported OK.
+- Disposable PostgreSQL and Redis verification containers were removed by exact name; no volumes
+  were created. Existing stopped development containers were untouched.
 
 ## Next
 
-1. Decide the next product scope with the user; SPEC-011 is only the current roadmap candidate.
-2. Materialize and approve the next spec, plan, and tasks before any implementation or autonomous loop. Do not infer SPEC-011+ scope from the roadmap.
+1. Review and commit the two tested PR fixes on `feature/SPEC-011-reply-intelligence`.
+2. Push the feature branch and wait for refreshed PR #1 CI and Eval checks.
+3. Reassess merge eligibility from the complete accumulated diff and green checks; do not merge if
+   a check fails or the review reveals another blocker.
+4. After PR #1 is merged, materialize and approve SPEC-012 before implementation or another loop.
 
 ## Gotchas
 
-- The PDF at `docs/Agentic_GTM_Revenue_Operations_Platform_Guia_Projeto.pdf` remains the product
-  source of truth.
-- New research requires explicit authorized hosts and paths; an account domain alone never grants
-  network access.
-- Research content, CRM text, RAG passages, prior tool results, and model output are untrusted data.
-  Tenant identity, permissions, risk, and HITL remain deterministic.
-- The SPEC-010 queue is a bounded closeout queue, not an overnight feature-development queue. A
-  long loop is appropriate only after a future approved spec has real unchecked implementation work.
+- Use `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive clone is stale.
+- Set `PYTHONPATH` to `packages\core;<repo root>`, plus UTF-8 environment variables, for local
+  Python checks. This avoids the global editable install pointing into OneDrive.
+- Never delete or reset `.handoff/.autonomous_gate_state.json`; the 8-item baseline must remain
+  unchanged.
+- Docker Compose services in this checkout are not running. Use uniquely named disposable
+  containers and loopback-only dynamic host ports for verification; leave unrelated containers and
+  volumes untouched.
+- PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`; the latest CI and Eval
+  runs above passed. Review before merging.
 
 ## Resume
 
 ```powershell
-Set-Location -LiteralPath "C:\Dev\SISTEMA_PORTFOLIO_AI_ENG"
-git switch develop
+Set-Location -LiteralPath 'C:\Dev\SISTEMA_PORTFOLIO_AI_ENG'
 $env:PYTHONPATH = (Join-Path (Get-Location).Path 'packages\core') + ';' + (Get-Location).Path
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
@@ -72,5 +88,4 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-No product question is open for SPEC-010. Any architectural choice outside the approved plan
-requires a deliberate design pass before coding.
+None for the approved SPEC-011 closeout. SPEC-012 scope requires a separate product review.

@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from langchain_core.runnables import RunnableConfig
@@ -16,6 +16,7 @@ from revops.application.dto import (
     ApprovalDecisionType,
     CreateTaskDraft,
     FollowupResultDTO,
+    ReplyResultDTO,
     ResearchResultDTO,
 )
 from revops.application.ports import EmbeddingProvider, LLMGateway
@@ -33,7 +34,7 @@ from apps.api.dependencies import (
     get_session_factory,
     get_settings,
 )
-from apps.api.runtime import open_agent_runner
+from apps.api.runtime import open_agent_runner, reply_artifact_reader
 from apps.api.schemas import (
     AgentRunListItem,
     AgentRunResultResponse,
@@ -176,11 +177,10 @@ async def list_agent_runs(
 @router.get("/{run_id}/result", response_model=AgentRunResultResponse)
 async def get_agent_run_result(
     run_id: UUID,
+    request: Request,
     current_user: Annotated[ApiPrincipal, Depends(get_current_principal)],
     session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings: Annotated[ApiSettings, Depends(get_settings)],
-    llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
-    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> AgentRunResultResponse:
     async with session_factory() as session:
         run_row = await _visible_run_or_404(
@@ -188,12 +188,30 @@ async def get_agent_run_result(
             organization_id=current_user.organization_id,
             run_id=run_id,
         )
+        if run_row.graph_version == "reply-intelligence.v1":
+            artifact = await reply_artifact_reader(settings).get_result(
+                organization_id=current_user.organization_id, run_id=run_id
+            )
+            if artifact is None:
+                return AgentRunResultResponse(status="artifact_not_recorded")
+            raw_result = artifact.get("result")
+            if not isinstance(raw_result, dict):
+                return AgentRunResultResponse(status="artifact_unavailable")
+            try:
+                reply = ReplyResultDTO.model_validate(raw_result)
+            except ValueError:
+                return AgentRunResultResponse(status="artifact_unavailable")
+            return AgentRunResultResponse(
+                status=reply.status.value,
+                reply=reply,
+                limitations=reply.limitations,
+            )
         async with open_agent_runner(
             session=session,
             session_factory=session_factory,
             settings=settings,
-            llm_gateway=llm_gateway,
-            embedding_provider=embedding_provider,
+            llm_gateway=cast(LLMGateway, request.app.state.llm_gateway),
+            embedding_provider=cast(EmbeddingProvider, request.app.state.embedding_provider),
             graph_version=run_row.graph_version,
         ) as runner:
             snapshot = await runner.graph.aget_state(_run_config(run_id))

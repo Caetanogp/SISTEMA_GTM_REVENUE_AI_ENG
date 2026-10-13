@@ -15,7 +15,7 @@ a repository call scoped to one organization never returns or mutates another's 
 from __future__ import annotations
 
 import asyncio
-import sys
+import platform
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -44,6 +44,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 
 @pytest.fixture(scope="session")
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
@@ -51,13 +53,9 @@ def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
     `migrations/env.py`'s same fix) - pytest-asyncio needs the same override for this file's
     event loop, not just Alembic's standalone one.
     """
-    if sys.platform == "win32":
-        return asyncio.WindowsSelectorEventLoopPolicy()
-    return asyncio.get_event_loop_policy()  # type: ignore[unreachable]
-    # mypy infers sys.platform as fixed to this machine's platform (win32 in CI/dev here), so it
-    # marks this branch unreachable - the code is correct for the non-Windows case the test suite
-    # also needs to run under (a CI runner on a different platform), mypy's static check is just
-    # narrower than reality for a sys.platform guard.
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
+    return asyncio.get_event_loop_policy()
 
 
 @pytest.fixture

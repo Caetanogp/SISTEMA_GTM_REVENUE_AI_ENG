@@ -29,6 +29,9 @@ from evals.scorers.outreach_contract import (
 )
 from evals.scorers.rag_ingestion_contract import score_rag_ingestion_contract_dataset
 from evals.scorers.rag_retrieval_contract import score_rag_retrieval_contract_dataset
+from evals.scorers.reply_classification import score_reply_classification_dataset
+from evals.scorers.reply_classification_contract import score_reply_classification_contract_dataset
+from evals.scorers.reply_runtime_contract import score_reply_runtime_contract_dataset
 from evals.scorers.tool_selection import score_tool_selection_dataset
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
@@ -41,6 +44,9 @@ SUITES = (
     "agent_tool_runtime_contract",
     "research_outreach_contract",
     "grounded_generation_contract",
+    "reply_runtime_contract",
+    "reply_classification_contract",
+    "reply_classification",
 )
 
 
@@ -53,6 +59,7 @@ class SuiteReport:
     correct_cases: int
     failures: list[str]
     generated_at: str
+    metrics: dict[str, float] | None = None
 
 
 def run_tool_selection() -> SuiteReport:
@@ -159,6 +166,50 @@ def run_grounded_generation_contract() -> SuiteReport:
     )
 
 
+def run_reply_runtime_contract() -> SuiteReport:
+    result = score_reply_runtime_contract_dataset()
+    return SuiteReport(
+        suite="reply_runtime_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
+def run_reply_classification_contract() -> SuiteReport:
+    result = score_reply_classification_contract_dataset()
+    return SuiteReport(
+        suite="reply_classification_contract",
+        metric_name="exact_match",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
+def run_reply_classification() -> SuiteReport:
+    result = score_reply_classification_dataset()
+    return SuiteReport(
+        suite="reply_classification",
+        metric_name="accuracy",
+        metric_value=result.accuracy,
+        total_cases=result.total,
+        correct_cases=result.correct,
+        failures=result.failed_ids,
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        metrics={
+            "accuracy": result.accuracy,
+            "macro_f1": result.macro_f1,
+            "unsubscribe_recall": result.unsubscribe_recall,
+        },
+    )
+
+
 RUNNERS: dict[str, Callable[[], SuiteReport]] = {
     "tool_selection": run_tool_selection,
     "lead_scoring": run_lead_scoring,
@@ -174,6 +225,9 @@ ALL_RUNNERS = {
     "agent_tool_runtime_contract": run_agent_tool_runtime_contract,
     "research_outreach_contract": run_research_outreach_contract,
     "grounded_generation_contract": run_grounded_generation_contract,
+    "reply_runtime_contract": run_reply_runtime_contract,
+    "reply_classification_contract": run_reply_classification_contract,
+    "reply_classification": run_reply_classification,
 }
 
 

@@ -322,6 +322,32 @@ async def test_stage_normalizes_rows_and_keeps_business_errors_per_row() -> None
     assert invalid.validation_codes == ("company_name_required",)
 
 
+async def test_process_rejects_inconsistent_contact_before_account_write() -> None:
+    factory, _, items, accounts, _, _, _ = _factory()
+    stage = await StageIngestion(factory).execute(
+        organization_id=uuid4(),
+        requested_by=uuid4(),
+        source="api",
+        idempotency_key="invalid-contact-invariant",
+        records=[_record()],
+    )
+    await ConfirmIngestion(factory, _FakeDispatcher()).execute(
+        organization_id=stage.job.organization_id, job_id=stage.job.id
+    )
+
+    staged_item = items.by_job[stage.job.id][0]
+    assert staged_item.record is not None
+    inconsistent_record = replace(staged_item.record, full_name=None)
+    items.by_job[stage.job.id][0] = replace(staged_item, record=inconsistent_record)
+
+    with pytest.raises(RuntimeError, match="missing required identity fields"):
+        await ProcessIngestionJob(factory, _FakeEnrichmentGateway(), _FakeClock()).execute(
+            organization_id=stage.job.organization_id, job_id=stage.job.id
+        )
+
+    assert accounts.by_domain == {}
+
+
 async def test_stage_reports_invalid_phone_without_persisting_raw_value() -> None:
     factory, _, _, _, _, _, _ = _factory()
     result = await StageIngestion(factory).execute(

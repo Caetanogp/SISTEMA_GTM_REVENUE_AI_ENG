@@ -14,7 +14,7 @@ class SendEmailArgs(BaseModel):
     contact_id: UUID
     subject: str = Field(max_length=200)
     body: str = Field(max_length=5000)
-    model_config = ConfigDict(extra="forbid")   # reject anything the LLM invents
+    model_config = ConfigDict(extra="forbid")  # reject anything the LLM invents
 ```
 
 `extra="forbid"` is not optional. An LLM that hallucinates a `bypass_approval=true` field must fail

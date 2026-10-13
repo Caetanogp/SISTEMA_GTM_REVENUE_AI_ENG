@@ -153,7 +153,7 @@ def test_codex_command_uses_noninteractive_workspace_sandbox_for_executor(tmp_pa
     assert "--ask-for-approval" in command
     assert "--approve-for-me" not in command
     assert "--add-dir" not in command
-    assert "--sandbox" not in command
+    assert command[command.index("--sandbox") + 1] == "workspace-write"
 
 
 def test_codex_command_places_live_search_before_exec(tmp_path: Path) -> None:

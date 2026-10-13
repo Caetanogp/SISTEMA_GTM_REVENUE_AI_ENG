@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -30,11 +31,13 @@ from revops.infrastructure.persistence.models import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 
 @pytest.fixture
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
-    if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
-        return asyncio.WindowsSelectorEventLoopPolicy()
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
     return asyncio.get_event_loop_policy()
 
 

@@ -1,100 +1,74 @@
 # Autonomous work queue
 
-The only source of work for the SPEC-010 closeout loop. Items run in order and remain inside
-their declared file scope. `scripts/autonomous_gate.py` is the sole judge of completion.
+This queue is the only source of unattended work for the approved SPEC-011 implementation. Items
+run in order, each item closes exactly one checkbox in `docs/specs/SPEC-011-reply-intelligence/tasks.md`,
+and `scripts/autonomous_gate.py` is the completion judge.
 
-- **Tasks file:** `docs/specs/SPEC-010-research-and-outreach/tasks.md`
+- **Tasks file:** `docs/specs/SPEC-011-reply-intelligence/tasks.md`
 
-The first eighteen items below record implementation work already completed before this queue was
-materialized. They are retained so the deterministic gate can align its task counter. Item 19 is
-the only remaining closeout item.
-
-## Item 1 - Approved SPEC-010 contract
-- **Scope:** `docs/specs/SPEC-010-research-and-outreach/`
+## Item 1 - Reply domain policy
+- **Scope:** `packages/core/revops/domain/`, `tests/unit/domain/`, `docs/specs/SPEC-011-reply-intelligence/`, `docs/decisions/ADR-0019-reply-intelligence-runtime.md`, `.handoff/AUTONOMOUS_QUEUE.md`, `scripts/codex_loop_supervisor.py`, `tests/unit/scripts/test_codex_loop_supervisor.py`
+- **Requires:** `packages/core/revops/domain/`, `tests/unit/domain/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** implement immutable reply values, nine categories, the approved category-to-action mapping, confidence threshold `0.80`, bilingual policy, evidence boundaries, and unsubscribe precedence.
+- **Done when:** focused domain tests pass, the item commit is created by the supervisor, and the gate advances.
 
-## Item 2 - Domain outreach values
-- **Scope:** `packages/core/revops/domain/`
-- **Closes:** 1 tasks.md checkbox
+The supervisor paths above are bootstrap-only changes already reviewed and committed before the
+pilot; executors remain prohibited from editing supervisor controls.
 
-## Item 3 - Application DTOs and ports
-- **Scope:** `packages/core/revops/application/`
+## Item 2 - Application contracts
+- **Scope:** `packages/core/revops/application/`, `tests/unit/application/`
+- **Requires:** `packages/core/revops/application/`, `tests/unit/application/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** add DTOs, ports, use cases, canonical tenant/contact validation, and feedback semantics.
+- **Done when:** application unit tests and mypy pass with no framework imports in inner layers.
 
-## Item 4 - Bounded research policy
-- **Scope:** `packages/core/revops/infrastructure/agent/`
+## Item 3 - Persistence and idempotency
+- **Scope:** `packages/core/revops/infrastructure/persistence/`, `alembic/`, `tests/integration/`
+- **Requires:** `packages/core/revops/infrastructure/persistence/`, `alembic/`, `tests/integration/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** add additive reply tables, repositories, atomic reservation, replay rules, and feedback history.
+- **Done when:** PostgreSQL migration and concurrency/idempotency tests pass without changing prior data.
 
-## Item 5 - Offline adapters
-- **Scope:** `packages/core/revops/infrastructure/agent/`
+## Item 4 - Prompt, tool, and graph
+- **Scope:** `packages/core/revops/domain/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`, `tests/unit/domain/`, `tests/unit/application/`, `tests/unit/infrastructure/agent/`, `tests/unit/evals/`, `tests/integration/`, `evals/`
+- **Requires:** `packages/core/revops/domain/values/reply.py`, `packages/core/revops/application/dto.py`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/reply.py`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/agent/prompts/classify_reply.v1.md`, `packages/core/revops/infrastructure/persistence/`, `tests/unit/domain/values/test_reply.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/infrastructure/agent/`, `tests/unit/evals/`, `tests/integration/`, `evals/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** add the versioned structured prompt, allowlisted low-risk tool, dedicated checkpointed graph lifecycle, bounded typed artifact, same-connection advisory lock, restart-safe replay, and usage journal. Keep existing v1/v2 compositions unchanged; add the minimum offline runtime-contract eval.
+- **Done when:** graph lifecycle, schema, prompt, and no-side-effect tests pass.
 
-## Item 6 - Research use case
-- **Scope:** `packages/core/revops/application/`
+## Item 5 - API and artifact reader
+- **Scope:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`
+- **Requires:** `apps/api/`, `tests/integration/`, `packages/core/revops/application/`, `packages/core/revops/infrastructure/agent/`, `packages/core/revops/infrastructure/persistence/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** expose reply registration, classify, typed result, and immutable feedback endpoints with authenticated organization scope.
+- **What:** expose reply registration, classify, typed result, and immutable feedback endpoints with authenticated organization scope. Read terminal artifacts through the direct checkpoint/artifact reader without constructing a graph or initializing provider/RAG components.
+- **Done when:** API integration tests pass and terminal reads do not initialize graph/provider/RAG components.
 
-## Item 7 - CRM and RAG context
-- **Scope:** `packages/core/revops/infrastructure/agent/`
+## Item 6 - Dataset and eval gates
+- **Scope:** `evals/`, `tests/unit/evals/`, `docs/evals/`
+- **Requires:** `evals/`, `tests/unit/evals/`, `docs/evals/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** add 90 synthetic bilingual cases, independent deterministic baseline metrics, contract scorer, and additive thresholds.
+- **Done when:** contract is 1.00, accuracy is at least .85, macro-F1 at least .80, and unsubscribe recall is 1.00.
 
-## Item 8 - Grounded follow-up generation
-- **Scope:** `packages/core/revops/application/`
+## Item 7 - Adversarial and restart regression
+- **Scope:** `tests/adversarial/`, `tests/integration/`, `tests/unit/`
+- **Requires:** `tests/adversarial/`, `tests/integration/`, `tests/unit/`
 - **Closes:** 1 tasks.md checkbox
+- **What:** cover injection, PII, authorization, fake evidence, concurrency, process restart, and existing runtime compatibility.
+- **Done when:** focused and regression suites pass with no skipped or weakened checks.
 
-## Item 9 - Tool registration
-- **Scope:** `packages/core/revops/infrastructure/agent/`
+## Item 8 - Traceability and verification
+- **Scope:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/ingestion.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/application/use_cases/test_ingestion.py`, `tests/integration/test_reply_persistence.py`, `requirements-ci.txt`, `pyproject.toml`, `.github/workflows/ci.yml`, `.github/workflows/evals.yml`, `apps/platform_seed.py`, `apps/worker/main.py`, `docs/playbooks/agent-tool.md`, `docs/specs/SPEC-008-context-retrieval/plan.md`, `docs/specs/SPEC-009-single-agent-tool-runtime/plan.md`, `tests/integration/event_loop_policy.py`, `tests/integration/test_attribution_behavior.py`, `tests/integration/test_deduplication_api.py`, `tests/integration/test_deduplication_persistence.py`, `tests/integration/test_deduplication_worker.py`, `tests/integration/test_ingestion_persistence.py`, `tests/integration/test_ingestion_worker.py`, `tests/integration/test_knowledge_retrieval.py`, `tests/integration/test_knowledge_revision_persistence.py`, `tests/integration/test_knowledge_worker.py`, `tests/integration/test_persistence_repositories.py`, `tests/integration/test_platform_seed.py`
+- **Requires:** `docs/requirements/`, `docs/security/`, `.handoff/`, `docs/specs/SPEC-011-reply-intelligence/`, `packages/core/revops/application/ports.py`, `packages/core/revops/application/use_cases/ingestion.py`, `tests/unit/application/use_cases/test_reply.py`, `tests/unit/application/use_cases/test_ingestion.py`, `tests/integration/test_reply_persistence.py`, `requirements-ci.txt`, `pyproject.toml`, `.github/workflows/ci.yml`, `.github/workflows/evals.yml`, `apps/platform_seed.py`, `apps/worker/main.py`, `docs/playbooks/agent-tool.md`, `docs/specs/SPEC-008-context-retrieval/plan.md`, `docs/specs/SPEC-009-single-agent-tool-runtime/plan.md`, `tests/integration/event_loop_policy.py`, `tests/integration/test_attribution_behavior.py`, `tests/integration/test_deduplication_api.py`, `tests/integration/test_deduplication_persistence.py`, `tests/integration/test_deduplication_worker.py`, `tests/integration/test_ingestion_persistence.py`, `tests/integration/test_ingestion_worker.py`, `tests/integration/test_knowledge_retrieval.py`, `tests/integration/test_knowledge_revision_persistence.py`, `tests/integration/test_knowledge_worker.py`, `tests/integration/test_persistence_repositories.py`, `tests/integration/test_platform_seed.py`
 - **Closes:** 1 tasks.md checkbox
-
-## Item 10 - Result endpoint
-- **Scope:** `apps/api/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 11 - Offline evaluations
-- **Scope:** `evals/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 12 - Runtime v2 selection
-- **Scope:** `packages/core/revops/infrastructure/agent/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 13 - Runtime v2 reservation
-- **Scope:** `packages/core/revops/infrastructure/agent/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 14 - Runtime v2 execution
-- **Scope:** `packages/core/revops/infrastructure/agent/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 15 - Runtime v2 completion
-- **Scope:** `packages/core/revops/application/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 16 - Security and adversarial evidence
-- **Scope:** `tests/adversarial/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 17 - Traceability evidence
-- **Scope:** `docs/requirements/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 18 - Legacy compatibility
-- **Scope:** `tests/integration/`
-- **Closes:** 1 tasks.md checkbox
-
-## Item 19 - Bounded SPEC-010 pilot and verification
-- **Scope:** `docs/specs/SPEC-010-research-and-outreach/`, `docs/requirements/`, `.handoff/`
-- **Requires:** the pilot must use the v2 lifecycle and the existing integration database
-- **Closes:** 1 tasks.md checkbox
-- **What:** run the focused v2 lifecycle pilot, full verification commands, and record concrete evidence in the handoff without changing product scope or controls.
-- **Done when:** the focused pilot, full gate, and clean-tree checks pass; no overnight loop is needed after this item because the approved SPEC-010 implementation queue is exhausted.
+- **What:** record PDF file:line evidence; replace the four ingestion B101 assertions with explicit invariant checks; establish an exact-version Python 3.12 Linux CI dependency input; run Semgrep, Bandit, dependency audit, full verification, and handoff closeout.
+- **Done when:** full verification, eval gate, traceability checker, Semgrep, Bandit, `pip-audit --strict --no-deps -r requirements-ci.txt`, and clean-tree checks pass without suppressions or weakened thresholds.
 
 ## Loop rules
 
-- Never edit this queue, the gate, supervisor controls, or `AGENTS.md` from an executor item.
-- Return `architecture_required` for an uncovered component shape, state-machine edge, or other
-  decision with multiple defensible implementations; return `HUMAN_REQUIRED` for product scope,
-  security, dependency, destructive, external-action, or unverifiable decisions.
-- No push, merge, work on `main`/`develop`, skipped tests, weakened checks, or checkout temp files.
-- Commit one logical item before checking its task evidence.
-- This queue is a bounded closeout queue, not an overnight feature-development queue. A future
-  long loop requires a new approved spec with real unchecked implementation tasks.
+- Executors cannot edit this queue, supervisor controls, gate, `AGENTS.md`, or `CLAUDE.md`.
+- Return `architecture_required` for an uncovered reversible technical shape; return `HUMAN_REQUIRED` for product, security, dependency, destructive, external-action, or non-dominant decisions.
+- No push, merge, main/develop work, skipped tests, weakened checks, or checkout temp artifacts.
+- Commit one logical item before the gate checks task evidence. The supervisor owns commits.

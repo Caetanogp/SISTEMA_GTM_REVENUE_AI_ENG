@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import sys
+import platform
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -40,13 +40,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from tests.integration.event_loop_policy import windows_selector_event_loop_policy
+
 
 @pytest.fixture(scope="session")
 def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
     """Use the selector loop required by psycopg on Windows."""
-    if sys.platform == "win32":
-        return asyncio.WindowsSelectorEventLoopPolicy()
-    return asyncio.get_event_loop_policy()  # type: ignore[unreachable]
+    if platform.system() == "Windows":
+        return windows_selector_event_loop_policy()
+    return asyncio.get_event_loop_policy()
 
 
 @pytest.fixture

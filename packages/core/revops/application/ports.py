@@ -37,6 +37,7 @@ from revops.application.dto import (
     LLMFailureKind,
     LLMGatewayHealth,
     LLMResult,
+    ReplyClassificationOutput,
     RuntimeResult,
     StagedIngestionItem,
     StagedIngestionJob,
@@ -57,6 +58,7 @@ from revops.domain.entities.knowledge import KnowledgeDocument, KnowledgeVersion
 from revops.domain.entities.opportunity import Opportunity
 from revops.domain.entities.task import Task
 from revops.domain.entities.touchpoint import Touchpoint
+from revops.domain.values.reply import ReplyCategory, ReplyText
 from revops.domain.values.retrieval import EmbeddingSpace
 from revops.domain.values.risk import RiskLevel
 
@@ -309,6 +311,115 @@ class AgentArtifactReader(Protocol):
     ) -> AgentRunArtifactDTO | None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ReplyRecord:
+    """An immutable authenticated inbound reply, scoped to one organization."""
+
+    id: UUID
+    organization_id: UUID
+    account_id: UUID
+    contact_id: UUID | None
+    submitted_by: UUID
+    reply: ReplyText
+    idempotency_key: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyClassificationRequestRecord:
+    """The one durable reservation that binds a reply to an agent run."""
+
+    id: UUID
+    organization_id: UUID
+    reply_id: UUID
+    run_id: UUID
+    requested_by: UUID
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyFeedbackRecord:
+    """One immutable human correction linked to the classification run."""
+
+    id: UUID
+    organization_id: UUID
+    run_id: UUID
+    corrected_category: ReplyCategory
+    comment: str | None
+    submitted_by: UUID
+    idempotency_key: str
+    created_at: datetime
+
+
+@runtime_checkable
+class ReplyRepository(Protocol):
+    async def get(self, organization_id: UUID, reply_id: UUID) -> ReplyRecord | None: ...
+
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> ReplyRecord | None: ...
+
+    async def add(self, reply: ReplyRecord) -> None: ...
+
+
+@runtime_checkable
+class ReplyClassificationRequestRepository(Protocol):
+    async def get_by_reply_id(
+        self, organization_id: UUID, reply_id: UUID
+    ) -> ReplyClassificationRequestRecord | None: ...
+
+    async def get_by_run_id(
+        self, organization_id: UUID, run_id: UUID
+    ) -> ReplyClassificationRequestRecord | None: ...
+
+    async def add(self, request: ReplyClassificationRequestRecord) -> None: ...
+
+
+@runtime_checkable
+class ReplyFeedbackRepository(Protocol):
+    async def get_by_idempotency_key(
+        self, organization_id: UUID, idempotency_key: str
+    ) -> ReplyFeedbackRecord | None: ...
+
+    async def append(self, feedback: ReplyFeedbackRecord) -> None: ...
+
+    async def list_for_run(
+        self, organization_id: UUID, run_id: UUID
+    ) -> Sequence[ReplyFeedbackRecord]: ...
+
+
+@runtime_checkable
+class ReplyAccountReader(Protocol):
+    """Narrow account read port required by reply relationship validation."""
+
+    async def get(self, organization_id: UUID, account_id: UUID) -> Account: ...
+
+
+@runtime_checkable
+class ReplyContactReader(Protocol):
+    """Narrow contact read port required by reply relationship validation."""
+
+    async def get(self, organization_id: UUID, contact_id: UUID) -> Contact | None: ...
+
+
+@runtime_checkable
+class ReplyCanonicalResolver(Protocol):
+    """Write-resolution seam required by reply relationship validation."""
+
+    async def resolve_for_write(
+        self, organization_id: UUID, record_type: DeduplicationRecordType, record_id: UUID
+    ) -> CanonicalRecordGroup | None: ...
+
+
+@runtime_checkable
+class ReplyRunWriter(Protocol):
+    """Narrow run journal port required by reply reservation."""
+
+    async def add(self, run: AgentRunRecord) -> None: ...
+
+    async def add_event(self, event: AgentRunEventRecord) -> None: ...
+
+
 T = TypeVar("T")
 
 
@@ -327,6 +438,13 @@ class LLMGateway(Protocol):
     def configuration_snapshot(self) -> Mapping[str, object]: ...
 
     def health_snapshot(self) -> LLMGatewayHealth: ...
+
+
+@runtime_checkable
+class ReplyClassifier(Protocol):
+    """One bounded structured inference over a persisted authorized reply."""
+
+    async def classify(self, reply: ReplyRecord) -> LLMResult[ReplyClassificationOutput]: ...
 
 
 class LLMGatewayError(RuntimeError):
@@ -379,6 +497,48 @@ class UnitOfWork(Protocol):
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+
+@runtime_checkable
+class ReplyUnitOfWork(Protocol):
+    """Reply-specific transaction boundary; it is deliberately separate from ingestion."""
+
+    @property
+    def accounts(self) -> ReplyAccountReader: ...
+
+    @property
+    def contacts(self) -> ReplyContactReader: ...
+
+    @property
+    def canonical(self) -> ReplyCanonicalResolver: ...
+
+    @property
+    def replies(self) -> ReplyRepository: ...
+
+    @property
+    def classification_requests(self) -> ReplyClassificationRequestRepository: ...
+
+    @property
+    def feedback(self) -> ReplyFeedbackRepository: ...
+
+    @property
+    def runs(self) -> ReplyRunWriter: ...
+
+    async def __aenter__(self) -> ReplyUnitOfWork: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+type ReplyUnitOfWorkFactory = Callable[[], ReplyUnitOfWork]
 
 
 @runtime_checkable

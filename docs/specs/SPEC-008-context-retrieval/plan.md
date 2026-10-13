@@ -76,9 +76,7 @@ The planned application port is conceptually:
 
 ```python
 class KnowledgeRetrievalRepository(Protocol):
-    async def resolve_active_embedding_space(
-        self, *, organization_id: UUID
-    ) -> EmbeddingSpace: ...
+    async def resolve_active_embedding_space(self, *, organization_id: UUID) -> EmbeddingSpace: ...
 
     async def search_active_chunks(
         self,

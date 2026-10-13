@@ -26,11 +26,17 @@ from revops.infrastructure.persistence.deduplication_repositories import (
     SqlAlchemyDeduplicationEventRepository,
     SqlAlchemyDeduplicationScanRepository,
 )
+from revops.infrastructure.persistence.reply_repositories import (
+    SqlAlchemyReplyClassificationRequestRepository,
+    SqlAlchemyReplyFeedbackRepository,
+    SqlAlchemyReplyRepository,
+)
 from revops.infrastructure.persistence.repositories import (
     SqlAlchemyAccountRepository,
     SqlAlchemyAgentRunRepository,
     SqlAlchemyApprovalRepository,
     SqlAlchemyAuditTrail,
+    SqlAlchemyContactRepository,
     SqlAlchemyTaskRepository,
 )
 
@@ -81,6 +87,42 @@ class SqlAlchemyDeduplicationUnitOfWork:
         self.resolver = self.canonical
 
     async def __aenter__(self) -> SqlAlchemyDeduplicationUnitOfWork:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if exc_type is not None:
+            await self.rollback()
+        if self._close_on_exit:
+            await self._session.close()
+
+    async def commit(self) -> None:
+        await self._session.commit()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()
+
+
+class SqlAlchemyReplyUnitOfWork:
+    """Keep reply registration, reservation, run start, and feedback transactionally separate."""
+
+    def __init__(self, session: AsyncSession, *, close_on_exit: bool = False) -> None:
+        self._session = session
+        self._close_on_exit = close_on_exit
+        canonical = cast(CanonicalResolver, SqlAlchemyCanonicalResolver(session))
+        self.accounts = SqlAlchemyAccountRepository(session, canonical)
+        self.contacts = SqlAlchemyContactRepository(session)
+        self.canonical = canonical
+        self.replies = SqlAlchemyReplyRepository(session)
+        self.classification_requests = SqlAlchemyReplyClassificationRequestRepository(session)
+        self.feedback = SqlAlchemyReplyFeedbackRepository(session)
+        self.runs = SqlAlchemyAgentRunRepository(session)
+
+    async def __aenter__(self) -> SqlAlchemyReplyUnitOfWork:
         return self
 
     async def __aexit__(

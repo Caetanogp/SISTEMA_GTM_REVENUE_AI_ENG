@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import sys
+import platform
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -87,7 +87,7 @@ def _run_async_ingestion(*, organization_id: UUID, job_id: UUID) -> ProcessInges
         job_id=job_id,
         worker_settings=settings,
     )
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.run(coroutine)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         return runner.run(coroutine)
@@ -115,7 +115,7 @@ def _run_async_deduplication_scan(
         scan_id=scan_id,
         worker_settings=settings,
     )
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.run(coroutine)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         return runner.run(coroutine)
@@ -141,7 +141,7 @@ def _run_async_mark_deduplication_scan_failed(*, organization_id: UUID, scan_id:
         scan_id=scan_id,
         worker_settings=settings,
     )
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.run(coroutine)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         return runner.run(coroutine)
@@ -210,7 +210,7 @@ def _run_async_knowledge(
         terminal_attempt=terminal_attempt,
         worker_settings=settings,
     )
-    if sys.platform != "win32":
+    if platform.system() != "Windows":
         return asyncio.run(coroutine)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
         return runner.run(coroutine)

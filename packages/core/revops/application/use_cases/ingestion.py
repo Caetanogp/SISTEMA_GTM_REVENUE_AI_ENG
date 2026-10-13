@@ -112,8 +112,8 @@ def _canonicalize(row_number: int, input_row: IngestionRecordInput) -> StagedIng
     record = None
     if not errors:
         company_name = values["company_name"]
-        assert normalized_domain is not None
-        assert company_name is not None
+        if normalized_domain is None or company_name is None:
+            raise RuntimeError("validated ingestion row is missing required account fields")
         record = CanonicalIngestionRecord(
             company_name=company_name,
             domain=normalized_domain,
@@ -355,6 +355,20 @@ class ProcessIngestionJob:
             first_record = items[0].record
             if first_record is None:
                 return False
+
+            contact_records: list[
+                tuple[StagedIngestionItem, CanonicalIngestionRecord, str, str]
+            ] = []
+            for item in items:
+                record = item.record
+                if record is None or not record.has_contact:
+                    continue
+                email = record.email
+                full_name = record.full_name
+                if email is None or full_name is None:
+                    raise RuntimeError("ingestion contact is missing required identity fields")
+                contact_records.append((item, record, email, full_name))
+
             now = self.clock.now()
             account_result = await uow.accounts.get_or_create(
                 Account(
@@ -382,19 +396,14 @@ class ProcessIngestionJob:
             canonical_account_id = account_group.canonical_id
 
             contact_results: dict[int, tuple[UUID, bool]] = {}
-            for item in items:
-                record = item.record
-                if record is None or not record.has_contact:
-                    continue
-                assert record.email is not None
-                assert record.full_name is not None
+            for item, record, email, full_name in contact_records:
                 result = await uow.contacts.get_or_create(
                     Contact(
                         id=uuid4(),
                         organization_id=organization_id,
                         account_id=canonical_account_id,
-                        email=EmailAddress(record.email),
-                        full_name=record.full_name,
+                        email=EmailAddress(email),
+                        full_name=full_name,
                         title=record.title or "",
                         phone=PhoneNumber(record.phone) if record.phone else None,
                     )

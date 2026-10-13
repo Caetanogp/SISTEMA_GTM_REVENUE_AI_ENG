@@ -6,13 +6,13 @@ requires-python = ">=3.12"
 readme = "README.md"
 license = { file = "LICENSE" }
 
-# Pinned with lower bounds; the lockfile is the source of truth for exact versions.
+# Compatibility floors live here; requirements-ci.txt pins the Python 3.12 Linux CI set.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "sqlalchemy>=2.0",
+    "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.14",
     "psycopg[binary,pool]>=3.2",
     "pgvector>=0.3",
