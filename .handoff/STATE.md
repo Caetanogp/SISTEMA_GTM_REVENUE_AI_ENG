@@ -3,8 +3,8 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "Item 8 closeout verification"
-status: in_progress
+phase: "SPEC-011 gate achieved; PR publication pending"
+status: complete
 ---
 
 # Current state
@@ -15,16 +15,12 @@ Complete SPEC-011's approved security closeout and verify the feature branch for
 
 ## Now
 
-All 8 task checkboxes are now complete. The approved closeout records all 11 formal acceptance
+All 8 task checkboxes are complete. The approved closeout records all 11 formal acceptance
 criteria; the checkpoint lock and bounded canonical artifact are supporting design invariants. The
-queue names the exact 17 portability-repair paths found outside its original scope. The saved
-baseline remains unchanged.
-
-The ignored gate baseline remains `af0f0dfd1a995dd7680e4d9f4206b6272f05d444`, with 7 of 8 items
-complete. The open-item gate reported all core checks OK and requested the final checkbox. The
-full quality sequence passed all 10 checks, including integration against disposable PostgreSQL
-and Redis containers. The PDF checker passed with 86 rows, Bandit exited 0, and pip-audit reported
-no known vulnerabilities. The final autonomous gate still needs to run after this task update.
+queue names the exact 17 portability-repair paths found outside its original scope. The saved gate
+baseline remains unchanged at `af0f0dfd1a995dd7680e4d9f4206b6272f05d444` (7 completed at baseline).
+The final `python scripts/autonomous_gate.py` run exited 0 and printed `GOAL ACHIEVED: all queue
+items done, full gate green.` All ten gate checks reported OK.
 
 ## Done
 
@@ -42,15 +38,19 @@ no known vulnerabilities. The final autonomous gate still needs to run after thi
 - `pip-audit --strict --no-deps -r requirements-ci.txt`: exit 0, no known vulnerabilities.
 - `run_quality_gate(full=True)`: all 10 checks passed, including unit, integration, adversarial,
   evals, and Gitleaks.
+- `python scripts/autonomous_gate.py`: exit 0 with `GOAL ACHIEVED: all queue items done, full gate
+  green.` Ruff, mypy, import contracts, unit/architecture, docs, format, integration, adversarial,
+  evals, and Gitleaks all reported OK.
+- Disposable PostgreSQL and Redis verification containers were removed by exact name; no volumes
+  were created. Existing stopped development containers were untouched.
 
 ## Next
 
-1. Commit the verified Item 8 closeout and run `python scripts/autonomous_gate.py` to confirm the
-   exact goal-achieved result.
-2. Remove only the two disposable verification containers after the gate finishes.
-3. Publish the feature branch and wait for its latest CI/Eval workflows to pass.
-4. Present the final diff and PR #1 status for review; do not merge without an explicit request.
-5. Materialize and approve SPEC-012 before starting another autonomous development loop.
+1. Push the two closeout documentation commits to the already published feature branch and wait
+   for fresh CI/Eval workflows.
+2. Review PR #1's final checks and report its merge readiness; do not merge without an explicit
+   request.
+3. Materialize and approve SPEC-012 before starting another autonomous development loop.
 
 ## Gotchas
 
