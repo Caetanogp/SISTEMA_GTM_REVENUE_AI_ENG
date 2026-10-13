@@ -8,13 +8,14 @@ from uuid import uuid4
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from revops.application.dto import (
+    LLMFailureKind,
     LLMResult,
     LLMUsage,
     ReplyClassificationOutput,
     ReplyEvidenceDTO,
     ReplyResultDTO,
 )
-from revops.application.ports import ReplyRecord
+from revops.application.ports import LLMGatewayError, ReplyRecord
 from revops.application.use_cases.reply import ClassifiedReply
 from revops.domain.values.reply import (
     ReplyCategory,
@@ -84,6 +85,18 @@ class _Classifier:
         )
 
 
+class _FailingClassifier:
+    async def classify(self, reply: ReplyRecord) -> LLMResult[ReplyClassificationOutput]:
+        del reply
+        raise LLMGatewayError(
+            provider="provider-private-detail",
+            kind=LLMFailureKind.AUTHENTICATION,
+            attempts=1,
+            retryable=False,
+            request_id="request-private-detail",
+        )
+
+
 class _Clock:
     def now(self) -> datetime:
         return datetime(2026, 10, 11, tzinfo=UTC)
@@ -138,6 +151,32 @@ async def test_reply_graph_checkpoints_a_bounded_typed_artifact_once() -> None:
     assert '"category":"interested"' in snapshot.values["artifact_json"]
     assert reply.reply.value not in snapshot.values["artifact_json"]
     assert classifier.calls == 1
+
+
+async def test_provider_failure_is_checkpointed_as_sanitized_terminal_failure() -> None:
+    reply = _reply()
+    graph = build_reply_graph(
+        ReplyGraphDependencies(lambda: _Uow(reply), _FailingClassifier()), InMemorySaver()
+    )
+    run_id = str(uuid4())
+    config = {"configurable": {"thread_id": run_id}}
+    state = {
+        "organization_id": str(reply.organization_id),
+        "actor_id": str(reply.submitted_by),
+        "reply_id": str(reply.id),
+        "run_id": run_id,
+        "thread_id": run_id,
+        "graph_version": "reply-intelligence.v1",
+        "prompt_version": "classify_reply.v1",
+    }
+
+    await graph.ainvoke(state, config, durability="sync")
+    snapshot = await graph.aget_state(config)
+
+    assert snapshot.values["lifecycle_step"] == "failed"
+    assert snapshot.values["failure_code"] == "provider_failure"
+    assert "provider-private-detail" not in repr(snapshot.values)
+    assert "request-private-detail" not in repr(snapshot.values)
 
 
 def test_reply_artifact_is_canonical_and_refuses_non_finite_values() -> None:

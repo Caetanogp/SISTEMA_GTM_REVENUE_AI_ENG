@@ -157,7 +157,7 @@ class ReserveReplyClassification:
             )
             run = AgentRunRecord(
                 id=run_id,
-                thread_id=f"reply:{reply.id}",
+                thread_id=str(run_id),
                 organization_id=organization_id,
                 requested_by=actor_id,
                 request_text=f"reply_classification:{reply.id}",

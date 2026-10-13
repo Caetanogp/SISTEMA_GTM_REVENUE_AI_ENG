@@ -22,12 +22,14 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
+from pydantic import ValidationError
 
 from revops.application.dto import ReplyRunConfig
 from revops.application.ports import (
     AgentRunEventRecord,
     AgentRunJournal,
     Clock,
+    LLMGatewayError,
     ReplyUnitOfWorkFactory,
 )
 from revops.application.use_cases.reply import (
@@ -110,10 +112,16 @@ def build_reply_graph(deps: ReplyGraphDependencies, checkpointer: AsyncPostgresS
                 organization_id=UUID(state["organization_id"]), reply_id=UUID(state["reply_id"])
             )
             artifact = _artifact_json(classified)
+        except LLMGatewayError:
+            return {"lifecycle_step": "failed", "failure_code": "provider_failure"}
         except TimeoutError:
             return {"lifecycle_step": "failed", "failure_code": "timeout"}
+        except ValidationError:
+            return {"lifecycle_step": "failed", "failure_code": "invalid_response"}
         except ValueError as exc:
-            return {"lifecycle_step": "refused", "failure_code": str(exc)}
+            if str(exc) == "artifact_too_large":
+                return {"lifecycle_step": "refused", "failure_code": "artifact_too_large"}
+            return {"lifecycle_step": "failed", "failure_code": "invalid_response"}
         return {"lifecycle_step": "executed", "artifact_json": artifact}
 
     def complete(state: ReplyGraphState) -> dict[str, object]:

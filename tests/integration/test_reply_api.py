@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from revops.application.dto import ReplyClassificationOutput, ReplyEvidenceDTO
 from revops.domain.values.reply import ReplyCategory, ReplyLanguage
 from revops.infrastructure.llm.fake import FakeLLMGateway
-from revops.infrastructure.persistence.models import Account, Contact, Organization, User
+from revops.infrastructure.persistence.models import Account, AgentRun, Contact, Organization, User
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from apps.api.auth import create_access_token
@@ -115,6 +115,10 @@ async def test_reply_api_reads_terminal_artifact_without_a_second_provider_call(
                 assert classified.json()["result"]["category"] == "interested"
                 run_id = UUID(classified.json()["run_id"])
                 assert len(gateway.calls) == 1
+                async with sessions() as session:
+                    run = await session.get(AgentRun, run_id)
+                assert run is not None
+                assert run.thread_id == str(run_id)
 
                 result = await client.get(f"/agent/runs/{run_id}/result", headers=headers)
                 assert result.status_code == 200, result.text

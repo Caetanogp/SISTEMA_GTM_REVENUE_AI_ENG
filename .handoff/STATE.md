@@ -3,25 +3,24 @@ agent: codex
 updated_at: 2026-10-12
 branch: feature/SPEC-011-reply-intelligence
 spec: SPEC-011-reply-intelligence
-phase: "SPEC-011 complete; PR #1 checks green"
-status: complete
+phase: "PR #1 review fixes locally verified; refreshed CI pending"
+status: in_progress
 ---
 
 # Current state
 
 ## Goal
 
-Complete SPEC-011's approved security closeout and verify the feature branch for PR #1.
+Resolve two correctness findings from the PR #1 review and verify the refreshed feature branch.
 
 ## Now
 
-All 8 task checkboxes are complete. The approved closeout records all 11 formal acceptance
-criteria; the checkpoint lock and bounded canonical artifact are supporting design invariants. The
-queue names the exact 17 portability-repair paths found outside its original scope. The saved gate
-baseline remains unchanged at `af0f0dfd1a995dd7680e4d9f4206b6272f05d444` (7 completed at baseline).
-The final `python scripts/autonomous_gate.py` run exited 0 and printed `GOAL ACHIEVED: all queue
-items done, full gate green.` All ten gate checks reported OK. PR #1 is published and remains open;
-fresh CI and Eval workflows passed on commit `923111b`.
+SPEC-011 remains complete and its eight task checkboxes are still checked. PR review identified two
+fixes: provider errors must become sanitized terminal checkpoint failures, and the persisted
+`AgentRun.thread_id` must match the checkpoint's `str(run_id)`. Both changes and regression tests are
+implemented locally. The local full autonomous gate is green; changes are not yet committed or
+published, so refreshed GitHub CI is pending. The saved gate baseline remains unchanged at
+`af0f0dfd1a995dd7680e4d9f4206b6272f05d444`.
 
 ## Done
 
@@ -31,6 +30,15 @@ fresh CI and Eval workflows passed on commit `923111b`.
 - CI run `38327449741` and Eval run `38327449728` on published commit `923111b`: both passed;
   Semgrep, Bandit, dependency audit, integration, adversarial, eval, and PDF traceability passed.
 - PR #1 remains open and GitHub reports `MERGEABLE`; no merge was performed.
+- Review fixes: `reply_runtime.py` checkpoints provider failure as fixed `provider_failure` and never
+  stores arbitrary exception text; `reply.py` persists the matching run thread id. Regression
+  evidence: `pytest tests/unit/infrastructure/agent/test_reply_runtime.py -q` passed 5 tests and
+  `pytest tests/integration/test_reply_api.py -q` passed 3 tests using the explicit C:\Dev checkout.
+- Refreshed local gate: `python scripts/autonomous_gate.py` exited 0 with
+  `GOAL ACHIEVED: all queue items done, full gate green.` Ruff, mypy, import contracts, pytest,
+  docs, formatting, integration, adversarial, evals, and Gitleaks all reported OK. It used
+  disposable PostgreSQL/Redis containers on loopback-only dynamic ports; both containers were
+  stopped and auto-removed. The standalone integration suite also passed 52 tests.
 - The frontend workflow's setup/build steps were skipped because `apps/web/package.json` is absent;
   no frontend build result is claimed.
 - Local authoritative checkout `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`: `pytest tests/unit
@@ -50,9 +58,11 @@ fresh CI and Eval workflows passed on commit `923111b`.
 
 ## Next
 
-1. Review the completed SPEC-011 diff in PR #1 and decide whether to merge it into `develop`.
-2. Materialize and approve SPEC-012 before writing implementation code or starting another
-   autonomous development loop.
+1. Review and commit the two tested PR fixes on `feature/SPEC-011-reply-intelligence`.
+2. Push the feature branch and wait for refreshed PR #1 CI and Eval checks.
+3. Reassess merge eligibility from the complete accumulated diff and green checks; do not merge if
+   a check fails or the review reveals another blocker.
+4. After PR #1 is merged, materialize and approve SPEC-012 before implementation or another loop.
 
 ## Gotchas
 
