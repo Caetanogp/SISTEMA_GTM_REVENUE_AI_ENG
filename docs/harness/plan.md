@@ -42,6 +42,13 @@ Verification profiles are selected from this fixed registry in trusted harness c
 - `docs`: `git diff --check` and `python scripts/check_agent_docs.py`.
 - `web`: fixed `npm run lint`, `npm test`, and `npm run build` commands from `apps/web`; the profile
   is invalid until the corresponding scripts and lockfile exist.
+- `web-bootstrap`: allowed only on queue item 1 with `apps/web/` in scope. Preflight defers web
+  configuration validation for the queue only when this item exists, allowing it to create the
+  manifest and lockfile. At item completion it strictly validates the same manifest, lockfile, and
+  `lint`, `test`, and `build` scripts as `web`, then runs the same fixed npm commands. Later `web`
+  items retain strict validation at their completion boundary; queues without `web-bootstrap` keep
+  the existing preflight requirement. A new gate-state baseline must reject a pre-checked bootstrap
+  item so the first item's completion profile cannot be skipped.
 
 The queue may choose a profile identifier and list test paths only. The gate validates profile/path
 compatibility and constructs argument arrays; it never evaluates shell text from Markdown. Every

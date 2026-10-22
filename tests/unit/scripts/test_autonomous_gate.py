@@ -473,6 +473,81 @@ def test_queue_rejects_unsupported_profile_and_incompatible_test_root(
         gate.validate_queue(gate.parse_queue(), gate.active_tasks_file(), gate.current_branch())
 
 
+def test_web_bootstrap_preflight_allows_missing_frontend_then_web_items(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repository, _baseline_sha, _state_path = _prepare_item_transition(
+        monkeypatch,
+        tmp_path,
+        committed=False,
+    )
+    queue = repository / ".handoff" / "AUTONOMOUS_QUEUE.md"
+    original = queue.read_text(encoding="utf-8")
+    original = original.replace("`packages/`, `tests/unit/`", "`apps/web/`", 1)
+    original = original.replace("`packages/`, `tests/unit/`", "`apps/web/`", 1)
+    original = original.replace("`python-unit`", "`web-bootstrap`", 1)
+    original = original.replace("`tests/unit/`", "none", 1)
+    original = original.replace("`python-unit`", "`web`", 1)
+    original = original.replace("`tests/unit/`", "none", 1)
+    queue.write_text(original, encoding="utf-8")
+
+    assert not (repository / "apps" / "web" / "package.json").exists()
+    items = gate.parse_queue()
+    gate.validate_queue(items, gate.active_tasks_file(), gate.current_branch())
+
+
+def test_web_bootstrap_profile_is_restricted_to_first_item_and_web_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repository, _baseline_sha, _state_path = _prepare_item_transition(
+        monkeypatch,
+        tmp_path,
+        committed=False,
+    )
+    queue = repository / ".handoff" / "AUTONOMOUS_QUEUE.md"
+    original = queue.read_text(encoding="utf-8")
+    queue.write_text(original.replace("`python-unit`", "`web-bootstrap`", 1), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="scope must include `apps/web/`"):
+        gate.validate_queue(gate.parse_queue(), gate.active_tasks_file(), gate.current_branch())
+
+    queue.write_text(
+        original.replace("`python-unit`", "`web-bootstrap`", 1)
+        .replace("`python-unit`", "`web-bootstrap`", 1)
+        .replace("`packages/`, `tests/unit/`", "`apps/web/`", 1),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="allowed only on queue item 1"):
+        gate.validate_queue(gate.parse_queue(), gate.active_tasks_file(), gate.current_branch())
+
+
+@pytest.mark.parametrize(
+    ("done_count", "baseline_sha", "should_reject"),
+    [(0, None, False), (1, None, True), (1, "a" * 40, False)],
+)
+def test_web_bootstrap_cannot_be_adopted_as_an_unverified_initial_baseline(
+    done_count: int,
+    baseline_sha: str | None,
+    should_reject: bool,
+) -> None:
+    item = gate.QueueItem(
+        number=1,
+        title="frontend bootstrap",
+        halt_reason=None,
+        scope=("apps/web/",),
+        closes=1,
+        verification_profile="web-bootstrap",
+    )
+
+    if should_reject:
+        with pytest.raises(ValueError, match="must remain unchecked"):
+            gate.validate_bootstrap_baseline([item], done_count, baseline_sha)
+    else:
+        gate.validate_bootstrap_baseline([item], done_count, baseline_sha)
+
+
 def test_python_profile_builds_fixed_argv_from_validated_paths(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -590,6 +665,46 @@ def test_web_profile_requires_fixed_scripts_and_npm_lockfile(
     (web_root / "package-lock.json").write_text("{}", encoding="utf-8")
 
     commands = gate.build_verification_commands("web", (), [])
+
+    assert [command.argv for command in commands] == [
+        ("npm", "run", "lint"),
+        ("npm", "test"),
+        ("npm", "run", "build"),
+    ]
+    assert all(command.cwd == web_root for command in commands)
+
+
+def test_web_bootstrap_completion_requires_full_configuration_and_runs_fixed_checks(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match=r"package\.json"):
+        gate.build_verification_commands("web-bootstrap", (), [])
+
+    web_root = tmp_path / "apps" / "web"
+    web_root.mkdir(parents=True)
+    (web_root / "package.json").write_text(
+        json.dumps({"scripts": {"lint": "eslint .", "test": "vitest", "build": "next build"}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="npm lockfile"):
+        gate.build_verification_commands("web-bootstrap", (), [])
+
+    (web_root / "package-lock.json").write_text("{}", encoding="utf-8")
+    (web_root / "package.json").write_text(
+        json.dumps({"scripts": {"lint": "eslint .", "build": "next build"}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="requires lint, test, and build scripts"):
+        gate.build_verification_commands("web-bootstrap", (), [])
+
+    (web_root / "package.json").write_text(
+        json.dumps({"scripts": {"lint": "eslint .", "test": "vitest", "build": "next build"}}),
+        encoding="utf-8",
+    )
+    commands = gate.build_verification_commands("web-bootstrap", (), [])
 
     assert [command.argv for command in commands] == [
         ("npm", "run", "lint"),

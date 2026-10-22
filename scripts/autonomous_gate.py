@@ -84,6 +84,7 @@ VERIFICATION_PROFILES = {
     "python-adversarial": VerificationProfile(("tests/adversarial/",), "python"),
     "docs": VerificationProfile((), "docs"),
     "web": VerificationProfile((), "web"),
+    "web-bootstrap": VerificationProfile((), "web-bootstrap"),
 }
 
 
@@ -567,6 +568,14 @@ def validate_queue(items: list[QueueItem], tasks_file: Path, branch: str) -> Non
     if tasks_file.parent.name != active_spec:
         raise ValueError("queue active spec identity does not match the resolved tasks file")
 
+    bootstrap_items = [item for item in items if item.verification_profile == "web-bootstrap"]
+    has_web_bootstrap = bool(bootstrap_items)
+    if has_web_bootstrap:
+        if len(bootstrap_items) != 1 or items[0].verification_profile != "web-bootstrap":
+            raise ValueError("web-bootstrap profile is allowed only on queue item 1")
+        if not any(path_is_within("apps/web/package.json", scope) for scope in items[0].scope):
+            raise ValueError("Item 1 web-bootstrap scope must include `apps/web/`")
+
     for item in items:
         profile = VERIFICATION_PROFILES.get(item.verification_profile)
         if profile is None:
@@ -599,7 +608,12 @@ def validate_queue(items: list[QueueItem], tasks_file: Path, branch: str) -> Non
                 )
             if not resolved_path.exists():
                 raise ValueError(f"Item {item.number} test path does not exist: `{test_path}`")
-        _validate_profile_configuration(item.verification_profile, item.number)
+        if profile.family == "web-bootstrap":
+            continue
+        if profile.family == "web" and has_web_bootstrap:
+            continue
+        if profile.family == "web":
+            _validate_profile_configuration("web", item.number)
 
     done_total = sum(item.closes for item in items)
     actual_total = completed_task_count(tasks_file)[1]
@@ -645,6 +659,22 @@ def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | 
             return item
         covered += item.closes
     return None
+
+
+def validate_bootstrap_baseline(
+    items: list[QueueItem], done_count: int, baseline_sha: str | None
+) -> None:
+    """Require a new bootstrap queue to verify its first item instead of adopting it as baseline."""
+    if (
+        baseline_sha is None
+        and items
+        and items[0].verification_profile == "web-bootstrap"
+        and done_count >= items[0].closes
+    ):
+        raise ValueError(
+            "web-bootstrap item 1 must remain unchecked when initializing the gate baseline; "
+            "its completion must pass the required web checks"
+        )
 
 
 def completed_task_count(tasks_file: Path) -> tuple[int, int]:
@@ -810,7 +840,7 @@ def build_verification_commands(
     if profile is None:
         raise ValueError(f"unsupported verification profile `{profile_name}`")
 
-    if profile.family == "web":
+    if profile.family in {"web", "web-bootstrap"}:
         _validate_profile_configuration("web", 0)
         web_root = ROOT / "apps" / "web"
         return [
@@ -1082,6 +1112,10 @@ def main(argv: list[str] | None = None) -> int:
         gate_state = GateState.load()
     except ValueError as exc:
         return halt(f"Autonomous gate state is invalid: {exc}")
+    try:
+        validate_bootstrap_baseline(items, done_count, gate_state.baseline_sha)
+    except ValueError as exc:
+        return halt(str(exc))
     if gate_state.baseline_sha is None:
         gate_state.baseline_sha = current_head()
         gate_state.baseline_done_count = done_count
