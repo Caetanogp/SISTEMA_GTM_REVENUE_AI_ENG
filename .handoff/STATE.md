@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-22
 branch: fix/agent-web-bootstrap-profile
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "web bootstrap profile implemented, verified, and committed locally"
+phase: "PR #4 open; first CI run green; final head checks pending"
 status: in_progress
 ---
 
@@ -33,8 +33,11 @@ branch.
 
 The SPEC-012 approved documents and the user's `.mcp.json` change are preserved in stash
 `SPEC-012 approved docs and local MCP config before web bootstrap harness work`; older SPEC-012
-stashes remain untouched. Nothing was pushed or merged. The earlier harness initiative history
-below predates this focused follow-up.
+stashes remain untouched. The feature branch was published and PR #4 is open against `develop`:
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/4`. CI run `39866025330` passed all
+four checks on the implementation and handoff commits then present; the handoff update will trigger
+CI again. The PR has not been merged. The earlier harness initiative history below predates this
+focused follow-up.
 
 ### Earlier Harness Context
 
@@ -132,8 +135,7 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Review this committed branch and decide whether to publish/open a PR; it has not been pushed or
-   merged.
+1. Review PR #4 and decide whether to merge; the branch is published and has not been merged.
 2. After this change is integrated, return to the SPEC-012 prep branch and restore its approved
    documents and `.mcp.json` from the named stash. Then prepare a queue using `web-bootstrap` for
    item 1, preserve the historical SPEC-011 gate state, and run one short item pilot before any
