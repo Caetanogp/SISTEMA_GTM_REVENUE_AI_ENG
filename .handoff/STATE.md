@@ -65,13 +65,13 @@ lint/types/architecture, and test checks passed. The Secrets and SAST job failed
 `virtualenv==21.14.7`, which now have known advisories. These pins were unchanged by the harness
 branch and are also present in `origin/develop`.
 
-An isolated remediation is prepared on local branch `fix/ci-dependency-vulnerabilities`, based
-directly on `origin/develop`, commit `80177de` (`fix(security): update vulnerable CI dependency
-pins`). It updates only those two pins to `certifi==2026.10.19` and `virtualenv==21.14.9`.
+The isolated remediation was merged through PR #3 at `cafea6091886ebef906f2701353689854754d0b5`.
+It updates only the two CI pins to `certifi==2026.10.19` and `virtualenv==21.14.9`.
 `pip-audit --strict --no-deps -r requirements-ci.txt` returned `No known vulnerabilities found`;
-`pre-commit run --files requirements-ci.txt` and `git diff --check` passed. This branch has not
-been pushed, and its CI has not run. Do not treat PR #2's security check as green until this
-remediation is published and integrated, then the PR checks rerun successfully.
+all five PR #3 checks passed. The harness branch now includes the updated `origin/develop` via a
+merge commit and was pushed as head `60ca4724cd9b648ce9cbdb44ee7e22779a84a9ca`. Its refreshed CI
+run `39858705388` passed all four CI checks, including Secrets and SAST. PR #2 remains open and
+mergeable; no merge has been performed yet.
 
 ## Done
 
@@ -109,9 +109,7 @@ remediation is published and integrated, then the PR checks rerun successfully.
 
 ## Next
 
-1. Publish and integrate `fix/ci-dependency-vulnerabilities` (currently local commit `80177de`),
-   then confirm all PR #2 checks rerun and pass before reviewing/merging PR #2. Neither branch has
-   been merged by this agent.
+1. Merge PR #2 after confirming the final handoff update and refreshed checks are green.
 2. After harness integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
    preserved approved-docs stash, prepare the SPEC-012 queue, and confirm it selects a separate gate
    state while preserving the SPEC-011 legacy state. Then run one short item pilot; do not start an
