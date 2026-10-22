@@ -21,6 +21,21 @@ process rather than the model's own say-so.
    at a time and can escalate bounded technical design. Claude uses `/goal` (or `/loop`) and retains
    its hard Plan Mode stop because it has no equivalent external supervisor in this repository.
 
+### Shared gate outcome contract
+
+Both loop drivers consume the gate's process exit code; neither infers success from executor prose:
+
+| Gate exit | Shared outcome | Codex supervisor | Claude `/goal` or `/loop` |
+|---|---|---|---|
+| `0` | `goal_achieved` | Stop successfully. | Stop successfully and report goal achieved. |
+| `1` | `continue` | Start the next executor turn. | Continue the same approved queue; this is not a shell/tool failure. |
+| `2` | `halt` | Stop and surface the gate diagnostic. | Stop immediately, read the appended `STATE.md` reason, and do not retry the same state. |
+| other | `invalid` | Stop with a harness error. | Stop with a harness error; never reinterpret it as success or continue. |
+
+Phase choice remains inside the gate: open items use a progress checkpoint, a changed task count
+verifies the just-completed item before advancing its baseline, and an exhausted queue runs the full
+gate. Agents must not select a lighter phase themselves.
+
 The Codex executor does not write Git metadata. The Windows workspace-write sandbox protects `.git`
 even when a child is given an additional writable directory. After each executor turn, the
 supervisor validates changed paths against the queue item's scope, checks the diff, creates the
@@ -129,12 +144,14 @@ handoff evidence.
    Never/Do nothing) — the OS suspending is indistinguishable from the process dying.
 5. Inside a Claude session, start the goal loop:
    ```
-   /goal scripts/autonomous_gate.py exits 0 - the queue is empty and the full gate is green
+   /goal Work only on the approved queue. Each cycle, use the result of
+   `python scripts/autonomous_gate.py` as the sole continuation signal: exit 0 means stop and report
+   goal achieved; exit 1 means continue working; exit 2 means stop, report the exact HALT from
+   `.handoff/STATE.md`, and do not retry; any other exit is a harness error and stop. Never override
+   a nonzero result based on your own assessment.
    ```
-   If `/goal` is unavailable in the installed version, fall back to `/loop` with no interval
-   (self-paced): `/loop` and have it run `python scripts/autonomous_gate.py` each cycle, stopping
-   itself when the exit code is 0 or 2. The queue, the gate script and the model policy do not
-   change between the two — only the trigger mechanism does.
+   If `/goal` is unavailable in the installed version, use `/loop` with the same instructions and
+   no interval (self-paced). The queue, gate, and exit-code contract do not change between the two.
 6. `autoContinueAtUsageLimit` (default `true` in a claude.ai-subscription interactive session —
    confirm with `/config`) is what lets the session survive the 5-hour usage window: it waits and
    resumes on its own once the window resets, no worktree involved. It re-arms itself for up to two
@@ -143,6 +160,20 @@ handoff evidence.
 
 ## Watching it
 
+- Optional Windows notification watcher: start it in a second foreground PowerShell terminal before
+  the loop:
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/watch_codex_loop.ps1
+  ```
+  It reads only `%TEMP%\codex-revops-loop-events.jsonl`, deduplicates event IDs in a separate
+  temporary state file, and shows a static notification for `halt`, `human_required`, or
+  `goal_achieved`. It never invokes Git, the gate, or the supervisor and cannot resume work. Stop it
+  with Ctrl+C. For a no-notification smoke test, pass `-NoNotify -RunOnce` and explicit temporary
+  `-EventPath`/`-SeenPath` values. To test actual Windows delivery without reading or changing loop
+  state, run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/watch_codex_loop.ps1
+  -TestNotification`; it displays a clearly labeled test. Operational timing records are also written outside the checkout
+  to `%TEMP%\codex-revops-loop-timings.jsonl`; they contain fixed phase/check labels and durations,
+  not prompts, model responses, or command output.
 - Codex: inspect the foreground supervisor output, `git log --oneline`, and the temporary artifact
   directory printed at startup. A healthy escalation shows executor -> architect -> reviewer ->
   executor without an intervening implementation diff.

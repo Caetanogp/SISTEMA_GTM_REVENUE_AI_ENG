@@ -124,10 +124,10 @@ If you notice you are already on `main` or `develop` with uncommitted work:
 
 ## Autonomous loop mode
 
-Unattended sessions work only `.handoff/AUTONOMOUS_QUEUE.md`; `scripts/autonomous_gate.py` alone
-judges completion. `architecture_required` invokes bounded architecture review; `HUMAN_REQUIRED`
-hard-stops unsafe or non-dominant decisions. Executors cannot edit their controls. Full contract:
-`docs/playbooks/autonomous-loop.md`. Every git-workflow rule still applies.
+Unattended sessions use only `.handoff/AUTONOMOUS_QUEUE.md`; the gate judges completion and
+`architecture_required` invokes bounded review. `HUMAN_REQUIRED` stops; executors cannot edit
+controls. Full contract: `docs/playbooks/autonomous-loop.md`. Optional `scripts/watch_codex_loop.ps1`
+is a read-only notifier; it cannot resume a loop or change repository state. Git rules still apply.
 
 **Model policy:** read-only Claude reviewers use Opus; writing subagents use Sonnet. Main sessions
 use Sonnet for resolved design and Opus + plan mode for flagged decisions. The Codex supervisor uses

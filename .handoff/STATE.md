@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-12
-branch: feature/SPEC-011-reply-intelligence
-spec: SPEC-011-reply-intelligence
-phase: "PR #1 review fixes locally verified; refreshed CI pending"
+updated_at: 2026-10-22
+branch: fix/agent-harness-efficiency
+spec: Harness Improvement: Faster, Shared Agent Development
+phase: "queue-isolated gate state implemented and verified; watcher receipt and SPEC-012 pilot pending"
 status: in_progress
 ---
 
@@ -11,16 +11,67 @@ status: in_progress
 
 ## Goal
 
-Resolve two correctness findings from the PR #1 review and verify the refreshed feature branch.
+Improve the shared Codex/Claude Code development harness without changing product behavior or code.
 
 ## Now
 
-SPEC-011 remains complete and its eight task checkboxes are still checked. PR review identified two
-fixes: provider errors must become sanitized terminal checkpoint failures, and the persisted
-`AgentRun.thread_id` must match the checkpoint's `str(run_id)`. Both changes and regression tests are
-implemented locally. The local full autonomous gate is green; changes are not yet committed or
-published, so refreshed GitHub CI is pending. The saved gate baseline remains unchanged at
-`af0f0dfd1a995dd7680e4d9f4206b6272f05d444`.
+SPEC-011 is merged into `develop` as PR #1. This dedicated `fix/agent-harness-efficiency` branch is
+based on `origin/develop`. The harness-only scope and plan are approved, and
+`docs/harness/tasks.md` contains the ordered checklist. Implementation has started with the shared
+gate transition and regression tests. The draft covers shared gate semantics for Codex and Claude
+Code, safe verification phases, stale-queue rejection, timing evidence, and a read-only Windows
+watcher. It excludes all product source and
+requirements. The SPEC-012 working documents remain safely preserved in the stash
+`WIP SPEC-012 docs before dedicated harness branch` on `feature/SPEC-012-frontend-crm-assistant`.
+
+The autonomous gate now validates a completed item's scope, required evidence, and quality profile
+against the saved baseline before advancement. It rejects counter regressions/jumps, preserves the
+baseline on failed scope/evidence/verification, and requires a clean worktree before advancing.
+Codex supervisor retains a scope authorization through the gate transition so it can validate the
+just-completed item, then clears it. Queue validation binds active spec, task path, and branch;
+checks sequential item numbers, checkbox totals, fixed profile identifiers, and compatible existing
+test-path roots. Gate phase selection is deterministic: open work runs only staged/unstaged diff
+hygiene, a checkbox transition verifies the completed item before moving baseline, and full queue
+completion runs the full gate. Fixed verification profiles build command argv in trusted code:
+Python profiles run Ruff on changed Python files, mypy/import-lint when application/package Python
+changes, and pytest only on profile-authorized paths; docs runs diff checks and the docs validator;
+web uses fixed npm commands and rejects missing scripts or lockfiles. Gate state now uses a stable
+digest of branch/spec/tasks identity, stores that identity in namespaced ignored files, and fails
+closed on mismatch. The legacy `.handoff/.autonomous_gate_state.json` is reused only when baseline
+queue/handoff metadata proves the same identity. The real SPEC-011 legacy state was recognized as
+matching SPEC-011 and was not modified during that read-only check. The Codex supervisor and Claude
+`/goal`/`/loop` now share the
+documented exit contract (0 success, 1 continue, 2 halt, any other exit invalid); the supervisor
+classifies outcomes through the gate helper and cannot report a halt as pilot success. Timing output
+contains fixed phase/check names, duration, and outcome only. Gate and supervisor terminal events use
+UUID IDs, finite types, and no free text; the read-only PowerShell watcher validates and deduplicates
+them, with mocked-notification coverage. Its explicit Windows test-notification command returned 0
+without delivery errors, but the agent cannot confirm that the toast was visually received.
+Applicable `verify-before-done` checks passed after this change: Ruff, format (278 files), mypy (204
+files), import contracts (4 kept), `pytest tests/unit` (546 passed), agent-docs, Gitleaks (no leaks),
+and `git diff --check`. Focused gate/supervisor tests passed (83); focused Ruff, format, and mypy
+passed. Integration/adversarial/eval suites were not run because no product adapters, database code,
+prompts, tools, or evals changed. New regression tests cover state isolation, legacy preservation,
+legacy resumption, and fail-closed identity mismatch. Commit `ee8cd7dfd1f0bfbb509dc34a19b89e8e53c7d6f6`
+contains this change. The Windows toast test command returned 0, but
+visual receipt remains unconfirmed. The SPEC-012 pilot was not run because this harness branch
+cannot satisfy the SPEC-012 feature-branch queue. Eleven of thirteen harness checklist items are
+complete; toast receipt and the short pilot remain.
+
+PR #2 for `fix/agent-harness-efficiency` is open at
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/2`. Its frontend build,
+lint/types/architecture, and test checks passed. The Secrets and SAST job failed only at
+`pip-audit`: the existing `requirements-ci.txt` pins `certifi==2026.7.22` and
+`virtualenv==21.14.7`, which now have known advisories. These pins were unchanged by the harness
+branch and are also present in `origin/develop`.
+
+The isolated remediation was merged through PR #3 at `cafea6091886ebef906f2701353689854754d0b5`.
+It updates only the two CI pins to `certifi==2026.10.19` and `virtualenv==21.14.9`.
+`pip-audit --strict --no-deps -r requirements-ci.txt` returned `No known vulnerabilities found`;
+all five PR #3 checks passed. The harness branch now includes the updated `origin/develop` via a
+merge commit and was pushed as head `60ca4724cd9b648ce9cbdb44ee7e22779a84a9ca`. Its refreshed CI
+run `39858705388` passed all four CI checks, including Secrets and SAST. PR #2 remains open and
+mergeable; no merge has been performed yet.
 
 ## Done
 
@@ -29,7 +80,7 @@ published, so refreshed GitHub CI is pending. The saved gate baseline remains un
 - Eval run `38283929458` at the same commit: passed all 11 suites and PDF traceability.
 - CI run `38327449741` and Eval run `38327449728` on published commit `923111b`: both passed;
   Semgrep, Bandit, dependency audit, integration, adversarial, eval, and PDF traceability passed.
-- PR #1 remains open and GitHub reports `MERGEABLE`; no merge was performed.
+- PR #1 was merged into `develop` on 2026-10-13 as `d7a8876b6766f3b857fed7aed13d3aba47174888`.
 - Review fixes: `reply_runtime.py` checkpoints provider failure as fixed `provider_failure` and never
   stores arbitrary exception text; `reply.py` persists the matching run thread id. Regression
   evidence: `pytest tests/unit/infrastructure/agent/test_reply_runtime.py -q` passed 5 tests and
@@ -58,24 +109,30 @@ published, so refreshed GitHub CI is pending. The saved gate baseline remains un
 
 ## Next
 
-1. Review and commit the two tested PR fixes on `feature/SPEC-011-reply-intelligence`.
-2. Push the feature branch and wait for refreshed PR #1 CI and Eval checks.
-3. Reassess merge eligibility from the complete accumulated diff and green checks; do not merge if
-   a check fails or the review reveals another blocker.
-4. After PR #1 is merged, materialize and approve SPEC-012 before implementation or another loop.
+1. Merge PR #2 after confirming the final handoff update and refreshed checks are green.
+2. After harness integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
+   preserved approved-docs stash, prepare the SPEC-012 queue, and confirm it selects a separate gate
+   state while preserving the SPEC-011 legacy state. Then run one short item pilot; do not start an
+   overnight loop before the pilot passes.
+3. Confirm whether the clearly labeled Windows watcher test notification appeared. If not, diagnose
+   delivery without weakening event validation.
 
 ## Gotchas
 
 - Use `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive clone is stale.
 - Set `PYTHONPATH` to `packages\core;<repo root>`, plus UTF-8 environment variables, for local
   Python checks. This avoids the global editable install pointing into OneDrive.
-- Never delete or reset `.handoff/.autonomous_gate_state.json`; the 8-item baseline must remain
-  unchanged.
+- Never delete or reset `.handoff/.autonomous_gate_state.json`. It is the historical SPEC-011 state;
+  another queue identity gets a separate ignored file and leaves it untouched.
 - Docker Compose services in this checkout are not running. Use uniquely named disposable
   containers and loopback-only dynamic host ports for verification; leave unrelated containers and
   volumes untouched.
-- PR #1 is open from `feature/SPEC-011-reply-intelligence` to `develop`; the latest CI and Eval
-  runs above passed. Review before merging.
+- SPEC-012 documents remain in preserved stashes from branch switches. The latest is
+  `SPEC-012 approved docs before per-queue gate state implementation`; apply that named stash when
+  returning to `feature/SPEC-012-frontend-crm-assistant`. Earlier snapshots remain preserved.
+- `.handoff/AUTONOMOUS_QUEUE.md` still contains the historical SPEC-011 queue and is not bound to
+  this harness branch. The new gate rejects it as stale; do not run the real gate until a queue
+  matching the active spec and feature branch is prepared.
 
 ## Resume
 
@@ -88,4 +145,5 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 ## Open questions
 
-None for the approved SPEC-011 closeout. SPEC-012 scope requires a separate product review.
+No product scope decisions are part of this harness initiative. The queue verification profile
+registry and watcher event contract are defined in the approved plan and tasks.

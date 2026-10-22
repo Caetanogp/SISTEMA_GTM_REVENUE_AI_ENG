@@ -4,6 +4,7 @@ import importlib.util
 import json
 import sys
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
@@ -251,8 +252,10 @@ def test_artifact_directory_must_be_outside_repository(
 
 
 def test_invoke_codex_retries_transient_process_failure(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    observability_dir = tmp_path / "observability"
+    monkeypatch.setenv("CODEX_LOOP_OBSERVABILITY_DIR", str(observability_dir))
     attempts = 0
     captured_env: Mapping[str, str] | None = None
     captured_timeout = 0
@@ -291,6 +294,14 @@ def test_invoke_codex_retries_transient_process_failure(
     assert captured_env is not None
     assert "PYTEST_ADDOPTS" not in captured_env
     assert captured_timeout == supervisor.DEFAULT_CHILD_TIMEOUT_SECONDS
+    timings = [
+        json.loads(line)
+        for line in (observability_dir / "codex-revops-loop-timings.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert [record["outcome"] for record in timings] == ["error", "passed"]
+    assert all(record["phase"] == "executor_turn" for record in timings)
 
 
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(
@@ -555,6 +566,37 @@ def test_supervisor_completes_after_normal_executor_progress(
         == 0
     )
     assert phases == [("executor", "gpt-5.6-terra", "medium", False)]
+
+
+def test_supervisor_halt_result_cannot_be_misreported_as_pilot_success(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    active = _prepare_supervisor_state(
+        monkeypatch,
+        tmp_path,
+        iter(
+            (
+                supervisor.ProcessResult(1),
+                supervisor.ProcessResult(2, stderr="HALT: invalid queue state"),
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_invoke_codex",
+        lambda *_args, **_kwargs: _executor("continue"),
+    )
+    monkeypatch.setattr(autonomous_gate, "completed_task_count", lambda _path: (1, 1))
+    monkeypatch.setattr(
+        autonomous_gate,
+        "item_for_done_count",
+        lambda _items, done: None if done else _active(tmp_path),
+    )
+    config = replace(_config(tmp_path), stop_after_item=active.number)
+
+    with pytest.raises(supervisor.SupervisorError, match="HALT: invalid queue state"):
+        supervisor.run_supervisor(config, lambda *_args: supervisor.ProcessResult(0))
 
 
 def test_supervisor_escalates_then_returns_approved_plan_to_executor(

@@ -17,7 +17,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Any, cast
+from typing import Any, Literal, cast
+
+from scripts.loop_observability import emit_terminal_event, emit_timing
+
+GateOutcomeName = Literal["goal_achieved", "continue", "halt"]
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_IMPLEMENTATION_MODEL = "gpt-5.6-terra"
@@ -41,7 +45,9 @@ CONTROL_PLANE_PATHS = (
     "pyproject.toml",
     "scripts/autonomous_gate.py",
     "scripts/codex_loop_supervisor.py",
+    "scripts/loop_observability.py",
     "scripts/start_codex_loop.ps1",
+    "scripts/watch_codex_loop.ps1",
 )
 
 type JsonObject = dict[str, Any]
@@ -467,6 +473,7 @@ def _invoke_codex(
     env.pop("PYTEST_ADDOPTS", None)
     last_error = "Codex process failed without output"
     for attempt in range(1, config.max_process_retries + 2):
+        turn_started = time.perf_counter()
         output_path.unlink(missing_ok=True)
         try:
             result = runner(command, config.repo, prompt, env, config.child_timeout_seconds)
@@ -480,7 +487,9 @@ def _invoke_codex(
         )
         if result.returncode == 0 and output_path.is_file():
             try:
-                return _read_json(output_path)
+                structured_output = _read_json(output_path)
+                _emit_codex_turn_timing(phase, turn_started, "passed")
+                return structured_output
             except SupervisorError as exc:
                 last_error = str(exc)
         elif result.returncode == 0:
@@ -489,12 +498,34 @@ def _invoke_codex(
             tail = "\n".join((result.stdout + result.stderr).splitlines()[-12:])
             last_error = f"Codex {phase} process exited {result.returncode}:\n{tail}"
             if not _is_transient_process_failure(result.stdout + result.stderr):
+                _emit_codex_turn_timing(phase, turn_started, "error")
                 break
+        _emit_codex_turn_timing(phase, turn_started, "error")
         if attempt <= config.max_process_retries:
             delay = config.retry_delay_seconds * attempt
             print(f"Transient Codex {phase} failure; retrying in {delay} seconds.", flush=True)
             time.sleep(delay)
     raise SupervisorError(last_error)
+
+
+def _emit_codex_turn_timing(
+    phase: str, started_at: float, outcome: Literal["passed", "error"]
+) -> None:
+    is_architecture = phase.startswith("architecture")
+    check = (
+        "architecture_review"
+        if phase.startswith("architecture-review")
+        else "architecture_plan"
+        if is_architecture
+        else "executor"
+    )
+    emit_timing(
+        source="supervisor",
+        phase="architecture_turn" if is_architecture else "executor_turn",
+        check=check,
+        started_at=started_at,
+        outcome=outcome,
+    )
 
 
 _TRANSIENT_PROCESS_MARKERS = (
@@ -654,6 +685,13 @@ def _run_gate(
     return runner(command, config.repo, None, _runtime_env(config), 1_800)
 
 
+def _gate_outcome(result: ProcessResult) -> GateOutcomeName:
+    outcome = autonomous_gate.gate_outcome(result.returncode)
+    if outcome is autonomous_gate.GateOutcome.INVALID:
+        raise SupervisorError(f"Autonomous gate returned unexpected exit {result.returncode}")
+    return cast(GateOutcomeName, outcome.value)
+
+
 def _runtime_env(config: SupervisorConfig) -> dict[str, str]:
     """Make every child resolve Python packages from the selected checkout."""
     env = os.environ.copy()
@@ -662,6 +700,7 @@ def _runtime_env(config: SupervisorConfig) -> dict[str, str]:
     env["PYTHONPATH"] = checkout_paths if not existing else checkout_paths + os.pathsep + existing
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    env["CODEX_LOOP_SUPERVISED"] = "1"
     env.pop("PYTEST_ADDOPTS", None)
     return env
 
@@ -966,13 +1005,13 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
     approved_plan: ArchitecturePlan | None = None
 
     initial_gate = _run_gate(config, runner)
-    if initial_gate.returncode == 0:
+    initial_outcome = _gate_outcome(initial_gate)
+    if initial_outcome == autonomous_gate.GateOutcome.GOAL_ACHIEVED.value:
+        emit_terminal_event("goal_achieved", source="supervisor", exit_code=0)
         print(initial_gate.stdout.strip())
         return 0
-    if initial_gate.returncode == 2:
+    if initial_outcome == autonomous_gate.GateOutcome.HALT.value:
         raise SupervisorError(initial_gate.stderr.strip() or initial_gate.stdout.strip())
-    if initial_gate.returncode != 1:
-        raise SupervisorError(f"Autonomous gate returned unexpected exit {initial_gate.returncode}")
 
     for turn in range(1, config.max_turns + 1):
         active = _active_item(config)
@@ -1029,12 +1068,18 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
         _verify_control_snapshot(config, control_snapshot)
         tasks_done, _ = autonomous_gate.completed_task_count(active.tasks_file)
         next_item = autonomous_gate.item_for_done_count(autonomous_gate.parse_queue(), tasks_done)
-        if next_item is None or next_item.number != active.number:
-            authorization_path = None
-            approved_plan = None
         _verify_control_snapshot(config, control_snapshot)
         gate_result = _run_gate(config, runner, authorization_path)
         print((gate_result.stdout or gate_result.stderr).strip())
+        gate_status = _gate_outcome(gate_result)
+        if next_item is None or next_item.number != active.number:
+            authorization_path = None
+            approved_plan = None
+        if gate_status == autonomous_gate.GateOutcome.GOAL_ACHIEVED.value:
+            emit_terminal_event("goal_achieved", source="supervisor", exit_code=0)
+            return 0
+        if gate_status == autonomous_gate.GateOutcome.HALT.value:
+            raise SupervisorError(gate_result.stderr.strip() or gate_result.stdout.strip())
         if (
             config.stop_after_item is not None
             and active.number == config.stop_after_item
@@ -1043,14 +1088,6 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
         ):
             print(f"PILOT ACHIEVED: Item {active.number} committed and gate advanced.")
             return 0
-        if gate_result.returncode == 0:
-            return 0
-        if gate_result.returncode == 2:
-            raise SupervisorError(gate_result.stderr.strip() or gate_result.stdout.strip())
-        if gate_result.returncode != 1:
-            raise SupervisorError(
-                f"Autonomous gate returned unexpected exit {gate_result.returncode}"
-            )
 
     raise SupervisorError(f"Supervisor reached its maximum of {config.max_turns} Codex turns")
 
@@ -1125,6 +1162,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_supervisor(config)
     except (SupervisorError, OSError, subprocess.SubprocessError) as exc:
         _append_hard_halt(config.repo, str(exc))
+        event_type: Literal["human_required", "halt"] = (
+            "human_required" if "HUMAN_REQUIRED" in str(exc) else "halt"
+        )
+        emit_terminal_event(event_type, source="supervisor", exit_code=2)
         print(f"HUMAN_REQUIRED: {exc}", file=sys.stderr)
         return 2
 
