@@ -52,7 +52,8 @@ files), import contracts (4 kept), `pytest tests/unit` (546 passed), agent-docs,
 and `git diff --check`. Focused gate/supervisor tests passed (83); focused Ruff, format, and mypy
 passed. Integration/adversarial/eval suites were not run because no product adapters, database code,
 prompts, tools, or evals changed. New regression tests cover state isolation, legacy preservation,
-legacy resumption, and fail-closed identity mismatch. The Windows toast test command returned 0, but
+legacy resumption, and fail-closed identity mismatch. Commit `ee8cd7dfd1f0bfbb509dc34a19b89e8e53c7d6f6`
+contains this change. The Windows toast test command returned 0, but
 visual receipt remains unconfirmed. The SPEC-012 pilot was not run because this harness branch
 cannot satisfy the SPEC-012 feature-branch queue. Eleven of thirteen harness checklist items are
 complete; toast receipt and the short pilot remain.
