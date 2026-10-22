@@ -25,7 +25,7 @@ _SPEC.loader.exec_module(gate)
 
 
 def _write_queue(root: Path, tasks_path: str) -> None:
-    (root / ".handoff").mkdir(parents=True)
+    (root / ".handoff").mkdir(parents=True, exist_ok=True)
     active_spec = Path(tasks_path).parent.name
     (root / ".handoff" / "AUTONOMOUS_QUEUE.md").write_text(
         f"# Queue\n\n"
@@ -48,6 +48,214 @@ def test_active_tasks_file_uses_queue_metadata(
 
     assert gate.active_tasks_file() == tasks
     assert gate.completed_task_count(tasks) == (1, 2)
+
+
+def _prepare_queue_state_fixture(root: Path, spec: str) -> tuple[Path, Path]:
+    tasks = root / "docs" / "specs" / spec / "tasks.md"
+    tasks.parent.mkdir(parents=True, exist_ok=True)
+    tasks.write_text("- [ ] first item\n", encoding="utf-8")
+    _write_queue(root, f"docs/specs/{spec}/tasks.md")
+    return tasks, root / ".handoff" / ".autonomous_gate_state.json"
+
+
+def test_gate_state_path_is_isolated_by_branch_spec_and_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec_a = "SPEC-998-alpha"
+    _tasks_a, legacy = _prepare_queue_state_fixture(tmp_path, spec_a)
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec_a}")
+
+    path_a, identity_a, legacy_a = gate.resolve_gate_state_file()
+    assert identity_a == {
+        "active_spec": spec_a,
+        "branch": f"feature/{spec_a}",
+        "tasks_file": f"docs/specs/{spec_a}/tasks.md",
+    }
+    assert path_a != legacy
+    assert not legacy_a
+
+    spec_b = "SPEC-999-beta"
+    _tasks_b, _legacy_b = _prepare_queue_state_fixture(tmp_path, spec_b)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec_b}")
+    path_b, _identity_b, legacy_b = gate.resolve_gate_state_file()
+
+    assert path_b != path_a
+    assert not legacy_b
+
+
+def test_mismatched_legacy_state_is_preserved_and_new_state_is_namespaced(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec = "SPEC-999-current"
+    _tasks, legacy = _prepare_queue_state_fixture(tmp_path, spec)
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    original = json.dumps(
+        {
+            "baseline_sha": "a" * 40,
+            "baseline_done_count": 7,
+            "last_item": 8,
+            "consecutive_failures": 0,
+        },
+        indent=2,
+    )
+    legacy.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec}")
+    monkeypatch.setattr(
+        gate,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "- **Active spec:** `SPEC-998-old`\n"
+                "- **Feature branch:** `feature/SPEC-998-old`\n"
+                "- **Tasks file:** `docs/specs/SPEC-998-old/tasks.md`\n"
+            ),
+        ),
+    )
+
+    state = gate.GateState.load()
+    assert state.baseline_sha is None
+    assert state.baseline_done_count == 0
+    state.baseline_sha = "b" * 40
+    state.save()
+
+    saved_path, identity, legacy_selected = gate.resolve_gate_state_file()
+    assert not legacy_selected
+    assert saved_path != legacy
+    assert identity is not None
+    assert json.loads(saved_path.read_text(encoding="utf-8"))["queue_identity"] == identity
+    assert legacy.read_text(encoding="utf-8") == original
+
+
+def test_matching_legacy_state_can_be_resumed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec = "SPEC-999-resume"
+    _tasks, legacy = _prepare_queue_state_fixture(tmp_path, spec)
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(
+        json.dumps({"baseline_sha": "c" * 40, "baseline_done_count": 0}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec}")
+    matching_queue = (tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md").read_text(encoding="utf-8")
+    monkeypatch.setattr(
+        gate,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout=matching_queue),
+    )
+
+    state = gate.GateState.load()
+
+    assert state.baseline_sha == "c" * 40
+    assert state._state_file == legacy
+    assert state._queue_identity == {
+        "active_spec": spec,
+        "branch": f"feature/{spec}",
+        "tasks_file": f"docs/specs/{spec}/tasks.md",
+    }
+
+
+def test_legacy_queue_without_explicit_identity_uses_baseline_handoff_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec = "SPEC-999-legacy"
+    _tasks, legacy = _prepare_queue_state_fixture(tmp_path, spec)
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(
+        json.dumps({"baseline_sha": "d" * 40, "baseline_done_count": 0}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec}")
+    old_queue = f"- **Tasks file:** `docs/specs/{spec}/tasks.md`\n"
+    old_handoff = f"branch: feature/{spec}\nspec: {spec}\n"
+
+    def show_baseline(*_args: str, **_kwargs: object) -> SimpleNamespace:
+        command = _args[-1]
+        content = old_queue if command.endswith("AUTONOMOUS_QUEUE.md") else old_handoff
+        return SimpleNamespace(returncode=0, stdout=content)
+
+    monkeypatch.setattr(gate, "run", show_baseline)
+
+    state = gate.GateState.load()
+
+    assert state.baseline_sha == "d" * 40
+    assert state._state_file == legacy
+
+
+def test_legacy_queue_with_mismatched_handoff_metadata_is_not_reused(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec = "SPEC-999-current"
+    _tasks, legacy = _prepare_queue_state_fixture(tmp_path, spec)
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(
+        json.dumps({"baseline_sha": "e" * 40, "baseline_done_count": 5}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec}")
+    old_queue = "- **Tasks file:** `docs/specs/SPEC-998-old/tasks.md`\n"
+    old_handoff = "branch: feature/SPEC-998-old\nspec: SPEC-998-old\n"
+
+    def show_baseline(*_args: str, **_kwargs: object) -> SimpleNamespace:
+        command = _args[-1]
+        content = old_queue if command.endswith("AUTONOMOUS_QUEUE.md") else old_handoff
+        return SimpleNamespace(returncode=0, stdout=content)
+
+    monkeypatch.setattr(gate, "run", show_baseline)
+
+    state_path, identity, legacy_selected = gate.resolve_gate_state_file()
+
+    assert not legacy_selected
+    assert state_path != legacy
+    assert identity is not None
+    assert identity["active_spec"] == spec
+
+
+def test_namespaced_state_identity_mismatch_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    spec = "SPEC-999-current"
+    _tasks, legacy = _prepare_queue_state_fixture(tmp_path, spec)
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    monkeypatch.setattr(gate, "QUEUE_FILE", tmp_path / ".handoff" / "AUTONOMOUS_QUEUE.md")
+    monkeypatch.setattr(gate, "GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "_DEFAULT_GATE_STATE_FILE", legacy)
+    monkeypatch.setattr(gate, "current_branch", lambda: f"feature/{spec}")
+    state_path, _identity, _is_legacy = gate.resolve_gate_state_file()
+    state_path.write_text(
+        json.dumps({"queue_identity": {"active_spec": "SPEC-998-other"}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="different queue identity"):
+        gate.GateState.load()
 
 
 @pytest.mark.parametrize(

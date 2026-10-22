@@ -59,6 +59,15 @@ item identity, scope, baseline, and task count until item verification passes. O
 use the prior item's saved baseline and scope for completion validation; do not silently rebase
 first. A failed validation must leave the baseline unchanged and halt with a specific reason.
 
+Gate state is selected by a stable digest of `(feature branch, active spec, tasks-file path)` and
+stored in a separate ignored file for each queue identity. Persist the identity in each namespaced
+state file and reject mismatches instead of silently initializing over them. Preserve the existing
+`.handoff/.autonomous_gate_state.json` as a legacy state: reuse it only when its saved baseline
+commit contains queue metadata matching the current identity, or older queue task metadata plus
+handoff branch/spec metadata matching it; otherwise leave it untouched and initialize the
+namespaced state. The Codex supervisor must resolve state through the same shared
+gate function. Keep the legacy filename ignored and add an ignore rule for namespaced state files.
+
 ### Timing and pilot evidence
 
 Measure elapsed time around executor turns, architecture/review calls, each gate phase, and each
@@ -102,6 +111,8 @@ No product source or product acceptance criteria should change.
 5. Run focused harness tests, then the full `verify-before-done` checks for harness changes.
 6. Prepare a SPEC-012-specific queue separately, verify its baseline without resetting state, and
    run one short item pilot. Do not start a long loop until the pilot passes.
+7. Add regression tests proving a stale legacy state remains byte-for-byte unchanged when a new
+   queue identity starts, matching legacy state can resume, and namespaced identity mismatches halt.
 
 ## Trade-offs
 

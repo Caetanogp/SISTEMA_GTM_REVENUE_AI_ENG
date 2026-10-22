@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-22
 branch: fix/agent-harness-efficiency
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "harness implementation and applicable verify-before-done checks passed; watcher receipt and pilot pending"
+phase: "queue-isolated gate state implemented and verified; watcher receipt and SPEC-012 pilot pending"
 status: in_progress
 ---
 
@@ -35,20 +35,27 @@ hygiene, a checkbox transition verifies the completed item before moving baselin
 completion runs the full gate. Fixed verification profiles build command argv in trusted code:
 Python profiles run Ruff on changed Python files, mypy/import-lint when application/package Python
 changes, and pytest only on profile-authorized paths; docs runs diff checks and the docs validator;
-web uses fixed npm commands and rejects missing scripts or lockfiles. Test fixtures keep gate state
-outside their temporary Git checkouts. The Codex supervisor and Claude `/goal`/`/loop` now share the
+web uses fixed npm commands and rejects missing scripts or lockfiles. Gate state now uses a stable
+digest of branch/spec/tasks identity, stores that identity in namespaced ignored files, and fails
+closed on mismatch. The legacy `.handoff/.autonomous_gate_state.json` is reused only when baseline
+queue/handoff metadata proves the same identity. The real SPEC-011 legacy state was recognized as
+matching SPEC-011 and was not modified during that read-only check. The Codex supervisor and Claude
+`/goal`/`/loop` now share the
 documented exit contract (0 success, 1 continue, 2 halt, any other exit invalid); the supervisor
 classifies outcomes through the gate helper and cannot report a halt as pilot success. Timing output
 contains fixed phase/check names, duration, and outcome only. Gate and supervisor terminal events use
 UUID IDs, finite types, and no free text; the read-only PowerShell watcher validates and deduplicates
 them, with mocked-notification coverage. Its explicit Windows test-notification command returned 0
 without delivery errors, but the agent cannot confirm that the toast was visually received.
-Applicable `verify-before-done` checks passed: Ruff (278 files), format (278 files), mypy (204
-files), import contracts (4 kept), `pytest tests/unit` (540 passed), agent-docs, Gitleaks (no leaks),
-and `git diff --check`. Integration/adversarial/eval suites were not run because no product adapters,
-database code, prompts, tools, or evals changed. Focused harness tests passed (91); targeted mypy,
-docs check, and the PowerShell mocked-notification/dedup smoke also passed. Ten checklist items are
-complete; visual toast confirmation and the SPEC-012 short pilot remain.
+Applicable `verify-before-done` checks passed after this change: Ruff, format (278 files), mypy (204
+files), import contracts (4 kept), `pytest tests/unit` (546 passed), agent-docs, Gitleaks (no leaks),
+and `git diff --check`. Focused gate/supervisor tests passed (83); focused Ruff, format, and mypy
+passed. Integration/adversarial/eval suites were not run because no product adapters, database code,
+prompts, tools, or evals changed. New regression tests cover state isolation, legacy preservation,
+legacy resumption, and fail-closed identity mismatch. The Windows toast test command returned 0, but
+visual receipt remains unconfirmed. The SPEC-012 pilot was not run because this harness branch
+cannot satisfy the SPEC-012 feature-branch queue. Eleven of thirteen harness checklist items are
+complete; toast receipt and the short pilot remain.
 
 ## Done
 
@@ -86,24 +93,28 @@ complete; visual toast confirmation and the SPEC-012 short pilot remain.
 
 ## Next
 
-1. Confirm the clearly labeled Windows watcher test notification appeared. If so, close the watcher
-   acceptance item; if not, investigate delivery without weakening event validation.
-2. Restore/prepare the separate SPEC-012 queue from its approved source, validate its baseline
-   without resetting gate state, and run one short item pilot. Do not start an overnight loop before
-   the pilot passes.
+1. User publishes `fix/agent-harness-efficiency` and opens/reviews its PR; no push or merge was
+   performed by this agent.
+2. After integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
+   preserved approved-docs stash, prepare the SPEC-012 queue, and confirm it selects a separate gate
+   state while preserving the SPEC-011 legacy state. Then run one short item pilot; do not start an
+   overnight loop before the pilot passes.
+3. Confirm whether the clearly labeled Windows watcher test notification appeared. If not, diagnose
+   delivery without weakening event validation.
 
 ## Gotchas
 
 - Use `C:\Dev\SISTEMA_PORTFOLIO_AI_ENG`; the OneDrive clone is stale.
 - Set `PYTHONPATH` to `packages\core;<repo root>`, plus UTF-8 environment variables, for local
   Python checks. This avoids the global editable install pointing into OneDrive.
-- Never delete or reset `.handoff/.autonomous_gate_state.json`; the 8-item baseline must remain
-  unchanged.
+- Never delete or reset `.handoff/.autonomous_gate_state.json`. It is the historical SPEC-011 state;
+  another queue identity gets a separate ignored file and leaves it untouched.
 - Docker Compose services in this checkout are not running. Use uniquely named disposable
   containers and loopback-only dynamic host ports for verification; leave unrelated containers and
   volumes untouched.
-- The SPEC-012 working tree was stashed by name before creating this branch. Return to
-  `feature/SPEC-012-frontend-crm-assistant` and apply only the named stash when resuming that work.
+- SPEC-012 documents remain in preserved stashes from branch switches. The latest is
+  `SPEC-012 approved docs before per-queue gate state implementation`; apply that named stash when
+  returning to `feature/SPEC-012-frontend-crm-assistant`. Earlier snapshots remain preserved.
 - `.handoff/AUTONOMOUS_QUEUE.md` still contains the historical SPEC-011 queue and is not bound to
   this harness branch. The new gate rejects it as stale; do not run the real gate until a queue
   matching the active spec and feature branch is prepared.

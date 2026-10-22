@@ -12,6 +12,11 @@ do not modify product code or product requirements.
   unchanged and emits a precise halt — verified by state-preservation tests.
 - [x] Validate queue metadata, task path, active spec identity, branch identity, item order, profile
   identifiers, and test-path roots before execution — verified by malformed/stale-queue tests.
+- [x] Isolate durable gate state by branch/spec/tasks identity, preserve the legacy state unless its
+  baseline commit proves it belongs to the active queue, and share the resolver with the Codex
+  supervisor — verified by `pytest tests/unit/scripts/test_autonomous_gate.py
+  tests/unit/scripts/test_codex_loop_supervisor.py -q` (83 passed), including isolation,
+  legacy-resume, and identity-mismatch regression tests.
 
 ## Verification efficiency and parity
 

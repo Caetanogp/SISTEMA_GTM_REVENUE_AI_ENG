@@ -33,6 +33,9 @@ work.
   incomplete turns, completed queue items, and final queue completion.
 - Regression coverage for queue-item scope validation and gate-baseline advancement.
 - Detection of queue/task/spec mismatch before execution begins.
+- Durable gate baselines isolated by feature branch, active spec, and tasks-file identity, while
+  preserving and safely migrating the existing untagged baseline only when queue/handoff metadata
+  in its commit proves the same queue identity.
 - Measurement and reporting of time spent in gate phases and executor/architecture turns, without
   recording secrets, prompts, or customer data.
 - A pilot and comparative timing evidence before declaring a throughput improvement.
@@ -72,6 +75,10 @@ work.
    not weakened.
 7. A short pilot on a prepared feature queue records elapsed time and gate outcomes; any speedup is
    reported from measured data, not inferred from fewer checks.
+8. Distinct queue identities never read or mutate one another's gate state. State records its
+   identity and fails closed on mismatch; a legacy state is reused only when its saved baseline
+   commit proves the same active spec, branch, and tasks file, using baseline handoff metadata for
+   older queues that predate explicit queue identity fields.
 
 ## Risks and open questions
 

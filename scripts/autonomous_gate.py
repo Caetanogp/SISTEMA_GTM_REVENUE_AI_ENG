@@ -22,6 +22,7 @@ Run: python scripts/autonomous_gate.py
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -30,6 +31,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -48,6 +50,7 @@ emit_timing = loop_observability.emit_timing
 QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
+_DEFAULT_GATE_STATE_FILE = GATE_STATE_FILE
 MAX_CONSECUTIVE_FAILURES = 5
 
 _ITEM_HEADER = re.compile(
@@ -140,30 +143,54 @@ class GateState:
     consecutive_failures: int = 0
     baseline_sha: str | None = None
     baseline_done_count: int = 0
+    _state_file: Path | None = dataclass_field(default=None, repr=False, compare=False)
+    _queue_identity: dict[str, str] | None = dataclass_field(
+        default=None, repr=False, compare=False
+    )
 
     @classmethod
     def load(cls) -> GateState:
-        if GATE_STATE_FILE.exists():
+        state_file, identity, legacy = resolve_gate_state_file()
+        if state_file.exists():
             try:
-                raw = json.loads(GATE_STATE_FILE.read_text(encoding="utf-8"))
+                raw = json.loads(state_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                raise ValueError(f"gate state is unreadable: {state_file.name}") from exc
+            if not isinstance(raw, dict):
+                raise ValueError("gate state must contain a JSON object")
+            saved_identity = raw.get("queue_identity")
+            if saved_identity is None:
+                if identity is not None and not legacy and state_file != GATE_STATE_FILE:
+                    raise ValueError("namespaced gate state is missing its queue identity")
+            elif identity is not None and saved_identity != identity:
+                raise ValueError("gate state belongs to a different queue identity")
+            try:
                 return cls(
                     last_item=raw.get("last_item"),
                     consecutive_failures=int(raw.get("consecutive_failures", 0)),
                     baseline_sha=raw.get("baseline_sha"),
                     baseline_done_count=int(raw.get("baseline_done_count", 0)),
+                    _state_file=state_file,
+                    _queue_identity=identity,
                 )
-            except (json.JSONDecodeError, OSError, TypeError, ValueError):
-                pass
-        return cls()
+            except (TypeError, ValueError) as exc:
+                raise ValueError("gate state contains invalid field values") from exc
+        return cls(_state_file=state_file, _queue_identity=identity)
 
     def save(self) -> None:
-        payload = {
+        state_file = self._state_file
+        identity = self._queue_identity
+        if state_file is None or identity is None:
+            state_file, identity, _legacy = resolve_gate_state_file()
+        payload: dict[str, object] = {
             "last_item": self.last_item,
             "consecutive_failures": self.consecutive_failures,
             "baseline_sha": self.baseline_sha,
             "baseline_done_count": self.baseline_done_count,
         }
-        GATE_STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        if identity is not None:
+            payload["queue_identity"] = identity
+        state_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -453,6 +480,82 @@ def active_tasks_file() -> Path:
     if not candidate.is_file():
         raise ValueError(f"queue tasks file does not exist: {candidate.relative_to(ROOT)}")
     return candidate
+
+
+def _identity_from_queue_text(text: str) -> tuple[str, str, str]:
+    spec = _required_metadata(text, _ACTIVE_SPEC, "Active spec")
+    branch = _required_metadata(text, _FEATURE_BRANCH, "Feature branch")
+    tasks = _required_metadata(text, _TASKS_FILE, "Tasks file")
+    return spec, branch, tasks
+
+
+def _legacy_state_matches_identity(
+    state_file: Path,
+    identity: dict[str, str],
+) -> bool:
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(state, dict):
+        return False
+    saved_identity = state.get("queue_identity")
+    if saved_identity is not None:
+        return bool(saved_identity == identity)
+    baseline = state.get("baseline_sha")
+    if not isinstance(baseline, str) or not baseline:
+        return False
+    queue_result = run("git", "show", f"{baseline}:.handoff/AUTONOMOUS_QUEUE.md")
+    if queue_result.returncode != 0:
+        return False
+    try:
+        spec, branch, tasks = _identity_from_queue_text(queue_result.stdout)
+    except ValueError:
+        try:
+            tasks = _required_metadata(queue_result.stdout, _TASKS_FILE, "Tasks file")
+        except ValueError:
+            return False
+        state_result = run("git", "show", f"{baseline}:.handoff/STATE.md")
+        if state_result.returncode != 0:
+            return False
+        branch_match = re.search(r"^branch:\s*([^\r\n]+)$", state_result.stdout, re.MULTILINE)
+        spec_match = re.search(r"^spec:\s*([^\r\n]+)$", state_result.stdout, re.MULTILINE)
+        if branch_match is None or spec_match is None:
+            return False
+        branch = branch_match.group(1).strip().strip("'\"")
+        spec = spec_match.group(1).strip().strip("'\"")
+        if Path(tasks).parent.name != spec:
+            return False
+    return identity == {"active_spec": spec, "branch": branch, "tasks_file": tasks}
+
+
+def resolve_gate_state_file() -> tuple[Path, dict[str, str] | None, bool]:
+    """Resolve state by validated queue identity, retaining a matching legacy baseline."""
+    if GATE_STATE_FILE != _DEFAULT_GATE_STATE_FILE:
+        return GATE_STATE_FILE, None, True
+
+    spec, expected_branch = queue_identity()
+    branch = current_branch()
+    if branch != expected_branch:
+        raise ValueError(
+            f"queue feature branch `{expected_branch}` does not match current branch `{branch}`"
+        )
+    tasks_file = active_tasks_file()
+    identity = {
+        "active_spec": spec,
+        "branch": branch,
+        "tasks_file": tasks_file.relative_to(ROOT).as_posix(),
+    }
+    identity_bytes = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.sha256(identity_bytes).hexdigest()[:20]
+    namespaced = ROOT / ".handoff" / f".autonomous_gate_state.{digest}.json"
+    if namespaced.exists():
+        return namespaced, identity, False
+
+    legacy = ROOT / ".handoff" / ".autonomous_gate_state.json"
+    if legacy.exists() and _legacy_state_matches_identity(legacy, identity):
+        return legacy, identity, True
+    return namespaced, identity, False
 
 
 def validate_queue(items: list[QueueItem], tasks_file: Path, branch: str) -> None:
@@ -975,7 +1078,10 @@ def main(argv: list[str] | None = None) -> int:
             return halt(f"Invalid baseline rollover authorization: {exc}")
         return 0
 
-    gate_state = GateState.load()
+    try:
+        gate_state = GateState.load()
+    except ValueError as exc:
+        return halt(f"Autonomous gate state is invalid: {exc}")
     if gate_state.baseline_sha is None:
         gate_state.baseline_sha = current_head()
         gate_state.baseline_done_count = done_count
