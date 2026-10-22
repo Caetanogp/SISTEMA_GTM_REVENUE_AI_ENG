@@ -58,6 +58,21 @@ visual receipt remains unconfirmed. The SPEC-012 pilot was not run because this 
 cannot satisfy the SPEC-012 feature-branch queue. Eleven of thirteen harness checklist items are
 complete; toast receipt and the short pilot remain.
 
+PR #2 for `fix/agent-harness-efficiency` is open at
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/2`. Its frontend build,
+lint/types/architecture, and test checks passed. The Secrets and SAST job failed only at
+`pip-audit`: the existing `requirements-ci.txt` pins `certifi==2026.7.22` and
+`virtualenv==21.14.7`, which now have known advisories. These pins were unchanged by the harness
+branch and are also present in `origin/develop`.
+
+An isolated remediation is prepared on local branch `fix/ci-dependency-vulnerabilities`, based
+directly on `origin/develop`, commit `80177de` (`fix(security): update vulnerable CI dependency
+pins`). It updates only those two pins to `certifi==2026.10.19` and `virtualenv==21.14.9`.
+`pip-audit --strict --no-deps -r requirements-ci.txt` returned `No known vulnerabilities found`;
+`pre-commit run --files requirements-ci.txt` and `git diff --check` passed. This branch has not
+been pushed, and its CI has not run. Do not treat PR #2's security check as green until this
+remediation is published and integrated, then the PR checks rerun successfully.
+
 ## Done
 
 - CI run `38283929452` at `9a77a81b827f8406fe7e32dc1b437558eadba89b`: passed quality, security,
@@ -94,9 +109,10 @@ complete; toast receipt and the short pilot remain.
 
 ## Next
 
-1. User publishes `fix/agent-harness-efficiency` and opens/reviews its PR; no push or merge was
-   performed by this agent.
-2. After integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
+1. Publish and integrate `fix/ci-dependency-vulnerabilities` (currently local commit `80177de`),
+   then confirm all PR #2 checks rerun and pass before reviewing/merging PR #2. Neither branch has
+   been merged by this agent.
+2. After harness integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
    preserved approved-docs stash, prepare the SPEC-012 queue, and confirm it selects a separate gate
    state while preserving the SPEC-011 legacy state. Then run one short item pilot; do not start an
    overnight loop before the pilot passes.
