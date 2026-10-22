@@ -79,6 +79,12 @@ work.
    identity and fails closed on mismatch; a legacy state is reused only when its saved baseline
    commit proves the same active spec, branch, and tasks file, using baseline handoff metadata for
    older queues that predate explicit queue identity fields.
+9. A fixed `web-bootstrap` verification profile may be used only by queue item 1 when its declared
+   scope includes `apps/web/`. Queue preflight may defer web configuration checks only when that
+   bootstrap item is present; completion must require a valid npm manifest, lockfile, and non-empty
+   `lint`, `test`, and `build` scripts, then run the same fixed lint, test, and build commands as
+   `web`. A new queue baseline must not adopt an already-checked bootstrap item without verification.
+   Without the bootstrap profile, existing `web` preflight behavior remains unchanged.
 
 ## Risks and open questions
 

@@ -1,9 +1,9 @@
 ---
 agent: codex
 updated_at: 2026-10-22
-branch: fix/agent-harness-efficiency
+branch: fix/agent-web-bootstrap-profile
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "queue-isolated gate state implemented and verified; watcher receipt and SPEC-012 pilot pending"
+phase: "web bootstrap profile implemented and verified; final review and local commit pending"
 status: in_progress
 ---
 
@@ -11,9 +11,32 @@ status: in_progress
 
 ## Goal
 
-Improve the shared Codex/Claude Code development harness without changing product behavior or code.
+Improve the shared Codex/Claude Code development harness without changing product behavior.
 
 ## Now
+
+Current follow-up (2026-10-22): branch `fix/agent-web-bootstrap-profile` is based on
+`origin/develop`. The approved harness extension adds `web-bootstrap`, restricted to queue item 1
+and `apps/web/` scope. When present, queue preflight defers web configuration checks so the first
+item can create the frontend; bootstrap completion still requires a valid manifest, lockfile, and
+`lint`/`test`/`build` scripts and runs the fixed npm commands. Later web items are still verified
+strictly at item completion. The existing `web` profile behavior is unchanged when no bootstrap
+item is declared. Design, plan, and task checklist were updated before finishing code. The gate and
+regression tests are the only code files changed; no product code, queue, pilot, or autonomous loop
+was touched. `pytest tests/unit/scripts/test_autonomous_gate.py -q` passed 56 tests and
+`pytest tests/unit -q` passed 552. `ruff check .`, `ruff format --check .`, `mypy .`,
+`lint-imports`, `python scripts/check_agent_docs.py`, `gitleaks detect --no-git`, and
+`git diff --check` passed. Integration, adversarial, and eval suites were not run because only the
+harness gate and its tests/docs changed. The autonomous gate itself was intentionally not run
+because the repository queue is still the historical SPEC-011 queue and is not bound to this
+branch.
+
+The SPEC-012 approved documents and the user's `.mcp.json` change are preserved in stash
+`SPEC-012 approved docs and local MCP config before web bootstrap harness work`; older SPEC-012
+stashes remain untouched. Nothing was pushed or merged. The earlier harness initiative history
+below predates this focused follow-up.
+
+### Earlier Harness Context
 
 SPEC-011 is merged into `develop` as PR #1. This dedicated `fix/agent-harness-efficiency` branch is
 based on `origin/develop`. The harness-only scope and plan are approved, and
@@ -109,13 +132,14 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Merge PR #2 after confirming the final handoff update and refreshed checks are green.
-2. After harness integration, return to `feature/SPEC-012-frontend-crm-assistant`, apply the latest
-   preserved approved-docs stash, prepare the SPEC-012 queue, and confirm it selects a separate gate
-   state while preserving the SPEC-011 legacy state. Then run one short item pilot; do not start an
-   overnight loop before the pilot passes.
-3. Confirm whether the clearly labeled Windows watcher test notification appeared. If not, diagnose
-   delivery without weakening event validation.
+1. Review the final diff and commit this harness change on `fix/agent-web-bootstrap-profile`; do not
+   push or merge without the appropriate review/CI workflow.
+2. After this change is integrated, return to the SPEC-012 prep branch and restore its approved
+   documents and `.mcp.json` from the named stash. Then prepare a queue using `web-bootstrap` for
+   item 1, preserve the historical SPEC-011 gate state, and run one short item pilot before any
+   overnight loop.
+3. Separately, confirm whether the earlier Windows watcher test notification appeared; do not
+   weaken event validation to address delivery.
 
 ## Gotchas
 

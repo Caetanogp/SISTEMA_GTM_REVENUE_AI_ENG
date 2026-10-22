@@ -25,6 +25,12 @@ do not modify product code or product requirements.
 - [x] Add the fixed verification-profile registry and safe argv construction for Python unit,
   integration, adversarial, docs, and web checks; reject arbitrary commands and incompatible paths —
   verified by allowlist/path-validation tests.
+- [x] Add a first-item-only `web-bootstrap` profile that defers preflight until its completion,
+  then requires the full web manifest/lockfile/scripts and runs fixed lint/test/build commands,
+  rejects a pre-checked initial bootstrap baseline, and has regression coverage for bootstrap
+  preflight, invalid completion, and successful completion; verified by
+  `pytest tests/unit/scripts/test_autonomous_gate.py -q` (56 passed) and `pytest tests/unit -q`
+  (552 passed).
 - [x] Make Codex supervisor and Claude `/goal` consume identical gate semantics and report the same
   success/continue/halt outcomes — verified by supervisor contract tests and playbook examples.
 
