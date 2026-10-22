@@ -22,15 +22,29 @@ Run: python scripts/autonomous_gate.py
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+_OBSERVABILITY_SPEC = importlib.util.spec_from_file_location(
+    "autonomous_gate_loop_observability", ROOT / "scripts" / "loop_observability.py"
+)
+if _OBSERVABILITY_SPEC is None or _OBSERVABILITY_SPEC.loader is None:
+    raise RuntimeError("Could not load scripts/loop_observability.py")
+loop_observability = importlib.util.module_from_spec(_OBSERVABILITY_SPEC)
+sys.modules[_OBSERVABILITY_SPEC.name] = loop_observability
+_OBSERVABILITY_SPEC.loader.exec_module(loop_observability)
+emit_terminal_event = loop_observability.emit_terminal_event
+emit_timing = loop_observability.emit_timing
 QUEUE_FILE = ROOT / ".handoff" / "AUTONOMOUS_QUEUE.md"
 STATE_FILE = ROOT / ".handoff" / "STATE.md"
 GATE_STATE_FILE = ROOT / ".handoff" / ".autonomous_gate_state.json"
@@ -46,8 +60,35 @@ _REQUIRES_BLOCK = re.compile(
     r"^- \*\*Requires:\*\* (.+?)(?=\n- \*\*|\n\n|\Z)", re.MULTILINE | re.DOTALL
 )
 _TASK_LINE = re.compile(r"^- \[( |x)\] ", re.MULTILINE)
-_CLOSES = re.compile(r"^- \*\*Closes:\*\* (\d+) tasks\.md checkboxes?$", re.MULTILINE)
+_CLOSES = re.compile(r"^- \*\*Closes:\*\* (\d+) tasks\.md checkbox(?:es)?$", re.MULTILINE)
 _TASKS_FILE = re.compile(r"^- \*\*Tasks file:\*\* `([^`]+)`$", re.MULTILINE)
+_ACTIVE_SPEC = re.compile(r"^- \*\*Active spec:\*\* `([^`]+)`$", re.MULTILINE)
+_FEATURE_BRANCH = re.compile(r"^- \*\*Feature branch:\*\* `([^`]+)`$", re.MULTILINE)
+_VERIFICATION_PROFILE = re.compile(r"^- \*\*Verification profile:\*\* `([^`]+)`$", re.MULTILINE)
+_TEST_PATHS = re.compile(r"^- \*\*Test paths:\*\* (.+)$", re.MULTILINE)
+_SAFE_REPO_PATH = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*/?$")
+
+
+@dataclass(frozen=True)
+class VerificationProfile:
+    test_roots: tuple[str, ...]
+    family: str
+
+
+VERIFICATION_PROFILES = {
+    "python-unit": VerificationProfile(("tests/unit/", "tests/architecture/"), "python"),
+    "python-integration": VerificationProfile(("tests/integration/",), "python"),
+    "python-adversarial": VerificationProfile(("tests/adversarial/",), "python"),
+    "docs": VerificationProfile((), "docs"),
+    "web": VerificationProfile((), "web"),
+}
+
+
+@dataclass(frozen=True)
+class VerificationCommand:
+    name: str
+    argv: tuple[str, ...]
+    cwd: Path
 
 
 @dataclass(frozen=True)
@@ -58,6 +99,8 @@ class QueueItem:
     scope: tuple[str, ...]
     requires: tuple[str, ...] = ()
     closes: int = 1
+    verification_profile: str = "python-unit"
+    test_paths: tuple[str, ...] = ()
     """How many tasks.md checkboxes this item's own completion ticks.
 
     Almost always 1 (one item, one checkbox). An item can legitimately close more than one when
@@ -67,6 +110,28 @@ class QueueItem:
     checkboxes` line in the item's body, never leave it to be inferred, since done_count alone
     can no longer be used as a direct index into the item list once any item closes more than 1.
     """
+
+
+class GatePhase(StrEnum):
+    PROGRESS_CHECKPOINT = "progress_checkpoint"
+    ITEM_COMPLETION = "item_completion"
+    GOAL_COMPLETION = "goal_completion"
+
+
+class GateOutcome(StrEnum):
+    GOAL_ACHIEVED = "goal_achieved"
+    CONTINUE = "continue"
+    HALT = "halt"
+    INVALID = "invalid"
+
+
+def gate_outcome(exit_code: int) -> GateOutcome:
+    """Map process codes to the shared outcome consumed by both loop drivers."""
+    return {
+        0: GateOutcome.GOAL_ACHIEVED,
+        1: GateOutcome.CONTINUE,
+        2: GateOutcome.HALT,
+    }.get(exit_code, GateOutcome.INVALID)
 
 
 @dataclass
@@ -265,7 +330,9 @@ _ROLLOVER_ALLOWED_PATHS = {
     "pyproject.toml",
     "scripts/autonomous_gate.py",
     "scripts/codex_loop_supervisor.py",
+    "scripts/loop_observability.py",
     "scripts/start_codex_loop.ps1",
+    "scripts/watch_codex_loop.ps1",
 }
 _ROLLOVER_ALLOWED_PREFIXES = ("docs/decisions/", "tests/unit/scripts/")
 
@@ -293,8 +360,26 @@ def current_branch() -> str:
     return run("git", "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
 
 
+def _required_metadata(text: str, pattern: re.Pattern[str], label: str) -> str:
+    matches = pattern.findall(text)
+    if len(matches) != 1 or not isinstance(matches[0], str) or not matches[0].strip():
+        raise ValueError(f"queue must declare exactly one non-empty `{label}` field")
+    value = matches[0]
+    assert isinstance(value, str)
+    return value.strip()
+
+
+def queue_identity() -> tuple[str, str]:
+    text = QUEUE_FILE.read_text(encoding="utf-8")
+    return (
+        _required_metadata(text, _ACTIVE_SPEC, "Active spec"),
+        _required_metadata(text, _FEATURE_BRANCH, "Feature branch"),
+    )
+
+
 def parse_queue() -> list[QueueItem]:
     text = QUEUE_FILE.read_text(encoding="utf-8")
+    queue_identity()
     items: list[QueueItem] = []
     headers = list(_ITEM_HEADER.finditer(text))
     for index, header in enumerate(headers):
@@ -309,7 +394,25 @@ def parse_queue() -> list[QueueItem]:
         requires_match = _REQUIRES_BLOCK.search(body)
         requires = tuple(_BACKTICK_PATH.findall(requires_match.group(1))) if requires_match else ()
         closes_match = _CLOSES.search(body)
-        closes = int(closes_match.group(1)) if closes_match else 1
+        if scope_match is None or not scope or requires_match is None or not requires:
+            raise ValueError(f"Item {number} must declare non-empty Scope and Requires fields")
+        if closes_match is None:
+            raise ValueError(f"Item {number} must explicitly declare Closes")
+        profile = _required_metadata(
+            body, _VERIFICATION_PROFILE, f"Item {number} Verification profile"
+        )
+        test_paths_match = _TEST_PATHS.findall(body)
+        if len(test_paths_match) != 1:
+            raise ValueError(f"Item {number} must declare exactly one Test paths field")
+        raw_test_paths = test_paths_match[0].strip()
+        test_paths = (
+            () if raw_test_paths == "none" else tuple(_BACKTICK_PATH.findall(raw_test_paths))
+        )
+        if raw_test_paths != "none" and not test_paths:
+            raise ValueError(
+                f"Item {number} Test paths must use backticked repository paths or `none`"
+            )
+        closes = int(closes_match.group(1))
         items.append(
             QueueItem(
                 number=number,
@@ -318,25 +421,112 @@ def parse_queue() -> list[QueueItem]:
                 scope=scope,
                 requires=requires,
                 closes=closes,
+                verification_profile=profile,
+                test_paths=test_paths,
             )
         )
+    if not items:
+        raise ValueError("queue must declare at least one item")
+    numbers = [item.number for item in items]
+    if numbers != list(range(1, len(items) + 1)):
+        raise ValueError(f"queue item numbers must be unique and sequential from 1; got {numbers}")
+    if any(item.closes < 1 for item in items):
+        raise ValueError("every queue item must close at least one tasks.md checkbox")
     return items
 
 
 def active_tasks_file() -> Path:
     """Resolve the queue-selected checklist without allowing paths outside the repository."""
     text = QUEUE_FILE.read_text(encoding="utf-8")
-    match = _TASKS_FILE.search(text)
-    if match is None:
-        raise ValueError("queue is missing its `- **Tasks file:** `...`` metadata line")
+    tasks_path = _required_metadata(text, _TASKS_FILE, "Tasks file")
+    active_spec, _ = queue_identity()
 
-    candidate = (ROOT / match.group(1)).resolve()
+    candidate = (ROOT / tasks_path).resolve()
     specs_root = (ROOT / "docs" / "specs").resolve()
     if candidate.parent.parent != specs_root or candidate.name != "tasks.md":
         raise ValueError("queue tasks file must be a direct `docs/specs/<spec>/tasks.md` path")
+    if candidate.parent.name != active_spec:
+        raise ValueError(
+            f"queue active spec `{active_spec}` does not match tasks file directory "
+            f"`{candidate.parent.name}`"
+        )
     if not candidate.is_file():
         raise ValueError(f"queue tasks file does not exist: {candidate.relative_to(ROOT)}")
     return candidate
+
+
+def validate_queue(items: list[QueueItem], tasks_file: Path, branch: str) -> None:
+    active_spec, expected_branch = queue_identity()
+    if expected_branch != branch:
+        raise ValueError(
+            f"queue is bound to branch `{expected_branch}`, but current branch is `{branch}`"
+        )
+    if tasks_file.parent.name != active_spec:
+        raise ValueError("queue active spec identity does not match the resolved tasks file")
+
+    for item in items:
+        profile = VERIFICATION_PROFILES.get(item.verification_profile)
+        if profile is None:
+            raise ValueError(
+                f"Item {item.number} declares unsupported verification profile "
+                f"`{item.verification_profile}`"
+            )
+        roots = profile.test_roots
+        if roots and not item.test_paths:
+            raise ValueError(f"Item {item.number} profile requires at least one test path")
+        if not roots and item.test_paths:
+            raise ValueError(f"Item {item.number} profile does not accept pytest test paths")
+        for test_path in item.test_paths:
+            normalized = test_path.replace("\\", "/")
+            parts = normalized.rstrip("/").split("/")
+            if (
+                not _SAFE_REPO_PATH.fullmatch(normalized)
+                or normalized.startswith("/")
+                or any(part in {".", ".."} for part in parts)
+            ):
+                raise ValueError(f"Item {item.number} contains unsafe test path `{test_path}`")
+            if not any(path_is_within(normalized, root) for root in roots):
+                raise ValueError(
+                    f"Item {item.number} test path `{test_path}` is outside profile roots {roots}"
+                )
+            resolved_path = (ROOT / normalized).resolve()
+            if not resolved_path.is_relative_to(ROOT.resolve()):
+                raise ValueError(
+                    f"Item {item.number} test path escapes the repository: `{test_path}`"
+                )
+            if not resolved_path.exists():
+                raise ValueError(f"Item {item.number} test path does not exist: `{test_path}`")
+        _validate_profile_configuration(item.verification_profile, item.number)
+
+    done_total = sum(item.closes for item in items)
+    actual_total = completed_task_count(tasks_file)[1]
+    if done_total != actual_total:
+        raise ValueError(
+            f"queue closes {done_total} task checkboxes, but tasks file contains {actual_total}"
+        )
+
+
+def _validate_profile_configuration(profile_name: str, item_number: int) -> None:
+    if profile_name != "web":
+        return
+    web_root = ROOT / "apps" / "web"
+    package_path = web_root / "package.json"
+    if not package_path.is_file():
+        raise ValueError(f"Item {item_number} web profile requires `apps/web/package.json`")
+    try:
+        package_data = json.loads(package_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Item {item_number} web package manifest is invalid: {exc}") from exc
+    scripts = package_data.get("scripts") if isinstance(package_data, dict) else None
+    if not isinstance(scripts, dict) or any(
+        not isinstance(scripts.get(name), str) or not scripts[name].strip()
+        for name in ("lint", "test", "build")
+    ):
+        raise ValueError(f"Item {item_number} web profile requires lint, test, and build scripts")
+    if not any(
+        (web_root / name).is_file() for name in ("package-lock.json", "npm-shrinkwrap.json")
+    ):
+        raise ValueError(f"Item {item_number} web profile requires an npm lockfile")
 
 
 def item_for_done_count(items: list[QueueItem], done_count: int) -> QueueItem | None:
@@ -358,6 +548,15 @@ def completed_task_count(tasks_file: Path) -> tuple[int, int]:
     """Return done and total checkbox counts from the active spec checklist."""
     boxes = [m.group(1) for m in _TASK_LINE.finditer(tasks_file.read_text(encoding="utf-8"))]
     return sum(1 for b in boxes if b == "x"), len(boxes)
+
+
+def select_phase(done_count: int, total_count: int, baseline_done_count: int) -> GatePhase:
+    """Derive the verification phase from trusted task and saved-baseline state."""
+    if done_count > baseline_done_count:
+        return GatePhase.ITEM_COMPLETION
+    if done_count == total_count:
+        return GatePhase.GOAL_COMPLETION
+    return GatePhase.PROGRESS_CHECKPOINT
 
 
 def current_head() -> str:
@@ -428,7 +627,188 @@ def missing_required_evidence(item: QueueItem, baseline: str) -> list[str]:
     ]
 
 
+def run_progress_checkpoint() -> tuple[bool, str]:
+    """Run inexpensive diff hygiene checks without invoking repository-wide suites."""
+    phase_started = time.perf_counter()
+    reports: list[str] = []
+    all_green = True
+    for label, command in (
+        ("unstaged diff check", ("git", "diff", "--check")),
+        ("staged diff check", ("git", "diff", "--cached", "--check")),
+    ):
+        check_started = time.perf_counter()
+        try:
+            result = run(*command)
+        except (OSError, subprocess.SubprocessError):
+            emit_timing(
+                source="gate",
+                phase="progress_checkpoint",
+                check=label,
+                started_at=check_started,
+                outcome="error",
+            )
+            emit_timing(
+                source="gate",
+                phase="progress_checkpoint",
+                check="phase_total",
+                started_at=phase_started,
+                outcome="error",
+            )
+            raise
+        emit_timing(
+            source="gate",
+            phase="progress_checkpoint",
+            check=label,
+            started_at=check_started,
+            outcome="passed" if result.returncode == 0 else "failed",
+        )
+        ok = result.returncode == 0
+        all_green = all_green and ok
+        reports.append(f"  {label}: {'OK' if ok else 'FAILED'}")
+        if not ok:
+            tail = "\n".join((result.stdout + result.stderr).splitlines()[-15:])
+            reports.append(f"    last output:\n{tail}")
+    emit_timing(
+        source="gate",
+        phase="progress_checkpoint",
+        check="phase_total",
+        started_at=phase_started,
+        outcome="passed" if all_green else "failed",
+    )
+    return all_green, "\n".join(reports)
+
+
+def _safe_python_files(changed_paths: list[str]) -> list[str]:
+    python_files: list[str] = []
+    for changed_path in changed_paths:
+        normalized = changed_path.replace("\\", "/")
+        parts = normalized.split("/")
+        if normalized.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+            raise ValueError(
+                f"changed path is not a safe repository-relative path: {changed_path!r}"
+            )
+        if not normalized.endswith(".py"):
+            continue
+        resolved = (ROOT / normalized).resolve()
+        if not resolved.is_relative_to(ROOT.resolve()):
+            raise ValueError(f"changed Python path escapes the repository: {changed_path!r}")
+        if resolved.is_file():
+            python_files.append(normalized)
+    return python_files
+
+
+def build_verification_commands(
+    profile_name: str,
+    test_paths: tuple[str, ...],
+    changed_paths: list[str],
+) -> list[VerificationCommand]:
+    """Build argv only from the fixed profile registry and validated repository paths."""
+    profile = VERIFICATION_PROFILES.get(profile_name)
+    if profile is None:
+        raise ValueError(f"unsupported verification profile `{profile_name}`")
+
+    if profile.family == "web":
+        _validate_profile_configuration("web", 0)
+        web_root = ROOT / "apps" / "web"
+        return [
+            VerificationCommand("web lint", ("npm", "run", "lint"), web_root),
+            VerificationCommand("web tests", ("npm", "test"), web_root),
+            VerificationCommand("web build", ("npm", "run", "build"), web_root),
+        ]
+
+    if profile.family == "docs":
+        return [
+            VerificationCommand("unstaged diff check", ("git", "diff", "--check"), ROOT),
+            VerificationCommand("staged diff check", ("git", "diff", "--cached", "--check"), ROOT),
+            VerificationCommand("docs check", ("python", "scripts/check_agent_docs.py"), ROOT),
+        ]
+
+    python_files = _safe_python_files(changed_paths)
+    commands: list[VerificationCommand] = []
+    if python_files:
+        commands.append(
+            VerificationCommand("ruff changed Python", ("ruff", "check", "--", *python_files), ROOT)
+        )
+    python_app_paths = ("packages/", "apps/api/", "apps/worker/", "apps/mcp/")
+    if any(
+        path.endswith(".py") and any(path_is_within(path, root) for root in python_app_paths)
+        for path in changed_paths
+    ):
+        commands.extend(
+            (
+                VerificationCommand("mypy", ("mypy", "."), ROOT),
+                VerificationCommand("lint-imports", ("lint-imports",), ROOT),
+            )
+        )
+    commands.append(VerificationCommand("pytest", ("pytest", *test_paths, "-q"), ROOT))
+    return commands
+
+
+def run_item_verification(item: QueueItem, baseline: str) -> tuple[bool, str]:
+    phase_started = time.perf_counter()
+    try:
+        commands = build_verification_commands(
+            item.verification_profile,
+            item.test_paths,
+            changed_files(baseline),
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
+        emit_timing(
+            source="gate",
+            phase="item_completion",
+            check="phase_total",
+            started_at=phase_started,
+            outcome="error",
+        )
+        raise
+    report_lines: list[str] = []
+    all_green = True
+    for check in commands:
+        check_started = time.perf_counter()
+        try:
+            result = run(*check.argv, cwd=check.cwd)
+        except (OSError, subprocess.SubprocessError):
+            emit_timing(
+                source="gate",
+                phase="item_completion",
+                check=check.name,
+                started_at=check_started,
+                outcome="error",
+            )
+            emit_timing(
+                source="gate",
+                phase="item_completion",
+                check="phase_total",
+                started_at=phase_started,
+                outcome="error",
+            )
+            raise
+        emit_timing(
+            source="gate",
+            phase="item_completion",
+            check=check.name,
+            started_at=check_started,
+            outcome="passed" if result.returncode == 0 else "failed",
+        )
+        ok = result.returncode == 0
+        all_green = all_green and ok
+        report_lines.append(f"  {check.name}: {'OK' if ok else 'FAILED'}")
+        if not ok:
+            tail = "\n".join((result.stdout + result.stderr).splitlines()[-15:])
+            report_lines.append(f"    last output:\n{tail}")
+    emit_timing(
+        source="gate",
+        phase="item_completion",
+        check="phase_total",
+        started_at=phase_started,
+        outcome="passed" if all_green else "failed",
+    )
+    return all_green, "\n".join(report_lines)
+
+
 def run_quality_gate(*, full: bool) -> tuple[bool, str]:
+    phase_started = time.perf_counter()
+    phase_name = "goal_completion" if full else "quality_gate"
     checks = [
         ("ruff", ("ruff", "check", ".")),
         ("mypy", ("mypy", ".")),
@@ -449,13 +829,45 @@ def run_quality_gate(*, full: bool) -> tuple[bool, str]:
     report_lines = []
     all_green = True
     for name, cmd in checks:
-        result = run(*cmd)
+        check_started = time.perf_counter()
+        try:
+            result = run(*cmd)
+        except (OSError, subprocess.SubprocessError):
+            emit_timing(
+                source="gate",
+                phase=phase_name,
+                check=name,
+                started_at=check_started,
+                outcome="error",
+            )
+            emit_timing(
+                source="gate",
+                phase=phase_name,
+                check="phase_total",
+                started_at=phase_started,
+                outcome="error",
+            )
+            raise
+        emit_timing(
+            source="gate",
+            phase=phase_name,
+            check=name,
+            started_at=check_started,
+            outcome="passed" if result.returncode == 0 else "failed",
+        )
         ok = result.returncode == 0
         all_green = all_green and ok
         report_lines.append(f"  {name}: {'OK' if ok else 'FAILED'}")
         if not ok:
             tail = "\n".join((result.stdout + result.stderr).splitlines()[-15:])
             report_lines.append(f"    last output:\n{tail}")
+    emit_timing(
+        source="gate",
+        phase=phase_name,
+        check="phase_total",
+        started_at=phase_started,
+        outcome="passed" if all_green else "failed",
+    )
     return all_green, "\n".join(report_lines)
 
 
@@ -474,6 +886,9 @@ def write_halt_to_state(reason: str) -> None:
 def halt(reason: str) -> int:
     print(f"HALT: {reason}", file=sys.stderr)
     write_halt_to_state(reason)
+    if os.environ.get("CODEX_LOOP_SUPERVISED") != "1":
+        event_type = "human_required" if "HUMAN_REQUIRED" in reason else "halt"
+        emit_terminal_event(event_type, source="gate", exit_code=2)
     return 2
 
 
@@ -544,6 +959,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         tasks_file = active_tasks_file()
         items = parse_queue()
+        validate_queue(items, tasks_file, branch)
         done_count, total_count = completed_task_count(tasks_file)
     except ValueError as exc:
         return halt(f"Autonomous queue configuration is invalid: {exc}")
@@ -559,9 +975,123 @@ def main(argv: list[str] | None = None) -> int:
             return halt(f"Invalid baseline rollover authorization: {exc}")
         return 0
 
-    if done_count >= total_count:
+    gate_state = GateState.load()
+    if gate_state.baseline_sha is None:
+        gate_state.baseline_sha = current_head()
+        gate_state.baseline_done_count = done_count
+        gate_state.save()
+    elif done_count < gate_state.baseline_done_count:
+        return halt(
+            f"tasks.md completion count regressed from saved baseline count "
+            f"{gate_state.baseline_done_count} to {done_count}; refusing to move the baseline."
+        )
+    phase = select_phase(done_count, total_count, gate_state.baseline_done_count)
+
+    if phase is GatePhase.ITEM_COMPLETION:
+        completed_item = item_for_done_count(items, gate_state.baseline_done_count)
+        if completed_item is None:
+            return halt(
+                "Saved gate baseline count is not covered by any queue item; refusing to "
+                "validate or advance the item baseline."
+            )
+        expected_done_count = gate_state.baseline_done_count + completed_item.closes
+        if done_count != expected_done_count:
+            return halt(
+                f"tasks.md advanced from {gate_state.baseline_done_count} to {done_count}, but "
+                f"Item {completed_item.number} closes {completed_item.closes} checkbox(es); "
+                "validate one queue item at a time. The saved baseline is unchanged."
+            )
+        if completed_item.halt_reason:
+            return halt(
+                f"Item {completed_item.number} — {completed_item.title} is marked "
+                f"HALT: {completed_item.halt_reason}; its completion cannot be accepted."
+            )
+
+        completed_authorized_scope: tuple[str, ...] = ()
+        if args.scope_authorization is not None:
+            try:
+                authorization = ScopeAuthorization.load(
+                    args.scope_authorization,
+                    branch=branch,
+                    item_number=completed_item.number,
+                    baseline_sha=gate_state.baseline_sha,
+                )
+            except ValueError as exc:
+                return halt(f"Invalid supervisor scope authorization: {exc}")
+            completed_authorized_scope = authorization.allowed_paths
+
+        tasks_relative = tasks_file.relative_to(ROOT).as_posix()
+        offenders = scope_violation(
+            completed_item,
+            gate_state.baseline_sha,
+            completed_authorized_scope,
+            (tasks_relative,),
+        )
+        if offenders:
+            return halt(
+                f"Completed Item {completed_item.number} declares scope "
+                f"{completed_item.scope!r}, but changes since its saved baseline touch files "
+                f"outside it: {offenders}. The baseline is unchanged."
+            )
+
+        missing_evidence = missing_required_evidence(completed_item, gate_state.baseline_sha)
+        if missing_evidence:
+            return halt(
+                f"Completed Item {completed_item.number} is missing required evidence paths "
+                f"{missing_evidence}; its checkbox cannot be accepted and the baseline is "
+                "unchanged."
+            )
+
+        try:
+            gate_green, report = run_item_verification(completed_item, gate_state.baseline_sha)
+        except ValueError as exc:
+            return halt(f"Item {completed_item.number} verification profile is invalid: {exc}")
+        if not gate_green:
+            return halt(
+                f"Completed Item {completed_item.number} failed its verification profile; "
+                f"the saved baseline is unchanged.\n{report}"
+            )
+
+        if run("git", "status", "--porcelain", "--untracked-files=all").stdout.strip():
+            print(
+                f"Item {completed_item.number} verification passed, but the worktree is not "
+                "clean; commit the verified item before baseline advancement."
+            )
+            print(report)
+            return 1
+
+        final_report: str | None = None
+        if done_count >= total_count:
+            final_gate_green, final_report = run_quality_gate(full=True)
+            if not final_gate_green:
+                return halt(
+                    f"Final verification failed after Item {completed_item.number}; the saved "
+                    f"baseline is unchanged.\n{final_report}"
+                )
+
+        gate_state.baseline_sha = current_head()
+        gate_state.baseline_done_count = done_count
+        gate_state.last_item = None
+        gate_state.consecutive_failures = 0
+        gate_state.save()
+        print(
+            f"Item {completed_item.number} completion verified; baseline advanced to "
+            f"{gate_state.baseline_sha[:12]}."
+        )
+        if done_count < total_count:
+            print(report)
+            return 1
+        if os.environ.get("CODEX_LOOP_SUPERVISED") != "1":
+            emit_terminal_event("goal_achieved", source="gate", exit_code=0)
+        print("GOAL ACHIEVED: all queue items done, full gate green.")
+        print(final_report)
+        return 0
+
+    if phase is GatePhase.GOAL_COMPLETION:
         gate_green, report = run_quality_gate(full=True)
         if gate_green:
+            if os.environ.get("CODEX_LOOP_SUPERVISED") != "1":
+                emit_terminal_event("goal_achieved", source="gate", exit_code=0)
             print("GOAL ACHIEVED: all queue items done, full gate green.")
             print(report)
             return 0
@@ -583,16 +1113,6 @@ def main(argv: list[str] | None = None) -> int:
             f"HALT: {current_item.halt_reason}. Read .handoff/AUTONOMOUS_QUEUE.md for why. Do not "
             "implement it; this needs the user in Plan Mode."
         )
-
-    gate_state = GateState.load()
-    # baseline_sha marks "everything before this is pre-existing work, exempt from scope checks" -
-    # bootstrapped on first run, then advanced every time an item completes, so a scope check only
-    # ever looks at changes made *since the current item started*, never the branch's full history
-    # back to develop (which would wrongly flag every prior commit on this feature branch forever).
-    if gate_state.baseline_sha is None or gate_state.baseline_done_count != done_count:
-        gate_state.baseline_sha = current_head()
-        gate_state.baseline_done_count = done_count
-        gate_state.save()
 
     authorized_scope: tuple[str, ...] = ()
     if args.scope_authorization is not None:
@@ -628,13 +1148,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    gate_green, report = run_quality_gate(full=False)
+    gate_green, report = run_progress_checkpoint()
 
     if gate_green:
         gate_state.consecutive_failures = 0
         gate_state.last_item = current_item.number
         gate_state.save()
-        print(f"Item {current_item.number} gate is green but not yet ticked in tasks.md - tick it.")
+        print(f"Progress checkpoint passed for Item {current_item.number}; keep working.")
         print(report)
         return 1
 
