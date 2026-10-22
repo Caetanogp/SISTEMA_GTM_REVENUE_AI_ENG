@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-22
 branch: fix/agent-web-bootstrap-profile
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "web bootstrap profile implemented and verified; final review and local commit pending"
+phase: "web bootstrap profile implemented, verified, and committed locally"
 status: in_progress
 ---
 
@@ -21,10 +21,10 @@ and `apps/web/` scope. When present, queue preflight defers web configuration ch
 item can create the frontend; bootstrap completion still requires a valid manifest, lockfile, and
 `lint`/`test`/`build` scripts and runs the fixed npm commands. Later web items are still verified
 strictly at item completion. The existing `web` profile behavior is unchanged when no bootstrap
-item is declared. Design, plan, and task checklist were updated before finishing code. The gate and
-regression tests are the only code files changed; no product code, queue, pilot, or autonomous loop
-was touched. `pytest tests/unit/scripts/test_autonomous_gate.py -q` passed 56 tests and
-`pytest tests/unit -q` passed 552. `ruff check .`, `ruff format --check .`, `mypy .`,
+item is declared. Design, plan, and task checklist were updated to match the approved contract. No
+product code, queue, pilot, or autonomous loop was touched. Commit
+`69b96004eb32d29fb70a96493ad6357cf921a82b` contains the implementation. The focused gate suite
+passed 56 tests; `pytest tests/unit -q` passed 552. `ruff check .`, `ruff format --check .`, `mypy .`,
 `lint-imports`, `python scripts/check_agent_docs.py`, `gitleaks detect --no-git`, and
 `git diff --check` passed. Integration, adversarial, and eval suites were not run because only the
 harness gate and its tests/docs changed. The autonomous gate itself was intentionally not run
@@ -132,8 +132,8 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Review the final diff and commit this harness change on `fix/agent-web-bootstrap-profile`; do not
-   push or merge without the appropriate review/CI workflow.
+1. Review this committed branch and decide whether to publish/open a PR; it has not been pushed or
+   merged.
 2. After this change is integrated, return to the SPEC-012 prep branch and restore its approved
    documents and `.mcp.json` from the named stash. Then prepare a queue using `web-bootstrap` for
    item 1, preserve the historical SPEC-011 gate state, and run one short item pilot before any
