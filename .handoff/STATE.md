@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-23
 branch: fix/agent-harness-frontend-design
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "Shared Anthropic Frontend Design skill integrated; SPEC-012 pilot preparation pending"
+phase: "PR #5 open; Frontend Design skill integration CI pending"
 status: in_progress
 ---
 
@@ -25,8 +25,14 @@ upstream revision and Apache-2.0 license. The license text was compared against 
 copy after whitespace normalization and matched exactly. `python scripts/check_agent_docs.py` and
 `git diff --check` passed. No runtime dependencies or product behavior changed; no test suites were
 run. The SPEC-012 worktree was preserved in stash `preserve SPEC-012 work before frontend-design
-harness change`; no stash was applied or dropped. This change is on a dedicated branch and has not
-been pushed or merged.
+harness change`; no stash was applied or dropped. PR #5 is open from
+`fix/agent-harness-frontend-design` to `develop`:
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/5`. At this handoff update, CI run
+`40023422500` is pending four checks: frontend build, lint/types/architecture, Secrets and SAST,
+and tests. Local non-test verification passed: `ruff check .`, `ruff format --check .` (278 files),
+`mypy .` (204 source files), `lint-imports` (4 contracts), `python scripts/check_agent_docs.py`,
+`gitleaks detect --no-git`, and `git diff HEAD^ HEAD --check`. Ruff emitted only cache write access
+warnings; checks passed. No merge has been performed.
 
 Prior follow-up (2026-10-22): branch `fix/agent-web-bootstrap-profile` is based on
 `origin/develop`. The approved harness extension adds `web-bootstrap`, restricted to queue item 1
@@ -150,8 +156,8 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Publish the isolated `fix/agent-harness-frontend-design` branch and open a PR to `develop`; verify
-   CI and review the diff before merge.
+1. Monitor PR #5 CI run `40023422500`, resolve any actual failures, and merge only after every
+   required check passes and the PR diff review is complete.
 2. Resume SPEC-012 on its prep branch, restore the correct preserved worktree stash while retaining
    `.mcp.json` and every stash entry, and inspect the restored documents.
 3. Reconcile the SPEC-012 queue with `web-bootstrap` on item 1, preserving historical SPEC-011 gate
