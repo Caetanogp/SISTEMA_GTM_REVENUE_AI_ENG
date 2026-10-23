@@ -6,7 +6,7 @@ model: sonnet
 ---
 
 You build the public demo UI: Next.js App Router, React, TypeScript, Tailwind, shadcn/ui.
-Read `docs/playbooks/frontend-screen.md` first.
+Read `.claude/skills/frontend-design/SKILL.md` and `docs/playbooks/frontend-screen.md` first.
 
 This interface is how a recruiter judges the entire project, so:
 

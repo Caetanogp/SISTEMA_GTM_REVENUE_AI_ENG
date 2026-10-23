@@ -1,7 +1,7 @@
 # Tooling research: MCP servers, plugins, skills and CLIs
 
-Researched 2026-08-25. **Nothing here is installed yet** — this is the dossier for the decision.
-Star counts are from that date and are indicative, not exact.
+Researched 2026-08-25. This dossier records source vetting and adoption status. Star counts are
+from that date and are indicative, not exact.
 
 ## The policy that governs this list
 
@@ -20,22 +20,26 @@ is a real, demonstrated attack. So:
 
 ---
 
+## Shared repo-local skills
+
+| Skill | Source | Adoption |
+|---|---|---|
+| **frontend-design** | `anthropics/skills`, official; Apache-2.0 | **Vendored 2026-10-23** from revision `dbd4588f9e1033efb41dad4bef2f7947c8993d44`. Claude Code loads `.claude/skills/frontend-design/`; Codex discovers `.agents/skills/frontend-design/`, which points to the same canonical skill. Product-specific rules live in `docs/playbooks/frontend-screen.md`. No runtime dependency or executable install step. |
+
 ## Claude Code plugins
 
 | Plugin | Source | Signal | Verdict |
 |---|---|---|---|
-| **frontend-design** | `anthropics/claude-code` (official marketplace) | first-party Anthropic, the most-installed Claude Code plugin | **Install.** This is the front-end skill worth having: it forces a design direction (typography, palette, spacing, motion) before coding, instead of the default AI-slop aesthetic. Directly useful for the Next.js CRM, the Agent Activity view and the dashboards. |
 | **superpowers** | `obra/superpowers`, MIT — third-party, distributed via the author's own catalog (`obra/superpowers-marketplace`), **not** Anthropic's `claude-code-plugins` marketplace | not Anthropic-curated (verified directly against `anthropics/claude-code/.claude-plugin/marketplace.json` — it is not listed there); trust signal is the author instead: identifiable maintainer (Jesse Vincent), MIT licence, active repo, thousands of stars, cross-agent support (Claude Code, Codex, Cursor, Gemini CLI) | **Installed** 2026-08-26, scope project. Brings `/brainstorming` (structured ideation before a spec) and `/systematic-debugging` (hypothesis → test → fix → verify). Both complement our SDD flow; brainstorming feeds `spec.md`. |
 | **security-guidance** | `anthropics/claude-code` (official marketplace) | first-party (David Dworken, `dworken@anthropic.com`) — verified directly against `marketplace.json` | **Installed** 2026-08-26, scope project. Regex pattern warnings on Edit/Write, an LLM diff review on Stop, and an agentic commit-time reviewer (cross-file IDOR/auth-bypass/SSRF). Required Claude Code ≥ v2.1.144; updated from 2.1.126 first. Project rules fed into it: `.claude/claude-security-guidance.md`. |
 | **mcp-builder** (skill) | `anthropics/skills` | official Anthropic skills repository | **Install at Phase 3**, when we build the MCP server that exposes the CRM/RevOps tools. Encodes how to design MCP tool contracts properly. |
 | **skill-creator** (skill) | `anthropics/skills` | official | **Optional.** Useful when our own project skills need to grow beyond the current playbooks. |
 | **ui-ux-pro-max** (skill) | `nextlevelbuilder/ui-ux-pro-max-skill`, MIT — third-party, installed via its own npm CLI, **not** a Claude Code marketplace plugin | ~122k ⭐ (an outlier high enough to demand scrutiny, not just cite) — checked past the star count: 78 real contributors, 227 commits, pushed within the last day, MIT, and the npm CLI (`ui-ux-pro-max-cli`) has only 4 trivial runtime deps (chalk/commander/ora/prompts, no network libs) and **no `postinstall`/`preinstall` script** — the classic npm supply-chain vector is absent. ~20.7k weekly npm downloads corroborate real usage, not inflated stars. | **Evaluate now, install at SPEC-005** (Next.js UI), not before — same "just in time" rule as everything else in this file. 84 UI styles, 192 palettes, 74 font pairings, 98 UX guidelines, an anti-pattern checklist (explicitly flags "AI purple/pink gradients") — same problem `frontend-design` solves, more reference material behind it. Install: `npx ui-ux-pro-max-cli init --ai claude` (run inside the repo when that phase starts; scaffolds skill files into `.claude/skills/`, not a plugin-marketplace install). Decide then whether it replaces or complements `frontend-design`, rather than running both by default. |
 
-Install commands, for reference (already run for the two above marked Installed):
+Install commands, for reference (already run for the entries marked Installed):
 
 ```bash
 /plugin marketplace add anthropics/claude-code
-/plugin install frontend-design@claude-plugins-official
 /plugin marketplace add https://github.com/obra/superpowers-marketplace   # not anthropics/claude-code
 /plugin install superpowers@superpowers-marketplace
 /plugin install security-guidance@claude-plugins-official

@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-22
-branch: fix/agent-web-bootstrap-profile
+updated_at: 2026-10-23
+branch: fix/agent-harness-frontend-design
 spec: Harness Improvement: Faster, Shared Agent Development
-phase: "PR #4 open; all CI checks green on current head"
+phase: "PR #5 open; Frontend Design skill integration CI pending"
 status: in_progress
 ---
 
@@ -15,7 +15,26 @@ Improve the shared Codex/Claude Code development harness without changing produc
 
 ## Now
 
-Current follow-up (2026-10-22): branch `fix/agent-web-bootstrap-profile` is based on
+Current follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
+Frontend Design skill for both Claude Code and Codex. Claude discovers the vendored skill under
+`.claude/skills/frontend-design/`; Codex discovers `.agents/skills/frontend-design/`, whose adapter
+delegates to that same copy. The shared `docs/playbooks/frontend-screen.md` retains project rules
+and records the user's approved minimalist direction. Existing frontend wrappers and the Claude
+designer agent now point to the shared skill/playbook. `docs/tooling/RESEARCH.md` records the pinned
+upstream revision and Apache-2.0 license. The license text was compared against the pinned upstream
+copy after whitespace normalization and matched exactly. `python scripts/check_agent_docs.py` and
+`git diff --check` passed. No runtime dependencies or product behavior changed; no test suites were
+run. The SPEC-012 worktree was preserved in stash `preserve SPEC-012 work before frontend-design
+harness change`; no stash was applied or dropped. PR #5 is open from
+`fix/agent-harness-frontend-design` to `develop`:
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/5`. At this handoff update, CI run
+`40023422500` is pending four checks: frontend build, lint/types/architecture, Secrets and SAST,
+and tests. Local non-test verification passed: `ruff check .`, `ruff format --check .` (278 files),
+`mypy .` (204 source files), `lint-imports` (4 contracts), `python scripts/check_agent_docs.py`,
+`gitleaks detect --no-git`, and `git diff HEAD^ HEAD --check`. Ruff emitted only cache write access
+warnings; checks passed. No merge has been performed.
+
+Prior follow-up (2026-10-22): branch `fix/agent-web-bootstrap-profile` is based on
 `origin/develop`. The approved harness extension adds `web-bootstrap`, restricted to queue item 1
 and `apps/web/` scope. When present, queue preflight defers web configuration checks so the first
 item can create the frontend; bootstrap completion still requires a valid manifest, lockfile, and
@@ -137,14 +156,15 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Review PR #4 and decide whether to merge; the branch is published and has not been merged. Wait
-   for checks on the final handoff commit to pass as well.
-2. After this change is integrated, return to the SPEC-012 prep branch and restore its approved
-   documents and `.mcp.json` from the named stash. Then prepare a queue using `web-bootstrap` for
-   item 1, preserve the historical SPEC-011 gate state, and run one short item pilot before any
-   overnight loop.
-3. Separately, confirm whether the earlier Windows watcher test notification appeared; do not
-   weaken event validation to address delivery.
+1. Monitor PR #5 CI run `40023422500`, resolve any actual failures, and merge only after every
+   required check passes and the PR diff review is complete.
+2. Resume SPEC-012 on its prep branch, restore the correct preserved worktree stash while retaining
+   `.mcp.json` and every stash entry, and inspect the restored documents.
+3. Reconcile the SPEC-012 queue with `web-bootstrap` on item 1, preserving historical SPEC-011 gate
+   state; verify branch/spec/task identity and isolated gate state.
+4. Run a short, supervised SPEC-012 pilot and inspect its result before any overnight loop.
+5. Confirm whether the Windows watcher test notification appeared; if not, diagnose delivery
+   without weakening event validation.
 
 ## Gotchas
 
