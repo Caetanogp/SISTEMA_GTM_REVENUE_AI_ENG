@@ -10,7 +10,19 @@ agent produces the same generic card grid with a purple gradient — that look n
 "unreviewed AI output" and costs the project credibility. Reuse the existing tokens and components;
 a new screen should look like it belongs to the same product.
 
-If the `frontend-design` plugin is installed, use it here.
+Use the repository's Anthropic Frontend Design skill before designing a substantial screen:
+Claude Code discovers `.claude/skills/frontend-design/SKILL.md`; Codex discovers
+`.agents/skills/frontend-design/SKILL.md`, which delegates to the same vendored skill. This shared
+playbook remains the source of truth for this product's constraints.
+
+## Product visual direction
+
+The product owner prefers a minimalist interface. Treat this as settled direction; do not ask the
+owner to confirm it again. Aim for a calm, high-signal RevOps workspace: clear hierarchy, deliberate
+spacing, restrained decoration, and only purposeful motion. Keep the operational data dense enough
+to support real work. The exact palette, typefaces, and component details are not fixed here; choose
+them to fit the product and keep them consistent. The user's explicit direction always overrides
+generic aesthetic guidance in the skill.
 
 ## Rules
 
