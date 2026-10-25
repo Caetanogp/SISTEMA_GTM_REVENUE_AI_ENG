@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-25
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "Model fallback implemented; applicable verification passed; repository-wide gitleaks has unrelated findings"
+phase: "Committed as 7b05e12; waiting for publication/review; repository-wide gitleaks has unrelated findings"
 status: in_progress
 ---
 
@@ -17,10 +17,11 @@ Pin Codex autonomous architecture and independent-review calls to `gpt-6.1-sol` 
 
 Current follow-up (2026-10-25): branch `fix/codex-architecture-model` pins architecture and review
 calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `gpt-6-astra/xhigh`.
-The full unit suite passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and diff
-checks passed. Repository-wide gitleaks reports 15 findings, while scans of every changed file
-report no leaks. Final branch review remains. SPEC-012 Item 9 remains unimplemented; MXC read-only
-access works, but the latest GPT-6.1-Sol attempt stopped at the model usage limit.
+Commit `7b05e12` records the quota fallback. The full unit suite passed (557 tests); Ruff, formatting,
+mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks reports 15 findings,
+while scans of every changed file report no leaks. The branch has not been pushed or merged.
+SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
+attempt stopped at the model usage limit.
 
 Previous follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
 Frontend Design skill for both Claude Code and Codex. Claude discovers the vendored skill under
@@ -211,4 +212,6 @@ registry and watcher event contract are defined in the approved plan and tasks.
 - Full unit verification passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and
   diff checks passed. Whole-checkout gitleaks reports 15 findings, but every changed file was scanned
   separately with redaction and reported no leaks.
-- Final branch review, commit, push, and merge remain pending.
+- Commit `7b05e12` is local on `fix/codex-architecture-model`. No push or merge has been made.
+- The repository-wide gitleaks findings remain outside the changed files; publication should wait
+  until those existing findings are understood or the maintainers accept the baseline limitation.
