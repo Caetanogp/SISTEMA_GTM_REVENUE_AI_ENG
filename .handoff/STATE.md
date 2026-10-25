@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-25
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "Rebased onto origin/develop; PR publication authorized; repository-wide gitleaks has unrelated findings"
+phase: "PR #6 open; CI checks queued; repository-wide gitleaks findings are in generated/dependency artifacts"
 status: in_progress
 ---
 
@@ -20,7 +20,8 @@ calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `g
 Commit `42c0dae` records the quota fallback after rebasing the unpublished branch onto
 `origin/develop`. The full unit suite passed (557 tests); Ruff, formatting,
 mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks reports 15 findings,
-while scans of every changed file report no leaks. The branch has not been pushed or merged.
+while scans of every changed file report no leaks. PR #6 is open against `develop`; CI run
+`40243576473` is queued. The branch has not been merged.
 SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
 attempt stopped at the model usage limit.
 
@@ -165,9 +166,8 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Publish `fix/codex-architecture-model` and open a PR to `develop`; the user authorized this on
-   2026-10-25.
-2. Review CI and the PR diff; do not merge without a separate decision.
+1. Monitor CI run `40243576473` for PR #6 and review any failures.
+2. Review the PR diff and CI results; do not merge without a separate decision.
 3. After integration, return to SPEC-012 Item 9 and rerun bounded architecture review with MXC;
    `gpt-6-astra` is now the quota-only fallback for architecture/reviewer calls.
 
@@ -216,6 +216,6 @@ registry and watcher event contract are defined in the approved plan and tasks.
   diff checks passed. Whole-checkout gitleaks reports 15 findings, but every changed file was scanned
   separately with redaction and reported no leaks.
 - Commits `50387aa`, `42c0dae`, and `7e7e918` are on `fix/codex-architecture-model` after rebase
-  onto `origin/develop`; publication is authorized and underway.
-- The repository-wide gitleaks findings remain outside the changed files; publication should wait
-  until those existing findings are understood or the maintainers accept the baseline limitation.
+  onto `origin/develop`; PR #6 is open and no merge has been made.
+- The repository-wide gitleaks findings are confined to generated `apps/web/.next` and dependency
+  `apps/web/node_modules` files. Every changed PR file was scanned separately and had no findings.
