@@ -25,7 +25,7 @@ GateOutcomeName = Literal["goal_achieved", "continue", "halt"]
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_IMPLEMENTATION_MODEL = "gpt-5.6-terra"
-DEFAULT_ARCHITECTURE_MODEL = "gpt-5.6-sol"
+DEFAULT_ARCHITECTURE_MODEL = "gpt-6.1-sol"
 DEFAULT_IMPLEMENTATION_EFFORT = "medium"
 DEFAULT_ARCHITECTURE_EFFORT = "xhigh"
 MAX_ARCHITECTURE_ATTEMPTS = 2
@@ -1102,7 +1102,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--architecture-model",
-        default=os.environ.get("CODEX_ARCHITECTURE_MODEL", DEFAULT_ARCHITECTURE_MODEL),
+        default=DEFAULT_ARCHITECTURE_MODEL,
+        choices=(DEFAULT_ARCHITECTURE_MODEL,),
     )
     parser.add_argument(
         "--implementation-effort",

@@ -131,7 +131,8 @@ is a read-only notifier; it cannot resume a loop or change repository state. Git
 
 **Model policy:** read-only Claude reviewers use Opus; writing subagents use Sonnet. Main sessions
 use Sonnet for resolved design and Opus + plan mode for flagged decisions. The Codex supervisor uses
-the equivalent split in the autonomous-loop playbook.
+`gpt-6.1-sol` at `xhigh` for both architecture and independent review. Never use `gpt-5.6-sol` for
+these roles; the supervisor enforces this model choice.
 
 ## Security rules (non-negotiable)
 

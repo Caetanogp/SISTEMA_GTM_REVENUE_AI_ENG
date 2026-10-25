@@ -48,3 +48,10 @@ policy now become control-plane code and require regression tests before changes
 are rejected if a protected control hash changes. A supervisor upgrade during an active queue item
 requires a clean, externally authorized, exact-SHA baseline rollover; deleting or silently
 rewriting gate state is not an accepted upgrade path.
+
+## Model policy update (2026-10-25)
+
+Per the user's instruction, all future Codex architecture and independent-review calls use
+`gpt-6.1-sol` at `xhigh`. This supersedes the model identifier above; bounded escalation,
+read-only review, and deterministic authorization remain unchanged. Do not use `gpt-5.6-sol` for
+these roles.

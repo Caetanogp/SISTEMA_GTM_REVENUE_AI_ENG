@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-23
-branch: fix/agent-harness-frontend-design
-spec: Harness Improvement: Faster, Shared Agent Development
-phase: "PR #5 open; Frontend Design skill integration CI pending"
+updated_at: 2026-10-22
+branch: fix/codex-architecture-model
+spec: Harness Improvement: Codex architecture model policy
+phase: "Model pinning implemented; verification pending"
 status: in_progress
 ---
 
@@ -11,11 +11,18 @@ status: in_progress
 
 ## Goal
 
-Improve the shared Codex/Claude Code development harness without changing product behavior.
+Pin Codex autonomous architecture and independent-review calls to `gpt-6.1-sol` without changing product behavior.
 
 ## Now
 
-Current follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
+Current follow-up (2026-10-25): branch `fix/codex-architecture-model` sets the Codex supervisor's
+architecture and reviewer model to `gpt-6.1-sol` at `xhigh`, rejects other architecture model IDs,
+and updates current harness guidance and model assertions. `git diff --check` passed; the harness
+test suites have not been run. The active SPEC-012 branch remains
+`feature/SPEC-012-frontend-crm-assistant-implementation-v2`; its Item 9 reviewer is blocked by a
+Windows read-helper access error and must be retried only after that is resolved.
+
+Previous follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
 Frontend Design skill for both Claude Code and Codex. Claude discovers the vendored skill under
 `.claude/skills/frontend-design/`; Codex discovers `.agents/skills/frontend-design/`, whose adapter
 delegates to that same copy. The shared `docs/playbooks/frontend-screen.md` retains project rules
@@ -156,15 +163,9 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Monitor PR #5 CI run `40023422500`, resolve any actual failures, and merge only after every
-   required check passes and the PR diff review is complete.
-2. Resume SPEC-012 on its prep branch, restore the correct preserved worktree stash while retaining
-   `.mcp.json` and every stash entry, and inspect the restored documents.
-3. Reconcile the SPEC-012 queue with `web-bootstrap` on item 1, preserving historical SPEC-011 gate
-   state; verify branch/spec/task identity and isolated gate state.
-4. Run a short, supervised SPEC-012 pilot and inspect its result before any overnight loop.
-5. Confirm whether the Windows watcher test notification appeared; if not, diagnose delivery
-   without weakening event validation.
+1. Review the model-policy diff and run the focused supervisor/gate harness tests.
+2. Complete `verify-before-done` for this harness-only branch.
+3. Open a PR for `fix/codex-architecture-model`; do not push without the user's authorization.
 
 ## Gotchas
 

@@ -4,7 +4,8 @@
 param(
     [string]$RepoRoot = "",
     [string]$Model = $env:CODEX_MODEL,
-    [string]$ArchitectureModel = $env:CODEX_ARCHITECTURE_MODEL,
+    [ValidateSet("gpt-6.1-sol")]
+    [string]$ArchitectureModel = "gpt-6.1-sol",
     [ValidateSet("low", "medium", "high", "xhigh")]
     [string]$ReasoningEffort = "medium",
     [ValidateSet("high", "xhigh")]

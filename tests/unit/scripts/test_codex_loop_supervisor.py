@@ -34,7 +34,7 @@ def _config(
         repo=tmp_path,
         codex_command="codex-test",
         implementation_model="gpt-5.6-terra",
-        architecture_model="gpt-5.6-sol",
+        architecture_model="gpt-6.1-sol",
         implementation_effort="medium",
         architecture_effort="xhigh",
         max_turns=max_turns,
@@ -115,7 +115,7 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     config = _config(tmp_path)
     command = supervisor._codex_command(
         config,
-        model="gpt-5.6-sol",
+        model="gpt-6.1-sol",
         effort="xhigh",
         schema_path=tmp_path / "schema.json",
         output_path=tmp_path / "output.json",
@@ -123,7 +123,7 @@ def test_codex_command_pins_models_effort_and_read_only_mode(tmp_path: Path) -> 
     )
 
     assert command[:4] == ["codex-test", "--ask-for-approval", "never", "exec"]
-    assert command[command.index("--model") + 1] == "gpt-5.6-sol"
+    assert command[command.index("--model") + 1] == "gpt-6.1-sol"
     assert 'model_reasoning_effort="xhigh"' in command
     assert command[command.index("--sandbox") + 1] == "read-only"
     assert command[command.index("--ask-for-approval") + 1] == "never"
@@ -425,10 +425,10 @@ def test_architecture_escalation_revises_once_then_approves(
     assert approved == plan
     assert review.status is supervisor.ReviewStatus.APPROVED
     assert calls == [
-        ("architecture-1", "gpt-5.6-sol", "xhigh", True),
-        ("architecture-review-1", "gpt-5.6-sol", "xhigh", True),
-        ("architecture-2", "gpt-5.6-sol", "xhigh", True),
-        ("architecture-review-2", "gpt-5.6-sol", "xhigh", True),
+        ("architecture-1", "gpt-6.1-sol", "xhigh", True),
+        ("architecture-review-1", "gpt-6.1-sol", "xhigh", True),
+        ("architecture-2", "gpt-6.1-sol", "xhigh", True),
+        ("architecture-review-2", "gpt-6.1-sol", "xhigh", True),
     ]
 
 

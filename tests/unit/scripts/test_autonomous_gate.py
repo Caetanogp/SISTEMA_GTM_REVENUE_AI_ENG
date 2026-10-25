@@ -957,7 +957,7 @@ def _write_scope_authorization(
                 "baseline_sha": baseline_sha,
                 "allowed_paths": allowed_paths or ["packages/core/revops/application/"],
                 "plan_sha256": "b" * 64,
-                "architect_model": "gpt-5.6-sol",
+                "architect_model": "gpt-6.1-sol",
                 "architecture_effort": "xhigh",
                 "review_status": "approved",
             }
