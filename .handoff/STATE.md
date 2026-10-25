@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-25
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "PR #6 open; CI checks queued; repository-wide gitleaks findings are in generated/dependency artifacts"
+phase: "PR #6 open; CI passed except dependency audit on unchanged dependency pins"
 status: in_progress
 ---
 
@@ -20,8 +20,10 @@ calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `g
 Commit `42c0dae` records the quota fallback after rebasing the unpublished branch onto
 `origin/develop`. The full unit suite passed (557 tests); Ruff, formatting,
 mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks reports 15 findings,
-while scans of every changed file report no leaks. PR #6 is open against `develop`; CI run
-`40243576473` is queued. The branch has not been merged.
+while scans of every changed file report no leaks. PR #6 is open against `develop`. CI run
+`40243611960` passed lint/types/architecture, front-end build, and unit/integration/adversarial tests;
+the dependency audit failed on 9 findings across 4 unchanged dependency pins. No dependency files
+are part of this branch. The branch has not been merged.
 SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
 attempt stopped at the model usage limit.
 
@@ -166,10 +168,11 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Monitor CI run `40243576473` for PR #6 and review any failures.
-2. Review the PR diff and CI results; do not merge without a separate decision.
-3. After integration, return to SPEC-012 Item 9 and rerun bounded architecture review with MXC;
-   `gpt-6-astra` is now the quota-only fallback for architecture/reviewer calls.
+1. Decide whether to address the four existing dependency pins in a separate security branch/PR.
+2. Re-run PR #6 CI after that base dependency-audit issue is resolved; review the diff and checks.
+3. Do not merge without a separate decision. After integration, return to SPEC-012 Item 9 and rerun
+   bounded architecture review with MXC; `gpt-6-astra` is now the quota-only fallback for
+   architecture/reviewer calls.
 
 ## Gotchas
 
@@ -219,3 +222,6 @@ registry and watcher event contract are defined in the approved plan and tasks.
   onto `origin/develop`; PR #6 is open and no merge has been made.
 - The repository-wide gitleaks findings are confined to generated `apps/web/.next` and dependency
   `apps/web/node_modules` files. Every changed PR file was scanned separately and had no findings.
+- CI run `40243611960` identified `filelock`, `langgraph-checkpoint-postgres`, `setuptools`, and
+  `virtualenv` vulnerabilities; dependency files are unchanged in PR #6 and updates should be a
+  separate security change.
