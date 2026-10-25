@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-25
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "Committed as 7b05e12; waiting for publication/review; repository-wide gitleaks has unrelated findings"
+phase: "Rebased onto origin/develop; PR publication authorized; repository-wide gitleaks has unrelated findings"
 status: in_progress
 ---
 
@@ -17,7 +17,8 @@ Pin Codex autonomous architecture and independent-review calls to `gpt-6.1-sol` 
 
 Current follow-up (2026-10-25): branch `fix/codex-architecture-model` pins architecture and review
 calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `gpt-6-astra/xhigh`.
-Commit `7b05e12` records the quota fallback. The full unit suite passed (557 tests); Ruff, formatting,
+Commit `42c0dae` records the quota fallback after rebasing the unpublished branch onto
+`origin/develop`. The full unit suite passed (557 tests); Ruff, formatting,
 mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks reports 15 findings,
 while scans of every changed file report no leaks. The branch has not been pushed or merged.
 SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
@@ -164,9 +165,11 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Review the model-policy diff and run the focused supervisor/gate harness tests.
-2. Complete `verify-before-done` for this harness-only branch.
-3. Open a PR for `fix/codex-architecture-model`; do not push without the user's authorization.
+1. Publish `fix/codex-architecture-model` and open a PR to `develop`; the user authorized this on
+   2026-10-25.
+2. Review CI and the PR diff; do not merge without a separate decision.
+3. After integration, return to SPEC-012 Item 9 and rerun bounded architecture review with MXC;
+   `gpt-6-astra` is now the quota-only fallback for architecture/reviewer calls.
 
 ## Gotchas
 
@@ -212,6 +215,7 @@ registry and watcher event contract are defined in the approved plan and tasks.
 - Full unit verification passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and
   diff checks passed. Whole-checkout gitleaks reports 15 findings, but every changed file was scanned
   separately with redaction and reported no leaks.
-- Commit `7b05e12` is local on `fix/codex-architecture-model`. No push or merge has been made.
+- Commits `50387aa`, `42c0dae`, and `7e7e918` are on `fix/codex-architecture-model` after rebase
+  onto `origin/develop`; publication is authorized and underway.
 - The repository-wide gitleaks findings remain outside the changed files; publication should wait
   until those existing findings are understood or the maintainers accept the baseline limitation.
