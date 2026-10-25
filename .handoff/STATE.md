@@ -1,9 +1,9 @@
 ---
 agent: codex
-updated_at: 2026-10-22
+updated_at: 2026-10-25
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "Model pinning implemented; verification pending"
+phase: "Model fallback implemented; applicable verification passed; repository-wide gitleaks has unrelated findings"
 status: in_progress
 ---
 
@@ -15,12 +15,12 @@ Pin Codex autonomous architecture and independent-review calls to `gpt-6.1-sol` 
 
 ## Now
 
-Current follow-up (2026-10-25): branch `fix/codex-architecture-model` sets the Codex supervisor's
-architecture and reviewer model to `gpt-6.1-sol` at `xhigh`, rejects other architecture model IDs,
-and updates current harness guidance and model assertions. `git diff --check` passed; the harness
-test suites have not been run. The active SPEC-012 branch remains
-`feature/SPEC-012-frontend-crm-assistant-implementation-v2`; its Item 9 reviewer is blocked by a
-Windows read-helper access error and must be retried only after that is resolved.
+Current follow-up (2026-10-25): branch `fix/codex-architecture-model` pins architecture and review
+calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `gpt-6-astra/xhigh`.
+The full unit suite passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and diff
+checks passed. Repository-wide gitleaks reports 15 findings, while scans of every changed file
+report no leaks. Final branch review remains. SPEC-012 Item 9 remains unimplemented; MXC read-only
+access works, but the latest GPT-6.1-Sol attempt stopped at the model usage limit.
 
 Previous follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
 Frontend Design skill for both Claude Code and Codex. Claude discovers the vendored skill under
@@ -197,3 +197,18 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 No product scope decisions are part of this harness initiative. The queue verification profile
 registry and watcher event contract are defined in the approved plan and tasks.
+
+## Harness fallback work (2026-10-25 17:24:18 -03:00)
+
+- On branch `fix/codex-architecture-model`, the Codex supervisor has a bounded `gpt-6-astra`
+  fallback for `gpt-6.1-sol` architect/reviewer calls only after explicit usage/quota exhaustion.
+  It retries that same call once at `xhigh`; other errors and policy outcomes do not switch models.
+- Successful architecture/review phase artifacts, scope authorization metadata, and approved-plan
+  handoff entries record the effective model set.
+- Focused regression coverage passed: `pytest tests/unit/scripts/test_codex_loop_supervisor.py -q`
+  (38 passed). Ruff, format, mypy for the supervisor, agent-doc validation, and `git diff --check`
+  also passed.
+- Full unit verification passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and
+  diff checks passed. Whole-checkout gitleaks reports 15 findings, but every changed file was scanned
+  separately with redaction and reported no leaks.
+- Final branch review, commit, push, and merge remain pending.

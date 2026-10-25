@@ -92,6 +92,18 @@ model text. It may emit a Windows toast and sound; it must not edit repository s
 restart processes, or authorize scope. Provide a foreground mode first, with clear startup,
 heartbeat, delivery failure, and shutdown messages.
 
+### Architecture-model quota fallback
+
+Keep `gpt-6.1-sol` at `xhigh` as the primary model for both the read-only architect and the separate
+read-only reviewer. For those calls only, detect explicit account usage/quota exhaustion from a
+failed Codex process and retry that exact call once with `gpt-6-astra` at the same reasoning effort.
+Do not switch models for ordinary 429/rate-limit responses, transient service failures, timeouts,
+invalid model/configuration errors, reviewer findings, or `HUMAN_REQUIRED`. If the fallback also
+reports usage exhaustion, stop with the existing supervisor error path. Record the effective model
+for every successful architecture/review phase in external supervisor artifacts, scope
+authorization metadata, and the handoff approval entry. Do not change the executor model or any
+architecture autonomy, review, scope, or retry-count rules.
+
 ## Files likely to change
 
 - `scripts/autonomous_gate.py`

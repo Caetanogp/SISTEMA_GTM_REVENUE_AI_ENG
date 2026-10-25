@@ -26,6 +26,7 @@ GateOutcomeName = Literal["goal_achieved", "continue", "halt"]
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_IMPLEMENTATION_MODEL = "gpt-5.6-terra"
 DEFAULT_ARCHITECTURE_MODEL = "gpt-6.1-sol"
+DEFAULT_ARCHITECTURE_FALLBACK_MODEL = "gpt-6-astra"
 DEFAULT_IMPLEMENTATION_EFFORT = "medium"
 DEFAULT_ARCHITECTURE_EFFORT = "xhigh"
 MAX_ARCHITECTURE_ATTEMPTS = 2
@@ -102,6 +103,7 @@ class SupervisorConfig:
     implementation_effort: str
     architecture_effort: str
     max_turns: int
+    architecture_fallback_model: str = DEFAULT_ARCHITECTURE_FALLBACK_MODEL
     max_architecture_attempts: int = MAX_ARCHITECTURE_ATTEMPTS
     max_process_retries: int = 2
     retry_delay_seconds: int = 30
@@ -454,25 +456,32 @@ def _invoke_codex(
     model: str,
     effort: str,
     read_only: bool,
+    fallback_model: str | None = None,
 ) -> JsonObject:
     schema_path = artifact_dir / f"{phase}.schema.json"
     output_path = artifact_dir / f"{phase}.output.json"
     _write_json(schema_path, schema)
-    command = _codex_command(
-        config,
-        model=model,
-        effort=effort,
-        schema_path=schema_path,
-        output_path=output_path,
-        read_only=read_only,
-    )
     # Preserve native OS TEMP/TMP values. Removing them makes Python on Windows fall back to the
     # current checkout when it cannot find another valid temp root. Only remove the launcher-
     # specific pytest override, which could point the child sandbox at a host-style path.
     env = _runtime_env(config)
     env.pop("PYTEST_ADDOPTS", None)
     last_error = "Codex process failed without output"
-    for attempt in range(1, config.max_process_retries + 2):
+    selected_model = model
+    model_changed = False
+    attempt = 0
+    model_attempt = 0
+    while True:
+        attempt += 1
+        model_attempt += 1
+        command = _codex_command(
+            config,
+            model=selected_model,
+            effort=effort,
+            schema_path=schema_path,
+            output_path=output_path,
+            read_only=read_only,
+        )
         turn_started = time.perf_counter()
         output_path.unlink(missing_ok=True)
         try:
@@ -485,9 +494,26 @@ def _invoke_codex(
         (artifact_dir / f"{phase}.attempt-{attempt}.stderr.log").write_text(
             result.stderr, encoding="utf-8"
         )
+        output = result.stdout + result.stderr
+        if result.returncode != 0 and _is_usage_limit_failure(output):
+            _emit_codex_turn_timing(phase, turn_started, "error")
+            if fallback_model and not model_changed and fallback_model != selected_model:
+                selected_model = fallback_model
+                model_changed = True
+                model_attempt = 0
+                print(
+                    f"Codex {phase} model {model} reached its usage limit; "
+                    f"retrying once with fallback {selected_model}.",
+                    flush=True,
+                )
+                continue
+            tail = "\n".join(output.splitlines()[-12:])
+            last_error = f"Codex {phase} usage limit exhausted for {selected_model}:\n{tail}"
+            break
         if result.returncode == 0 and output_path.is_file():
             try:
                 structured_output = _read_json(output_path)
+                _write_json(artifact_dir / f"{phase}.model.json", {"model": selected_model})
                 _emit_codex_turn_timing(phase, turn_started, "passed")
                 return structured_output
             except SupervisorError as exc:
@@ -495,16 +521,17 @@ def _invoke_codex(
         elif result.returncode == 0:
             last_error = f"Codex {phase} did not write its structured final response"
         else:
-            tail = "\n".join((result.stdout + result.stderr).splitlines()[-12:])
+            tail = "\n".join(output.splitlines()[-12:])
             last_error = f"Codex {phase} process exited {result.returncode}:\n{tail}"
-            if not _is_transient_process_failure(result.stdout + result.stderr):
+            if not _is_transient_process_failure(output):
                 _emit_codex_turn_timing(phase, turn_started, "error")
                 break
         _emit_codex_turn_timing(phase, turn_started, "error")
-        if attempt <= config.max_process_retries:
-            delay = config.retry_delay_seconds * attempt
-            print(f"Transient Codex {phase} failure; retrying in {delay} seconds.", flush=True)
-            time.sleep(delay)
+        if model_attempt > config.max_process_retries:
+            break
+        delay = config.retry_delay_seconds * model_attempt
+        print(f"Transient Codex {phase} failure; retrying in {delay} seconds.", flush=True)
+        time.sleep(delay)
     raise SupervisorError(last_error)
 
 
@@ -539,13 +566,34 @@ _TRANSIENT_PROCESS_MARKERS = (
     "temporarily unavailable",
     "timed out",
     "timeout",
+)
+
+_USAGE_LIMIT_MARKERS = (
     "usage limit",
+    "quota exceeded",
+    "quota limit reached",
+    "usage quota exhausted",
 )
 
 
 def _is_transient_process_failure(output: str) -> bool:
     lowered = output.casefold()
     return any(marker in lowered for marker in _TRANSIENT_PROCESS_MARKERS)
+
+
+def _is_usage_limit_failure(output: str) -> bool:
+    lowered = output.casefold()
+    return any(marker in lowered for marker in _USAGE_LIMIT_MARKERS)
+
+
+def _architecture_models_used(artifact_dir: Path) -> tuple[str, ...]:
+    models: set[str] = set()
+    for path in artifact_dir.glob("architecture-*.model.json"):
+        raw = _read_json(path)
+        model = raw.get("model")
+        if isinstance(model, str) and model:
+            models.add(model)
+    return tuple(sorted(models))
 
 
 def _git_output(config: SupervisorConfig, runner: Runner, *args: str) -> str:
@@ -914,6 +962,11 @@ def _architecture_escalation(
             model=config.architecture_model,
             effort=config.architecture_effort,
             read_only=True,
+            fallback_model=(
+                config.architecture_fallback_model
+                if config.architecture_model == DEFAULT_ARCHITECTURE_MODEL
+                else None
+            ),
         )
         plan = ArchitecturePlan.from_json(plan_raw)
         validate_architecture_plan(plan, active)
@@ -927,6 +980,11 @@ def _architecture_escalation(
             model=config.architecture_model,
             effort=config.architecture_effort,
             read_only=True,
+            fallback_model=(
+                config.architecture_fallback_model
+                if config.architecture_model == DEFAULT_ARCHITECTURE_MODEL
+                else None
+            ),
         )
         review = ArchitectureReview.from_json(review_raw)
         if review.status is ReviewStatus.APPROVED:
@@ -948,6 +1006,7 @@ def _write_scope_authorization(
     active: ActiveItem,
     plan: ArchitecturePlan,
     allowed_paths: Sequence[str],
+    architecture_models: Sequence[str] = (),
 ) -> str:
     plan_sha256 = hashlib.sha256(plan.canonical_json().encode()).hexdigest()
     payload: JsonObject = {
@@ -958,6 +1017,7 @@ def _write_scope_authorization(
         "allowed_paths": list(allowed_paths),
         "plan_sha256": plan_sha256,
         "architect_model": config.architecture_model,
+        "architecture_models_used": list(architecture_models),
         "architecture_effort": config.architecture_effort,
         "review_status": ReviewStatus.APPROVED.value,
     }
@@ -965,14 +1025,21 @@ def _write_scope_authorization(
     return plan_sha256
 
 
-def _record_approved_plan(active: ActiveItem, plan: ArchitecturePlan, plan_sha256: str) -> None:
+def _record_approved_plan(
+    active: ActiveItem,
+    plan: ArchitecturePlan,
+    plan_sha256: str,
+    architecture_models: Sequence[str] = (),
+) -> None:
     timestamp = datetime.now(UTC).isoformat(timespec="seconds")
     paths = ", ".join(f"`{path}`" for path in plan.allowed_paths)
+    models = ", ".join(f"`{model}`" for model in architecture_models)
     entry = (
         f"\n## Autonomous architecture approval ({timestamp})\n\n"
         f"Item {active.number} - {active.title} was escalated to a read-only architect and an "
         f"independent reviewer. Plan SHA-256: `{plan_sha256}`.\n\n"
-        f"Decision: {plan.decision}\n\nAuthorized technical paths: {paths}.\n"
+        f"Decision: {plan.decision}\n\nModels used: {models or '`model metadata unavailable`'}\n\n"
+        f"Authorized technical paths: {paths}.\n"
     )
     with (active.repo / ".handoff" / "STATE.md").open("a", encoding="utf-8") as state_file:
         state_file.write(entry)
@@ -1046,6 +1113,7 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
             plan, _ = _architecture_escalation(config, runner, turn_dir, active, outcome)
             _verify_control_snapshot(config, control_snapshot)
             allowed_paths = validate_architecture_plan(plan, active)
+            architecture_models = _architecture_models_used(turn_dir)
             authorization_path = artifact_dir / f"item-{active.number}-scope-authorization.json"
             plan_sha256 = _write_scope_authorization(
                 authorization_path,
@@ -1054,8 +1122,9 @@ def run_supervisor(config: SupervisorConfig, runner: Runner = default_runner) ->
                 active=active,
                 plan=plan,
                 allowed_paths=allowed_paths,
+                architecture_models=architecture_models,
             )
-            _record_approved_plan(active, plan, plan_sha256)
+            _record_approved_plan(active, plan, plan_sha256, architecture_models)
             approved_plan = plan
             print(
                 f"Architecture approved for Item {active.number}: {plan.decision} "

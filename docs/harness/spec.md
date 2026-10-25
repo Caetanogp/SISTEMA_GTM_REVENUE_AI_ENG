@@ -29,6 +29,8 @@ work.
 - The repository's agent instructions (`AGENTS.md` and its `CLAUDE.md` import), harness playbooks,
   autonomous queue contract, gate, Codex supervisor/launcher, harness tests, and a read-only Windows
   notification watcher.
+- A quota-only architecture-model fallback from `gpt-6.1-sol` to `gpt-6-astra`, with the same
+  `xhigh` reasoning effort and recorded model provenance.
 - A shared, explicit verification lifecycle for Codex and Claude Code, including safe handling of
   incomplete turns, completed queue items, and final queue completion.
 - Regression coverage for queue-item scope validation and gate-baseline advancement.
@@ -85,6 +87,11 @@ work.
    `lint`, `test`, and `build` scripts, then run the same fixed lint, test, and build commands as
    `web`. A new queue baseline must not adopt an already-checked bootstrap item without verification.
    Without the bootstrap profile, existing `web` preflight behavior remains unchanged.
+10. Architecture and independent-review calls use `gpt-6.1-sol` at `xhigh` by default. Only an
+    explicit account usage/quota exhaustion response may trigger one retry of that same call with
+    `gpt-6-astra` at `xhigh`; ordinary rate limits, timeouts, configuration errors, reviewer
+    findings, and `HUMAN_REQUIRED` do not trigger model substitution. Fallback usage exhaustion
+    halts normally, and approved-plan metadata records the models actually used.
 
 ## Risks and open questions
 

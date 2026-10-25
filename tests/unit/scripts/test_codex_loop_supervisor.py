@@ -304,6 +304,153 @@ def test_invoke_codex_retries_transient_process_failure(
     assert all(record["phase"] == "executor_turn" for record in timings)
 
 
+def test_invoke_codex_falls_back_on_explicit_usage_limit_and_records_model(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, str, str]] = []
+
+    def runner(
+        args: Sequence[str],
+        _cwd: Path,
+        _input_text: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        model = args[args.index("--model") + 1]
+        effort = next(arg for arg in args if arg.startswith("model_reasoning_effort="))
+        sandbox = args[args.index("--sandbox") + 1]
+        calls.append((model, effort, sandbox))
+        if len(calls) == 1:
+            return supervisor.ProcessResult(1, stderr="You've hit your usage limit")
+        output_path = Path(args[args.index("--output-last-message") + 1])
+        output_path.write_text(json.dumps(_executor("continue")), encoding="utf-8")
+        return supervisor.ProcessResult(0)
+
+    result = supervisor._invoke_codex(
+        _config(tmp_path),
+        runner,
+        tmp_path,
+        phase="architecture-1",
+        prompt="Review architecture",
+        schema=supervisor.EXECUTOR_SCHEMA,
+        model="gpt-6.1-sol",
+        effort="xhigh",
+        read_only=True,
+        fallback_model="gpt-6-astra",
+    )
+
+    assert result["status"] == "continue"
+    assert calls == [
+        ("gpt-6.1-sol", 'model_reasoning_effort="xhigh"', "read-only"),
+        ("gpt-6-astra", 'model_reasoning_effort="xhigh"', "read-only"),
+    ]
+    assert json.loads((tmp_path / "architecture-1.model.json").read_text())["model"] == (
+        "gpt-6-astra"
+    )
+    assert supervisor._architecture_models_used(tmp_path) == ("gpt-6-astra",)
+
+
+def test_architecture_authorization_and_handoff_record_effective_models(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+    active = _active(tmp_path)
+    plan = _plan(tmp_path)
+    artifact_path = tmp_path / "scope-authorization.json"
+
+    def runner(
+        _args: Sequence[str],
+        _cwd: Path,
+        _input_text: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        return supervisor.ProcessResult(0, stdout="feature/test")
+
+    supervisor._write_scope_authorization(
+        artifact_path,
+        config=config,
+        runner=runner,
+        active=active,
+        plan=plan,
+        allowed_paths=plan.allowed_paths,
+        architecture_models=("gpt-6-astra",),
+    )
+    authorization = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert authorization["architect_model"] == "gpt-6.1-sol"
+    assert authorization["architecture_models_used"] == ["gpt-6-astra"]
+
+    handoff_dir = tmp_path / ".handoff"
+    handoff_dir.mkdir()
+    supervisor._record_approved_plan(active, plan, "a" * 64, ("gpt-6-astra",))
+    handoff = (handoff_dir / "STATE.md").read_text(encoding="utf-8")
+    assert "Models used: `gpt-6-astra`" in handoff
+
+
+def test_invoke_codex_does_not_fallback_for_ordinary_rate_limit(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def runner(
+        args: Sequence[str],
+        _cwd: Path,
+        _input_text: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        calls.append(args[args.index("--model") + 1])
+        return supervisor.ProcessResult(1, stderr="429 rate limit exceeded")
+
+    config = replace(_config(tmp_path), max_process_retries=0)
+    with pytest.raises(supervisor.SupervisorError, match="429 rate limit exceeded"):
+        supervisor._invoke_codex(
+            config,
+            runner,
+            tmp_path,
+            phase="architecture-1",
+            prompt="Review architecture",
+            schema=supervisor.EXECUTOR_SCHEMA,
+            model="gpt-6.1-sol",
+            effort="xhigh",
+            read_only=True,
+            fallback_model="gpt-6-astra",
+        )
+
+    assert calls == ["gpt-6.1-sol"]
+
+
+def test_invoke_codex_stops_when_fallback_also_exhausts_usage_limit(
+    tmp_path: Path,
+) -> None:
+    calls: list[str] = []
+
+    def runner(
+        args: Sequence[str],
+        _cwd: Path,
+        _input_text: str | None,
+        _env: Mapping[str, str] | None,
+        _timeout: int,
+    ) -> supervisor.ProcessResult:
+        model = args[args.index("--model") + 1]
+        calls.append(model)
+        return supervisor.ProcessResult(1, stderr="usage limit reached")
+
+    with pytest.raises(supervisor.SupervisorError, match="usage limit exhausted for gpt-6-astra"):
+        supervisor._invoke_codex(
+            _config(tmp_path),
+            runner,
+            tmp_path,
+            phase="architecture-review-1",
+            prompt="Review plan",
+            schema=supervisor.REVIEW_SCHEMA,
+            model="gpt-6.1-sol",
+            effort="xhigh",
+            read_only=True,
+            fallback_model="gpt-6-astra",
+        )
+
+    assert calls == ["gpt-6.1-sol", "gpt-6-astra"]
+
+
 def test_invoke_codex_does_not_retry_non_transient_configuration_error(
     tmp_path: Path,
 ) -> None:
@@ -386,7 +533,7 @@ def test_architecture_escalation_revises_once_then_approves(
 ) -> None:
     active = _active(tmp_path)
     plan = _plan(tmp_path)
-    calls: list[tuple[str, str, str, bool]] = []
+    calls: list[tuple[str, str, str, bool, str | None]] = []
 
     def fake_invoke(
         _config: supervisor.SupervisorConfig,
@@ -399,9 +546,10 @@ def test_architecture_escalation_revises_once_then_approves(
         model: str,
         effort: str,
         read_only: bool,
+        fallback_model: str | None = None,
     ) -> supervisor.JsonObject:
         del prompt, schema
-        calls.append((phase, model, effort, read_only))
+        calls.append((phase, model, effort, read_only, fallback_model))
         if phase.startswith("architecture-review"):
             review_status = "revise" if phase.endswith("-1") else "approved"
             return {
@@ -425,10 +573,10 @@ def test_architecture_escalation_revises_once_then_approves(
     assert approved == plan
     assert review.status is supervisor.ReviewStatus.APPROVED
     assert calls == [
-        ("architecture-1", "gpt-6.1-sol", "xhigh", True),
-        ("architecture-review-1", "gpt-6.1-sol", "xhigh", True),
-        ("architecture-2", "gpt-6.1-sol", "xhigh", True),
-        ("architecture-review-2", "gpt-6.1-sol", "xhigh", True),
+        ("architecture-1", "gpt-6.1-sol", "xhigh", True, "gpt-6-astra"),
+        ("architecture-review-1", "gpt-6.1-sol", "xhigh", True, "gpt-6-astra"),
+        ("architecture-2", "gpt-6.1-sol", "xhigh", True, "gpt-6-astra"),
+        ("architecture-review-2", "gpt-6.1-sol", "xhigh", True, "gpt-6-astra"),
     ]
 
 
@@ -466,6 +614,46 @@ def test_architecture_escalation_stops_after_two_rejected_attempts(
             _active(tmp_path),
             outcome,
         )
+
+
+def test_architecture_escalation_preserves_human_required_halt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    plan = _plan(tmp_path)
+    phases: list[str] = []
+
+    def fake_invoke(
+        _config: supervisor.SupervisorConfig,
+        _runner: supervisor.Runner,
+        _artifact_dir: Path,
+        *,
+        phase: str,
+        **_kwargs: object,
+    ) -> supervisor.JsonObject:
+        phases.append(phase)
+        if phase.startswith("architecture-review"):
+            return {
+                "status": "human_required",
+                "summary": "Product decision required.",
+                "findings": [],
+                "revision_guidance": [],
+                "human_reason": "The public contract is unresolved.",
+            }
+        return cast(supervisor.JsonObject, json.loads(plan.canonical_json()))
+
+    monkeypatch.setattr(supervisor, "_invoke_codex", fake_invoke)
+    outcome = supervisor.ExecutorOutcome.from_json(_executor("architecture_required"))
+
+    with pytest.raises(supervisor.SupervisorError, match="public contract is unresolved"):
+        supervisor._architecture_escalation(
+            _config(tmp_path),
+            lambda *_args: supervisor.ProcessResult(0),
+            tmp_path,
+            _active(tmp_path),
+            outcome,
+        )
+
+    assert phases == ["architecture-1", "architecture-review-1"]
 
 
 def _prepare_supervisor_state(
