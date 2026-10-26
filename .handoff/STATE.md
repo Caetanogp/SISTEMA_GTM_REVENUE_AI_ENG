@@ -1,13 +1,36 @@
 ---
 agent: codex
-updated_at: 2026-10-25
+updated_at: 2026-10-26
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "PR #6 open; CI passed except dependency audit on unchanged dependency pins"
+phase: "PR #6 updated with merged dependency remediation; fresh CI verification pending"
 status: in_progress
 ---
 
 # Current state
+
+## Current follow-up: dependency remediation merged, PR #6 revalidation pending
+
+PR #7 was merged into `develop` on 2026-10-26 as squash commit
+`a709dc0b8f40e63c0a788e31ce6016f7dd058d8d`. It updates the vulnerable CI pins to `filelock==4.2.1`,
+`langgraph-checkpoint-postgres==3.1.3`, `langgraph-checkpoint==4.3.0`, `setuptools==84.1.0`, and
+`virtualenv==21.14.10`; `pyproject.toml` now requires `langgraph-checkpoint-postgres>=3.1.3` and
+build backend `setuptools>=84.1.0`. The checkpoint pin is 4.3.0 because Postgres adapter 3.1.3
+requires `langgraph-checkpoint>=4.3.0,<5.0.0`. Before merge, `pip-audit --strict --no-deps
+-r requirements-ci.txt` reported no known vulnerabilities, dependency dry-run resolved, all local
+quality checks passed, and PR #7 CI plus offline eval passed at head `3f3d886`.
+
+PR #6's previous CI run `40243848703` failed only on the old dependency pins. Its base has now
+advanced to `origin/develop` at `a709dc0`; merging the base into the PR branch conflicted only in
+this handoff file. The conflict was resolved by retaining PR #6's state and recording PR #7's
+merge. Commit the merge, push the updated PR #6 branch, and verify its fresh CI. Do not merge PR #6
+as part of this follow-up.
+
+### Next
+
+1. Commit and push the `origin/develop` merge on `fix/codex-architecture-model`.
+2. Wait for PR #6's fresh CI checks.
+3. Review the fresh CI result and report whether PR #6 is ready for its own merge decision.
 
 ## Goal
 
@@ -23,7 +46,8 @@ mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks
 while scans of every changed file report no leaks. PR #6 is open against `develop`. CI run
 `40243611960` passed lint/types/architecture, front-end build, and unit/integration/adversarial tests;
 the dependency audit failed on 9 findings across 4 unchanged dependency pins. No dependency files
-are part of this branch. The branch has not been merged.
+were changed by PR #6 itself; the remediation from PR #7 is now merged into this branch for fresh CI.
+PR #6 has not been merged.
 SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
 attempt stopped at the model usage limit.
 
