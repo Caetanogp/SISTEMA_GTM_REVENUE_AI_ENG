@@ -1,13 +1,48 @@
 ---
 agent: codex
-updated_at: 2026-10-23
-branch: fix/agent-harness-frontend-design
-spec: Harness Improvement: Faster, Shared Agent Development
-phase: "PR #5 open; Frontend Design skill integration CI pending"
+updated_at: 2026-10-25
+branch: fix/ci-dependency-audit-remediation
+spec: CI dependency vulnerability remediation
+phase: "PR #7 open; all checks passed; awaiting review and merge decision"
 status: in_progress
 ---
 
 # Current state
+
+## Active follow-up (2026-10-25): CI dependency vulnerability remediation
+
+PR #6 (`fix/codex-architecture-model` -> `develop`, head `1c9399242a6ebab5eaf3d448d1aeecbbca876d0e`)
+is open. Its CI run `40243848703` passed frontend build, lint/types/architecture, and tests, but
+failed `pip-audit` in Secrets and SAST because of vulnerable dependency pins. This remediation is
+isolated on `fix/ci-dependency-audit-remediation`, based on `origin/develop`; it does not include
+PR #6's changes.
+
+Updated `requirements-ci.txt`: `filelock` 4.1.1 -> 4.2.1,
+`langgraph-checkpoint-postgres` 3.1.2 -> 3.1.3, `langgraph-checkpoint` 4.2.0 -> 4.3.0,
+`setuptools` 84.0.0 -> 84.1.0, and `virtualenv` 21.14.9 -> 21.14.10. The checkpoint pin also
+moves to 4.3.0 because postgres 3.1.3 requires `langgraph-checkpoint>=4.3.0,<5.0.0`. In
+`pyproject.toml`, raised the runtime floor for `langgraph-checkpoint-postgres` to 3.1.3 and the
+build-system setuptools floor to 84.1.0. `pip-audit --strict --no-deps -r requirements-ci.txt`
+reported `No known vulnerabilities found`; `python -m pip install --dry-run --no-input -r
+requirements-ci.txt` resolved successfully. Local checks passed: Ruff, formatting, mypy (204 source
+files), import contracts (4 kept), agent-doc validation, and `pytest tests/unit tests/architecture
+-q` (554 passed). A first pytest attempt without the repository PYTHONPATH hit the globally
+installed OneDrive checkout; rerunning with the documented `C:\Dev` PYTHONPATH passed.
+`git diff --check` passed. Commit `75b85b6a2806788da6732f51602b69b9806849b5` was pushed to
+`origin/fix/ci-dependency-audit-remediation`; PR #7 is open against `develop` at
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/7`. Its CI run `40249856866` and
+`40249903556` and offline eval run `40249903380` passed all checks at head
+`53194bc928ce45dfd1fad59afbd48081c0cbf2ed`. The diff was reviewed and GitHub reports merge state
+`CLEAN`. PR #6 remains open; its latest run `40243848703` still has only the dependency-audit
+failure. Once PR #7 is merged into `develop`, PR #6's base will contain the fixed pins and its CI
+can be rerun; do not rerun it before the fix reaches its base. No merge has been performed.
+
+### Next
+
+1. Review PR #7 and decide whether to merge it; no merge has been performed.
+2. After PR #7 reaches `develop`, rerun PR #6 CI and report the result.
+
+### Earlier handoff context
 
 ## Goal
 
