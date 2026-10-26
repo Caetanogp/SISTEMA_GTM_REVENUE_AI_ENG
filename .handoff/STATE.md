@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-26
 branch: fix/codex-architecture-model
 spec: Harness Improvement: Codex architecture model policy
-phase: "PR #6 updated with merged dependency remediation; fresh CI verification pending"
+phase: "PR #6 CI green on updated develop base; awaiting separate merge decision"
 status: in_progress
 ---
 
@@ -20,17 +20,18 @@ requires `langgraph-checkpoint>=4.3.0,<5.0.0`. Before merge, `pip-audit --strict
 -r requirements-ci.txt` reported no known vulnerabilities, dependency dry-run resolved, all local
 quality checks passed, and PR #7 CI plus offline eval passed at head `3f3d886`.
 
-PR #6's previous CI run `40243848703` failed only on the old dependency pins. Its base has now
-advanced to `origin/develop` at `a709dc0`; merging the base into the PR branch conflicted only in
-this handoff file. The conflict was resolved by retaining PR #6's state and recording PR #7's
-merge. Commit the merge, push the updated PR #6 branch, and verify its fresh CI. Do not merge PR #6
-as part of this follow-up.
+PR #6's previous CI run `40243848703` failed only on the old dependency pins. Its base advanced to
+`origin/develop` at `a709dc0`. Updating the PR branch conflicted only in this handoff file; the
+resolution retained PR #6's state and recorded PR #7's merge. Merge commit
+`49e4203d88caa1a0e27c6ccc8e5abf510672fbe5` was pushed to the PR branch. Fresh CI run `40254141847`
+passed all four jobs at this head: frontend build, lint/types/architecture, Secrets and SAST
+(including `pip-audit`), and unit/integration/adversarial tests. PR #6 is still open and has not
+been merged.
 
 ### Next
 
-1. Commit and push the `origin/develop` merge on `fix/codex-architecture-model`.
-2. Wait for PR #6's fresh CI checks.
-3. Review the fresh CI result and report whether PR #6 is ready for its own merge decision.
+1. Review PR #6's diff and decide separately whether to merge it; all current CI checks pass.
+2. After that decision, resume the remaining SPEC-012 work recorded below.
 
 ## Goal
 
