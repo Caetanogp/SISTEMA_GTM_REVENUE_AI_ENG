@@ -1,56 +1,58 @@
 ---
 agent: codex
-updated_at: 2026-10-25
-branch: fix/ci-dependency-audit-remediation
-spec: CI dependency vulnerability remediation
-phase: "PR #7 open; all checks passed; awaiting review and merge decision"
+updated_at: 2026-10-26
+branch: fix/codex-architecture-model
+spec: Harness Improvement: Codex architecture model policy
+phase: "PR #6 CI green on updated develop base; awaiting separate merge decision"
 status: in_progress
 ---
 
 # Current state
 
-## Active follow-up (2026-10-25): CI dependency vulnerability remediation
+## Current follow-up: dependency remediation merged, PR #6 revalidation pending
 
-PR #6 (`fix/codex-architecture-model` -> `develop`, head `1c9399242a6ebab5eaf3d448d1aeecbbca876d0e`)
-is open. Its CI run `40243848703` passed frontend build, lint/types/architecture, and tests, but
-failed `pip-audit` in Secrets and SAST because of vulnerable dependency pins. This remediation is
-isolated on `fix/ci-dependency-audit-remediation`, based on `origin/develop`; it does not include
-PR #6's changes.
+PR #7 was merged into `develop` on 2026-10-26 as squash commit
+`a709dc0b8f40e63c0a788e31ce6016f7dd058d8d`. It updates the vulnerable CI pins to `filelock==4.2.1`,
+`langgraph-checkpoint-postgres==3.1.3`, `langgraph-checkpoint==4.3.0`, `setuptools==84.1.0`, and
+`virtualenv==21.14.10`; `pyproject.toml` now requires `langgraph-checkpoint-postgres>=3.1.3` and
+build backend `setuptools>=84.1.0`. The checkpoint pin is 4.3.0 because Postgres adapter 3.1.3
+requires `langgraph-checkpoint>=4.3.0,<5.0.0`. Before merge, `pip-audit --strict --no-deps
+-r requirements-ci.txt` reported no known vulnerabilities, dependency dry-run resolved, all local
+quality checks passed, and PR #7 CI plus offline eval passed at head `3f3d886`.
 
-Updated `requirements-ci.txt`: `filelock` 4.1.1 -> 4.2.1,
-`langgraph-checkpoint-postgres` 3.1.2 -> 3.1.3, `langgraph-checkpoint` 4.2.0 -> 4.3.0,
-`setuptools` 84.0.0 -> 84.1.0, and `virtualenv` 21.14.9 -> 21.14.10. The checkpoint pin also
-moves to 4.3.0 because postgres 3.1.3 requires `langgraph-checkpoint>=4.3.0,<5.0.0`. In
-`pyproject.toml`, raised the runtime floor for `langgraph-checkpoint-postgres` to 3.1.3 and the
-build-system setuptools floor to 84.1.0. `pip-audit --strict --no-deps -r requirements-ci.txt`
-reported `No known vulnerabilities found`; `python -m pip install --dry-run --no-input -r
-requirements-ci.txt` resolved successfully. Local checks passed: Ruff, formatting, mypy (204 source
-files), import contracts (4 kept), agent-doc validation, and `pytest tests/unit tests/architecture
--q` (554 passed). A first pytest attempt without the repository PYTHONPATH hit the globally
-installed OneDrive checkout; rerunning with the documented `C:\Dev` PYTHONPATH passed.
-`git diff --check` passed. Commit `75b85b6a2806788da6732f51602b69b9806849b5` was pushed to
-`origin/fix/ci-dependency-audit-remediation`; PR #7 is open against `develop` at
-`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/7`. Its CI run `40249856866` and
-`40249903556` and offline eval run `40249903380` passed all checks at head
-`53194bc928ce45dfd1fad59afbd48081c0cbf2ed`. The diff was reviewed and GitHub reports merge state
-`CLEAN`. PR #6 remains open; its latest run `40243848703` still has only the dependency-audit
-failure. Once PR #7 is merged into `develop`, PR #6's base will contain the fixed pins and its CI
-can be rerun; do not rerun it before the fix reaches its base. No merge has been performed.
+PR #6's previous CI run `40243848703` failed only on the old dependency pins. Its base advanced to
+`origin/develop` at `a709dc0`. Updating the PR branch conflicted only in this handoff file; the
+resolution retained PR #6's state and recorded PR #7's merge. Merge commit
+`49e4203d88caa1a0e27c6ccc8e5abf510672fbe5` was pushed to the PR branch. Fresh CI run `40254141847`
+passed all four jobs at this head: frontend build, lint/types/architecture, Secrets and SAST
+(including `pip-audit`), and unit/integration/adversarial tests. PR #6 is still open and has not
+been merged.
 
 ### Next
 
-1. Review PR #7 and decide whether to merge it; no merge has been performed.
-2. After PR #7 reaches `develop`, rerun PR #6 CI and report the result.
-
-### Earlier handoff context
+1. Review PR #6's diff and decide separately whether to merge it; all current CI checks pass.
+2. After that decision, resume the remaining SPEC-012 work recorded below.
 
 ## Goal
 
-Improve the shared Codex/Claude Code development harness without changing product behavior.
+Pin Codex autonomous architecture and independent-review calls to `gpt-6.1-sol` without changing product behavior.
 
 ## Now
 
-Current follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
+Current follow-up (2026-10-25): branch `fix/codex-architecture-model` pins architecture and review
+calls to `gpt-6.1-sol/xhigh` and implements a quota-only one-call fallback to `gpt-6-astra/xhigh`.
+Commit `42c0dae` records the quota fallback after rebasing the unpublished branch onto
+`origin/develop`. The full unit suite passed (557 tests); Ruff, formatting,
+mypy, lint-imports, agent-docs, and diff checks passed. Repository-wide gitleaks reports 15 findings,
+while scans of every changed file report no leaks. PR #6 is open against `develop`. CI run
+`40243611960` passed lint/types/architecture, front-end build, and unit/integration/adversarial tests;
+the dependency audit failed on 9 findings across 4 unchanged dependency pins. No dependency files
+were changed by PR #6 itself; the remediation from PR #7 is now merged into this branch for fresh CI.
+PR #6 has not been merged.
+SPEC-012 Item 9 remains unimplemented; MXC read-only access works, but the latest GPT-6.1-Sol
+attempt stopped at the model usage limit.
+
+Previous follow-up (2026-10-23): branch `fix/agent-harness-frontend-design` integrates Anthropic's
 Frontend Design skill for both Claude Code and Codex. Claude discovers the vendored skill under
 `.claude/skills/frontend-design/`; Codex discovers `.agents/skills/frontend-design/`, whose adapter
 delegates to that same copy. The shared `docs/playbooks/frontend-screen.md` retains project rules
@@ -191,15 +193,11 @@ mergeable; no merge has been performed yet.
 
 ## Next
 
-1. Monitor PR #5 CI run `40023422500`, resolve any actual failures, and merge only after every
-   required check passes and the PR diff review is complete.
-2. Resume SPEC-012 on its prep branch, restore the correct preserved worktree stash while retaining
-   `.mcp.json` and every stash entry, and inspect the restored documents.
-3. Reconcile the SPEC-012 queue with `web-bootstrap` on item 1, preserving historical SPEC-011 gate
-   state; verify branch/spec/task identity and isolated gate state.
-4. Run a short, supervised SPEC-012 pilot and inspect its result before any overnight loop.
-5. Confirm whether the Windows watcher test notification appeared; if not, diagnose delivery
-   without weakening event validation.
+1. Decide whether to address the four existing dependency pins in a separate security branch/PR.
+2. Re-run PR #6 CI after that base dependency-audit issue is resolved; review the diff and checks.
+3. Do not merge without a separate decision. After integration, return to SPEC-012 Item 9 and rerun
+   bounded architecture review with MXC; `gpt-6-astra` is now the quota-only fallback for
+   architecture/reviewer calls.
 
 ## Gotchas
 
@@ -231,3 +229,24 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 No product scope decisions are part of this harness initiative. The queue verification profile
 registry and watcher event contract are defined in the approved plan and tasks.
+
+## Harness fallback work (2026-10-25 17:24:18 -03:00)
+
+- On branch `fix/codex-architecture-model`, the Codex supervisor has a bounded `gpt-6-astra`
+  fallback for `gpt-6.1-sol` architect/reviewer calls only after explicit usage/quota exhaustion.
+  It retries that same call once at `xhigh`; other errors and policy outcomes do not switch models.
+- Successful architecture/review phase artifacts, scope authorization metadata, and approved-plan
+  handoff entries record the effective model set.
+- Focused regression coverage passed: `pytest tests/unit/scripts/test_codex_loop_supervisor.py -q`
+  (38 passed). Ruff, format, mypy for the supervisor, agent-doc validation, and `git diff --check`
+  also passed.
+- Full unit verification passed (557 tests); Ruff, formatting, mypy, lint-imports, agent-docs, and
+  diff checks passed. Whole-checkout gitleaks reports 15 findings, but every changed file was scanned
+  separately with redaction and reported no leaks.
+- Commits `50387aa`, `42c0dae`, and `7e7e918` are on `fix/codex-architecture-model` after rebase
+  onto `origin/develop`; PR #6 is open and no merge has been made.
+- The repository-wide gitleaks findings are confined to generated `apps/web/.next` and dependency
+  `apps/web/node_modules` files. Every changed PR file was scanned separately and had no findings.
+- CI run `40243611960` identified `filelock`, `langgraph-checkpoint-postgres`, `setuptools`, and
+  `virtualenv` vulnerabilities; dependency files are unchanged in PR #6 and updates should be a
+  separate security change.

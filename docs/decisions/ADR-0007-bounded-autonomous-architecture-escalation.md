@@ -48,3 +48,13 @@ policy now become control-plane code and require regression tests before changes
 are rejected if a protected control hash changes. A supervisor upgrade during an active queue item
 requires a clean, externally authorized, exact-SHA baseline rollover; deleting or silently
 rewriting gate state is not an accepted upgrade path.
+
+## Model policy update (2026-10-25)
+
+Per the user's instruction, all future Codex architecture and independent-review calls use
+`gpt-6.1-sol` at `xhigh`. If that model returns an explicit account usage-limit error, retry that
+same read-only architecture or review call once with `gpt-6-astra` at `xhigh`; record the effective
+model. Ordinary rate limits, other process failures, review findings, and `HUMAN_REQUIRED` do not
+trigger fallback. If Astra also reports usage exhaustion, stop. This supersedes the model identifier
+above; bounded escalation, independent review, and deterministic authorization remain unchanged.
+Do not use `gpt-5.6-sol` for these roles.

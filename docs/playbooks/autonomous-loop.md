@@ -47,9 +47,17 @@ without treating a failed child commit as an implementation failure.
 The normal Codex executor uses the configured economical model at `medium` reasoning. When it
 returns `architecture_required`, the supervisor requires a clean worktree and then invokes:
 
-1. a read-only `gpt-5.6-sol` architect at `xhigh` reasoning;
-2. a separate read-only `gpt-5.6-sol` reviewer at `xhigh` reasoning;
+1. a read-only `gpt-6.1-sol` architect at `xhigh` reasoning;
+2. a separate read-only `gpt-6.1-sol` reviewer at `xhigh` reasoning;
 3. a deterministic policy check over the plan and exact requested paths.
+
+For architecture and review calls only, an explicit account usage/quota exhaustion response causes
+the supervisor to retry that same call once with `gpt-6-astra` at `xhigh`. The effective model is
+recorded in the external call artifact, authorization metadata, and approved-plan handoff entry.
+Ordinary 429/rate-limit responses, transient service errors, timeouts, invalid-model errors,
+reviewer findings, and `HUMAN_REQUIRED` do not trigger this fallback. If the fallback also reaches
+its usage limit, the supervisor halts through its normal error path. The fallback does not change
+the executor model or relax the independent review and policy checks.
 
 The reviewer may request one revision, for at most two architect-review attempts in total. An
 approved plan is hashed, recorded in the handoff, and passed back to the economical executor. A
@@ -128,7 +136,8 @@ handoff evidence.
    powershell -ExecutionPolicy Bypass -File scripts/start_codex_loop.ps1 -MaxTurns 100
    ```
    The launcher defaults resolved implementation to `gpt-5.6-terra/medium` and architecture plus
-   review to `gpt-5.6-sol/xhigh`. Override those parameters only for a measured model-policy change.
+   review to `gpt-6.1-sol/xhigh`, with a quota-only `gpt-6-astra/xhigh` fallback. This model policy
+   is fixed by the current user instruction; do not use `gpt-5.6-sol` for architecture roles.
 
    For a Claude run, both problems point to a foreground interactive session. Launch with:
    ```bash

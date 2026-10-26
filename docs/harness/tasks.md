@@ -43,6 +43,13 @@ do not modify product code or product requirements.
 - [ ] Implement a read-only foreground Windows watcher with toast/sound, deduplication, health and
   delivery-failure reporting — verified with mocked notifications and a manual Windows smoke test.
 
+## Architecture model availability
+
+- [x] Add quota-only fallback from `gpt-6.1-sol` to `gpt-6-astra` for architect/reviewer calls,
+  preserve `xhigh`, record actual models, and cover quota exhaustion, non-quota errors, and fallback
+  exhaustion — verified by `pytest tests/unit/scripts/test_codex_loop_supervisor.py -q` (38 passed),
+  Ruff, format check, mypy, agent-doc check, and `git diff --check`.
+
 ## Validation and closeout
 
 - [x] Update agent instructions and autonomous-loop playbook once to document the shared contract;

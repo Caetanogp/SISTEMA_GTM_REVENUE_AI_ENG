@@ -129,9 +129,10 @@ Unattended sessions use only `.handoff/AUTONOMOUS_QUEUE.md`; the gate judges com
 controls. Full contract: `docs/playbooks/autonomous-loop.md`. Optional `scripts/watch_codex_loop.ps1`
 is a read-only notifier; it cannot resume a loop or change repository state. Git rules still apply.
 
-**Model policy:** read-only Claude reviewers use Opus; writing subagents use Sonnet. Main sessions
-use Sonnet for resolved design and Opus + plan mode for flagged decisions. The Codex supervisor uses
-the equivalent split in the autonomous-loop playbook.
+**Model policy:** Claude read-only reviewers use Opus; writing subagents use Sonnet. Main sessions
+use Sonnet for resolved design and Opus + plan mode for flagged decisions. Codex architecture/review
+uses `gpt-6.1-sol/xhigh`, falling back once to `gpt-6-astra/xhigh` only on explicit usage quota.
+Never use `gpt-5.6-sol`; other errors, policy halts, and review findings do not trigger fallback.
 
 ## Security rules (non-negotiable)
 
