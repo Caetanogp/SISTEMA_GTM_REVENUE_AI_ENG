@@ -3,7 +3,7 @@ agent: codex
 updated_at: 2026-10-25
 branch: fix/ci-dependency-audit-remediation
 spec: CI dependency vulnerability remediation
-phase: "Security remediation prepared; local verification passed; PR publication pending"
+phase: "PR #7 open; CI running for CI dependency vulnerability remediation"
 status: in_progress
 ---
 
@@ -27,17 +27,19 @@ reported `No known vulnerabilities found`; `python -m pip install --dry-run --no
 requirements-ci.txt` resolved successfully. Local checks passed: Ruff, formatting, mypy (204 source
 files), import contracts (4 kept), agent-doc validation, and `pytest tests/unit tests/architecture
 -q` (554 passed). A first pytest attempt without the repository PYTHONPATH hit the globally
-installed OneDrive checkout; rerunning with the documented `C:\Dev` PYTHONPATH passed. `git diff
---check` passed. The branch is not yet committed or published. Once this separate PR is merged into
-`develop`, PR #6's base will contain the fixed pins and its CI can be rerun; do not rerun it before
-the fix reaches its base. No merge has been performed.
+installed OneDrive checkout; rerunning with the documented `C:\Dev` PYTHONPATH passed.
+`git diff --check` passed. Commit `75b85b6a2806788da6732f51602b69b9806849b5` was pushed to
+`origin/fix/ci-dependency-audit-remediation`; PR #7 is open against `develop` at
+`https://github.com/Caetanogp/SISTEMA_GTM_REVENUE_AI_ENG/pull/7`. Its CI run `40249856866` and
+offline eval run `40249856957` were queued at the last check. PR #6 remains open; its latest run
+`40243848703` still has only the dependency-audit failure. Once PR #7 is merged into `develop`,
+PR #6's base will contain the fixed pins and its CI can be rerun; do not rerun it before the fix
+reaches its base. No merge has been performed.
 
 ### Next
 
-1. Review and commit the isolated dependency remediation.
-2. Publish `fix/ci-dependency-audit-remediation` and open its PR against `develop`.
-3. Inspect the security PR CI and review its diff. Do not merge without the user's separate request.
-4. After the dependency PR reaches `develop`, rerun PR #6 CI and report the result.
+1. Monitor PR #7 CI and review its final diff/checks. Do not merge without the user's separate request.
+2. After the dependency PR reaches `develop`, rerun PR #6 CI and report the result.
 
 ### Earlier handoff context
 
